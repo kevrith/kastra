@@ -3,11 +3,13 @@ services:
     name: kastra-api
     runtime: python
     rootDir: kastra-backend
-    pythonVersion: "3.12.7"
     buildCommand: pip install -r requirements.txt && alembic upgrade head
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /health
     envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.7"
+
       # Paste your Neon (neon.tech) connection string here after creating a free database
       - key: DATABASE_URL
         sync: false   # postgresql+asyncpg://user:pass@ep-xxx.neon.tech/kastra?sslmode=require
