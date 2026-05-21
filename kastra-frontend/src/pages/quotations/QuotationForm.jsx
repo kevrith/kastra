@@ -1,0 +1,328 @@
+import { useEffect, useRef, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { createQuotation, getQuotation, updateQuotation } from "../../api/quotations";
+import { getClients } from "../../api/clients";
+import { getOrganization } from "../../api/organization";
+import { scanReceipt } from "../../api/ocr";
+import { ksh } from "../../utils/formatters";
+import { Plus, Trash2, ArrowLeft, ScanLine, X, Camera } from "lucide-react";
+import ProductAutocomplete from "../../components/ui/ProductAutocomplete";
+
+const emptyItem = () => ({ description: "", quantity: "1", unit_price: "", vat_exempt: false });
+
+export default function QuotationForm() {
+  const { id } = useParams();
+  const isEdit = !!id;
+  const navigate = useNavigate();
+
+  const [clients, setClients] = useState([]);
+  const [clientId, setClientId] = useState("");
+  const [notes, setNotes] = useState("");
+  const [expiresAt, setExpiresAt] = useState("");
+  const [items, setItems] = useState([emptyItem()]);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [showScan, setShowScan] = useState(false);
+  const [scanning, setScanning] = useState(false);
+  const [scanPreview, setScanPreview] = useState(null);
+  const [scanError, setScanError] = useState("");
+  const fileInputRef = useRef(null);
+
+  useEffect(() => {
+    getClients({ limit: 100 }).then(({ data }) => setClients(data.data));
+    if (isEdit) {
+      getQuotation(id).then(({ data }) => {
+        const q = data.data;
+        setClientId(q.client_id);
+        setNotes(q.notes ?? "");
+        setExpiresAt(q.expires_at ? q.expires_at.slice(0, 10) : "");
+        setItems(q.items.map((i) => ({
+          description: i.description,
+          quantity: String(i.quantity),
+          unit_price: String(i.unit_price),
+          vat_exempt: i.vat_exempt ?? false,
+          sort_order: i.sort_order,
+        })));
+      });
+    } else {
+      getOrganization().then(({ data }) => {
+        const days = data.data.quotation_validity_days ?? 30;
+        const expiry = new Date();
+        expiry.setDate(expiry.getDate() + days);
+        setExpiresAt(expiry.toISOString().slice(0, 10));
+      }).catch(() => {});
+    }
+  }, []);
+
+  const setItem = (i, field, value) =>
+    setItems((prev) => prev.map((item, idx) => (idx === i ? { ...item, [field]: value } : item)));
+
+  const removeItem = (i) => setItems((prev) => prev.filter((_, idx) => idx !== i));
+  const addItem = () => setItems((prev) => [...prev, emptyItem()]);
+
+  const subtotal = items.reduce((sum, item) => {
+    const qty = parseFloat(item.quantity) || 0;
+    const price = parseFloat(item.unit_price) || 0;
+    return sum + qty * price;
+  }, 0);
+  const taxable = items.reduce((sum, item) => {
+    if (item.vat_exempt) return sum;
+    const qty = parseFloat(item.quantity) || 0;
+    const price = parseFloat(item.unit_price) || 0;
+    return sum + qty * price;
+  }, 0);
+  const vat = taxable * 0.16;
+  const grandTotal = subtotal + vat;
+
+  const handleFileSelect = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setScanError("");
+    const reader = new FileReader();
+    reader.onload = (ev) => setScanPreview({ dataUrl: ev.target.result, file });
+    reader.readAsDataURL(file);
+  };
+
+  const handleScan = async () => {
+    if (!scanPreview) return;
+    setScanning(true);
+    setScanError("");
+    try {
+      const { dataUrl, file } = scanPreview;
+      const base64 = dataUrl.split(",")[1];
+      const mediaType = file.type || "image/jpeg";
+      const { data } = await scanReceipt(base64, mediaType);
+      const result = data;
+
+      if (result.items?.length) {
+        setItems(result.items.map((it) => ({
+          description: it.description,
+          quantity: String(it.quantity),
+          unit_price: String(it.unit_price),
+          vat_exempt: false,
+        })));
+      }
+      if (result.notes) setNotes(result.notes);
+      if (result.client_name) {
+        const match = clients.find((c) => c.name.toLowerCase().includes(result.client_name.toLowerCase()));
+        if (match) setClientId(match.id);
+      }
+      setShowScan(false);
+      setScanPreview(null);
+    } catch (err) {
+      setScanError(err.response?.data?.detail ?? "Scan failed. Try a clearer image.");
+    } finally {
+      setScanning(false);
+    }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!clientId) { setError("Please select a client"); return; }
+    setSaving(true);
+    setError("");
+    try {
+      const payload = {
+        client_id: clientId,
+        notes: notes || null,
+        expires_at: expiresAt ? new Date(expiresAt).toISOString() : null,
+        items: items.map((item, i) => ({
+          description: item.description,
+          quantity: parseFloat(item.quantity),
+          unit_price: parseFloat(item.unit_price),
+          vat_exempt: item.vat_exempt,
+          sort_order: i,
+        })),
+      };
+      if (isEdit) {
+        await updateQuotation(id, payload);
+        navigate(`/quotations/${id}`);
+      } else {
+        const { data } = await createQuotation(payload);
+        navigate(`/quotations/${data.data.id}`);
+      }
+    } catch (err) {
+      setError(err.response?.data?.detail ?? "Failed to save quotation");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="p-4 md:p-6 max-w-3xl mx-auto space-y-5">
+      <div className="flex items-center gap-3">
+        <button onClick={() => navigate(-1)} className="text-gray-400 hover:text-gray-600"><ArrowLeft size={20} /></button>
+        <h1 className="text-xl font-bold text-gray-900 flex-1">{isEdit ? "Edit Quotation" : "New Quotation"}</h1>
+        {!isEdit && (
+          <button type="button" className="btn-secondary" onClick={() => { setShowScan(true); setScanPreview(null); setScanError(""); }}>
+            <ScanLine size={15} /> Scan Receipt
+          </button>
+        )}
+      </div>
+
+      {/* OCR Scan Modal */}
+      {showScan && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md space-y-4 p-6">
+            <div className="flex items-center justify-between">
+              <h2 className="text-base font-semibold text-gray-900 flex items-center gap-2">
+                <ScanLine size={18} className="text-green-600" /> Scan Receipt or Quotation
+              </h2>
+              <button onClick={() => setShowScan(false)} className="text-gray-400 hover:text-gray-600"><X size={18} /></button>
+            </div>
+            <p className="text-xs text-gray-500">
+              Take a photo or upload an image of a receipt, handwritten quote, or printed invoice.
+              Claude AI will extract the items and pre-fill the form for you.
+            </p>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              capture="environment"
+              className="hidden"
+              onChange={handleFileSelect}
+            />
+            {!scanPreview ? (
+              <div className="flex flex-col gap-2">
+                <button
+                  type="button"
+                  className="btn-primary w-full"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <Camera size={16} /> Take Photo / Choose Image
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <img
+                  src={scanPreview.dataUrl}
+                  alt="Receipt preview"
+                  className="w-full max-h-56 object-contain rounded-lg border border-gray-200"
+                />
+                {scanError && <p className="text-xs text-red-600">{scanError}</p>}
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    className="btn-secondary flex-1"
+                    onClick={() => { setScanPreview(null); fileInputRef.current?.click(); }}
+                  >
+                    Retake
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-primary flex-1"
+                    onClick={handleScan}
+                    disabled={scanning}
+                  >
+                    {scanning ? "Scanning…" : "Extract Items"}
+                  </button>
+                </div>
+              </div>
+            )}
+            <p className="text-[10px] text-gray-400 text-center">
+              Powered by Claude AI · Review extracted data before saving
+            </p>
+          </div>
+        </div>
+      )}
+
+      {error && <div className="bg-red-50 text-red-700 text-sm px-3 py-2 rounded-lg">{error}</div>}
+
+      <form onSubmit={handleSubmit} className="space-y-5">
+        <div className="card p-4 space-y-4">
+          <div>
+            <label className="label">Client *</label>
+            <select className="input" value={clientId} onChange={(e) => setClientId(e.target.value)} required>
+              <option value="">Select a client…</option>
+              {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="label">Expiry Date</label>
+            <input className="input" type="date" value={expiresAt}
+              onChange={(e) => setExpiresAt(e.target.value)}
+              min={new Date().toISOString().slice(0, 10)} />
+            <p className="text-xs text-gray-400 mt-1">Quotation will auto-expire after this date</p>
+          </div>
+        </div>
+
+        <div className="card p-4 space-y-3">
+          <h2 className="text-sm font-semibold text-gray-700">Line Items</h2>
+          {items.map((item, i) => (
+            <div key={i} className="grid grid-cols-12 gap-2 items-center">
+              <div className="col-span-12 sm:col-span-5">
+                <ProductAutocomplete
+                  value={item.description}
+                  onChange={(v) => setItem(i, "description", v)}
+                  onSelect={({ description, unit_price }) => setItems((prev) =>
+                    prev.map((it, idx) => idx === i ? { ...it, description, unit_price: String(unit_price) } : it)
+                  )}
+                  placeholder="Description (type to search products)"
+                />
+              </div>
+              <div className="col-span-3 sm:col-span-2">
+                <input className="input" type="number" placeholder="Qty" min="0.01" step="any"
+                  value={item.quantity} onChange={(e) => setItem(i, "quantity", e.target.value)} required />
+              </div>
+              <div className="col-span-5 sm:col-span-3">
+                <input className="input" type="number" placeholder="Unit Price" min="0" step="any"
+                  value={item.unit_price} onChange={(e) => setItem(i, "unit_price", e.target.value)} required />
+              </div>
+              <div className="col-span-3 sm:col-span-1 flex items-center justify-center" title={item.vat_exempt ? "VAT exempt" : "VAT applies (16%)"}>
+                <label className="flex flex-col items-center gap-0.5 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={!item.vat_exempt}
+                    onChange={(e) => setItem(i, "vat_exempt", !e.target.checked)}
+                    className="accent-green-600"
+                  />
+                  <span className="text-[10px] text-gray-400 leading-none">VAT</span>
+                </label>
+              </div>
+              <div className="col-span-1 flex justify-center">
+                {items.length > 1 && (
+                  <button type="button" onClick={() => removeItem(i)} className="text-gray-400 hover:text-red-600">
+                    <Trash2 size={15} />
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+          <button type="button" className="btn-secondary text-sm" onClick={addItem}>
+            <Plus size={15} /> Add Item
+          </button>
+        </div>
+
+        {/* Totals */}
+        <div className="card p-4">
+          <div className="space-y-2 text-sm">
+            <div className="flex justify-between text-gray-600">
+              <span>Subtotal</span><span>{ksh(subtotal)}</span>
+            </div>
+            {vat > 0 && (
+              <div className="flex justify-between text-gray-600">
+                <span>VAT (16%)</span><span>{ksh(vat)}</span>
+              </div>
+            )}
+            <div className="flex justify-between font-bold text-gray-900 text-base border-t pt-2">
+              <span>Grand Total</span><span>{ksh(grandTotal)}</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="card p-4">
+          <label className="label">Notes</label>
+          <textarea className="input" rows={3} placeholder="Payment terms, special instructions…"
+            value={notes} onChange={(e) => setNotes(e.target.value)} />
+        </div>
+
+        <div className="flex justify-end gap-3">
+          <button type="button" className="btn-secondary" onClick={() => navigate(-1)}>Cancel</button>
+          <button type="submit" className="btn-primary" disabled={saving}>
+            {saving ? "Saving…" : isEdit ? "Update Quotation" : "Create Quotation"}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}

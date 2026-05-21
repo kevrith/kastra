@@ -1,0 +1,71 @@
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { AuthProvider } from "./context/AuthContext";
+import AppLayout from "./components/layout/AppLayout";
+
+import Login from "./pages/auth/Login";
+import Register from "./pages/auth/Register";
+import AuthCallback from "./pages/auth/AuthCallback";
+import ForgotPassword from "./pages/auth/ForgotPassword";
+import ResetPassword from "./pages/auth/ResetPassword";
+import Dashboard from "./pages/Dashboard";
+import ClientList from "./pages/clients/ClientList";
+import ClientDetail from "./pages/clients/ClientDetail";
+import QuotationList from "./pages/quotations/QuotationList";
+import QuotationForm from "./pages/quotations/QuotationForm";
+import QuotationDetail from "./pages/quotations/QuotationDetail";
+import InvoiceList from "./pages/invoices/InvoiceList";
+import InvoiceDetail from "./pages/invoices/InvoiceDetail";
+import Reports from "./pages/Reports";
+import Settings from "./pages/Settings";
+import Expenses from "./pages/expenses/Expenses";
+import Products from "./pages/products/Products";
+import RecurringInvoices from "./pages/recurring/RecurringInvoices";
+import PublicPayment from "./pages/pay/PublicPayment";
+import PublicQuotation from "./pages/portal/PublicQuotation";
+import ClientPortal from "./pages/portal/ClientPortal";
+import PaystackVerify from "./pages/portal/PaystackVerify";
+import PrivacyPolicy from "./pages/legal/PrivacyPolicy";
+import TermsOfService from "./pages/legal/TermsOfService";
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <BrowserRouter>
+        <Routes>
+          {/* Public */}
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+          <Route path="/auth/callback" element={<AuthCallback />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
+          <Route path="/pay/:invoiceId" element={<PublicPayment />} />
+          <Route path="/portal/q/:quotationId" element={<PublicQuotation />} />
+          <Route path="/portal/c/:token" element={<ClientPortal />} />
+          <Route path="/portal/paystack/verify" element={<PaystackVerify />} />
+          <Route path="/privacy" element={<PrivacyPolicy />} />
+          <Route path="/terms" element={<TermsOfService />} />
+
+          {/* Protected app */}
+          <Route element={<AppLayout />}>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/clients" element={<ClientList />} />
+            <Route path="/clients/:id" element={<ClientDetail />} />
+            <Route path="/quotations" element={<QuotationList />} />
+            <Route path="/quotations/new" element={<QuotationForm />} />
+            <Route path="/quotations/:id" element={<QuotationDetail />} />
+            <Route path="/quotations/:id/edit" element={<QuotationForm />} />
+            <Route path="/invoices" element={<InvoiceList />} />
+            <Route path="/invoices/:id" element={<InvoiceDetail />} />
+            <Route path="/reports" element={<Reports />} />
+            <Route path="/settings" element={<Settings />} />
+            <Route path="/expenses" element={<Expenses />} />
+            <Route path="/products" element={<Products />} />
+            <Route path="/recurring" element={<RecurringInvoices />} />
+          </Route>
+
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </BrowserRouter>
+    </AuthProvider>
+  );
+}
