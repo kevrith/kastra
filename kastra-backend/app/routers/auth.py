@@ -177,25 +177,28 @@ async def reset_password(payload: ResetPasswordRequest, db: AsyncSession = Depen
 
 
 @router.get("/google")
-async def google_login():
+async def google_login(plan: str = "free"):
+    from app.utils.plan_limits import VALID_PLANS
+    chosen_plan = plan if plan in VALID_PLANS else "free"
     params = {
         "client_id": settings.google_client_id,
         "redirect_uri": GOOGLE_REDIRECT_URI,
         "response_type": "code",
         "scope": "openid email profile",
         "access_type": "offline",
+        "state": chosen_plan,
     }
     return {"auth_url": f"{GOOGLE_AUTH_URL}?{urlencode(params)}"}
 
 
 @router.get("/google/callback")
-async def google_callback(code: str, response: Response, db: AsyncSession = Depends(get_db)):
+async def google_callback(code: str, response: Response, db: AsyncSession = Depends(get_db), state: str = "free"):
     try:
         google_info = await get_google_user_info(code, GOOGLE_REDIRECT_URI)
     except Exception:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Google OAuth failed")
 
-    user = await get_or_create_google_user(db, google_info)
+    user = await get_or_create_google_user(db, google_info, plan=state)
     user.last_login_at = datetime.now(timezone.utc)
 
     access_token = create_access_token(str(user.id), user.role)

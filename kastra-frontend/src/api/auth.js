@@ -14,7 +14,7 @@ export const logout = () => api.post("/api/auth/logout");
 
 export const me = () => api.get("/api/auth/me");
 
-export const getGoogleAuthUrl = () => api.get("/api/auth/google");
+export const getGoogleAuthUrl = (plan = "free") => api.get(`/api/auth/google?plan=${plan}`);
 
 export const forgotPassword = (email) =>
   api.post("/api/auth/forgot-password", { email });

@@ -305,7 +305,9 @@ async def paystack_webhook(request: Request, db: AsyncSession = Depends(get_db))
                 org_res = await db.execute(select(Organization).where(Organization.id == org_uuid))
                 org = org_res.scalar_one_or_none()
                 if org:
+                    from app.utils.billing_events import record_subscription_payment, record_audit
                     now = datetime.now(timezone.utc)
+                    paid_amount = int(data.get("amount", 0) / 100)  # Paystack sends kobo
                     org.plan = plan
                     org.plan_status = "active"
                     org.pending_plan = None
@@ -314,6 +316,13 @@ async def paystack_webhook(request: Request, db: AsyncSession = Depends(get_db))
                     if not org.billing_cycle_start:
                         org.billing_cycle_start = now
                     org.next_billing_date = now + timedelta(days=30)
+                    await record_subscription_payment(
+                        db, org.id, org.name, plan, "paystack",
+                        reference=reference, amount_kes=paid_amount or None,
+                    )
+                    await record_audit(db, "paystack_payment", str(org.id), org.name, {
+                        "plan": plan, "reference": reference, "amount_kes": paid_amount,
+                    }, performed_by="paystack_webhook")
                     await db.commit()
                     logger.info("Paystack subscription webhook: org=%s plan=%s ref=%s", org_id_str, plan, reference)
             except Exception:

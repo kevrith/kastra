@@ -91,7 +91,7 @@ async def get_google_user_info(code: str, redirect_uri: str) -> dict:
         return user_resp.json()
 
 
-async def get_or_create_google_user(db: AsyncSession, google_info: dict) -> User:
+async def get_or_create_google_user(db: AsyncSession, google_info: dict, plan: str = "free") -> User:
     google_id = google_info["id"]
     email = google_info["email"]
     display_name = google_info.get("name", email.split("@")[0])
@@ -111,13 +111,16 @@ async def get_or_create_google_user(db: AsyncSession, google_info: dict) -> User
         user.google_id = google_id
         return user
 
+    chosen_plan = plan if plan in VALID_PLANS else "free"
     now = datetime.now(timezone.utc)
     org = Organization(
         name=display_name,
-        plan="free",
+        plan=chosen_plan,
         plan_status="active",
         billing_cycle_start=now,
         counters_reset_at=now,
+        is_trial=chosen_plan != "free",
+        trial_ends_at=now + timedelta(days=14) if chosen_plan != "free" else None,
     )
     db.add(org)
     await db.flush()

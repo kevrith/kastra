@@ -68,10 +68,16 @@ async def mpesa_callback(request: Request, db: AsyncSession = Depends(get_db)):
         org = sub_result.scalar_one_or_none()
         if org and org.pending_plan:
             from app.utils.plan_limits import VALID_PLANS
+            from app.utils.billing_events import record_subscription_payment, record_audit
             from datetime import timedelta
             if org.pending_plan in VALID_PLANS:
                 now = datetime.now(timezone.utc)
-                org.plan = org.pending_plan
+                activated_plan = org.pending_plan
+                metadata_items = stk_callback.get("CallbackMetadata", {}).get("Item", [])
+                meta_dict = {item["Name"]: item.get("Value") for item in metadata_items}
+                receipt = str(meta_dict.get("MpesaReceiptNumber", ""))
+                paid_amount = int(meta_dict.get("Amount", 0))
+                org.plan = activated_plan
                 org.plan_status = "active"
                 org.pending_plan = None
                 org.sub_mpesa_checkout_id = None
@@ -81,6 +87,13 @@ async def mpesa_callback(request: Request, db: AsyncSession = Depends(get_db)):
                     if not org.billing_cycle_start:
                         org.billing_cycle_start = now
                     org.next_billing_date = now + timedelta(days=30)
+                await record_subscription_payment(
+                    db, org.id, org.name, activated_plan, "mpesa",
+                    reference=receipt, amount_kes=paid_amount or None,
+                )
+                await record_audit(db, "mpesa_payment", str(org.id), org.name, {
+                    "plan": activated_plan, "receipt": receipt, "amount_kes": paid_amount,
+                }, performed_by="mpesa_callback")
                 await db.commit()
                 logger.info("M-Pesa subscription activated: org=%s plan=%s", org.id, org.plan)
         return {"ResultCode": 0, "ResultDesc": "Accepted"}
