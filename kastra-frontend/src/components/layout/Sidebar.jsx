@@ -12,6 +12,7 @@ const links = [
   { to: "/quotations", icon: FileText, label: "Quotations" },
   { to: "/invoices", icon: Receipt, label: "Invoices" },
   { to: "/clients", icon: Users, label: "Clients" },
+  { to: "/products", icon: Package, label: "Products" },
   { to: "/expenses", icon: TrendingDown, label: "Expenses" },
   { to: "/recurring", icon: RefreshCw, label: "Recurring" },
   { to: "/reports", icon: BarChart2, label: "Reports" },
