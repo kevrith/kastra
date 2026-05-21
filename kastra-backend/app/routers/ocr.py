@@ -32,14 +32,18 @@ Always respond with valid JSON only — no markdown, no explanation.
 Amounts should be numbers (no currency symbols).
 If you cannot read a field clearly, omit it rather than guessing."""
 
-_PROMPT = """Extract the following from this receipt or quotation image:
+_PROMPT = """Extract the following from this receipt, quotation, or invoice image:
 1. Line items: description, quantity, unit_price
-2. Client/customer name (if visible)
-3. Any notes, terms, or instructions (if visible)
+2. Client/customer details: name, phone number, email address (each if visible)
+3. Document date (the invoice/receipt/quotation date, if visible) in YYYY-MM-DD format
+4. Any notes, terms, or instructions (if visible)
 
 Respond ONLY with this JSON structure:
 {
   "client_name": "string or null",
+  "client_phone": "string or null",
+  "client_email": "string or null",
+  "receipt_date": "YYYY-MM-DD or null",
   "notes": "string or null",
   "items": [
     {
@@ -64,6 +68,9 @@ class OcrItem(BaseModel):
 
 class OcrScanResponse(BaseModel):
     client_name: str | None
+    client_phone: str | None = None
+    client_email: str | None = None
+    receipt_date: str | None = None
     notes: str | None
     items: list[OcrItem]
 
@@ -160,6 +167,9 @@ async def scan_receipt(
 
     return OcrScanResponse(
         client_name=data.get("client_name") or None,
+        client_phone=data.get("client_phone") or None,
+        client_email=data.get("client_email") or None,
+        receipt_date=data.get("receipt_date") or None,
         notes=data.get("notes") or None,
         items=items,
     )

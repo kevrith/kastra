@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { createQuotation, getQuotation, updateQuotation } from "../../api/quotations";
-import { getClients } from "../../api/clients";
+import { getClients, createClient } from "../../api/clients";
 import { getOrganization } from "../../api/organization";
 import { scanReceipt } from "../../api/ocr";
 import { Plus, Trash2, ArrowLeft, ScanLine, X, Camera } from "lucide-react";
@@ -58,6 +58,8 @@ export default function QuotationForm() {
   const [scanning, setScanning] = useState(false);
   const [scanPreview, setScanPreview] = useState(null);
   const [scanError, setScanError] = useState("");
+  const [scanClientHint, setScanClientHint] = useState(null); // { name, phone, email } when OCR finds unknown client
+  const [creatingClient, setCreatingClient] = useState(false);
   const fileInputRef = useRef(null);
 
   useEffect(() => {
@@ -123,8 +125,20 @@ export default function QuotationForm() {
       }
       if (result.notes) setNotes(result.notes);
       if (result.client_name) {
-        const match = clients.find((c) => c.name.toLowerCase().includes(result.client_name.toLowerCase()));
-        if (match) setClientId(match.id);
+        const match = clients.find((c) =>
+          c.name.toLowerCase().includes(result.client_name.toLowerCase()) ||
+          result.client_name.toLowerCase().includes(c.name.toLowerCase())
+        );
+        if (match) {
+          setClientId(match.id);
+          setScanClientHint(null);
+        } else {
+          setScanClientHint({
+            name: result.client_name,
+            phone: result.client_phone || "",
+            email: result.client_email || "",
+          });
+        }
       }
       setShowScan(false);
       setScanPreview(null);
@@ -176,13 +190,33 @@ export default function QuotationForm() {
     }
   };
 
+  const handleCreateClientFromScan = async () => {
+    if (!scanClientHint) return;
+    setCreatingClient(true);
+    try {
+      const { data } = await createClient({
+        name: scanClientHint.name,
+        phone: scanClientHint.phone || null,
+        email: scanClientHint.email || null,
+      });
+      const newClient = data.data;
+      setClients((prev) => [...prev, newClient]);
+      setClientId(newClient.id);
+      setScanClientHint(null);
+    } catch {
+      // ignore — user can still pick manually
+    } finally {
+      setCreatingClient(false);
+    }
+  };
+
   return (
     <div className="p-4 md:p-6 max-w-3xl mx-auto space-y-5">
       <div className="flex items-center gap-3">
         <button onClick={() => navigate(-1)} className="text-gray-400 hover:text-gray-600"><ArrowLeft size={20} /></button>
         <h1 className="text-xl font-bold text-gray-900 flex-1">{isEdit ? "Edit Quotation" : "New Quotation"}</h1>
         {!isEdit && (
-          <button type="button" className="btn-secondary" onClick={() => { setShowScan(true); setScanPreview(null); setScanError(""); }}>
+          <button type="button" className="btn-secondary" onClick={() => { setShowScan(true); setScanPreview(null); setScanError(""); setScanClientHint(null); }}>
             <ScanLine size={15} /> Scan Receipt
           </button>
         )}
@@ -260,10 +294,35 @@ export default function QuotationForm() {
         <div className="card p-4 space-y-4">
           <div>
             <label className="label">Client *</label>
-            <select className="input" value={clientId} onChange={(e) => setClientId(e.target.value)} required>
+            <select className="input" value={clientId} onChange={(e) => { setClientId(e.target.value); setScanClientHint(null); }} required>
               <option value="">Select a client…</option>
               {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
+            {scanClientHint && (
+              <div className="mt-2 flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5">
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-semibold text-amber-800">New client detected from scan</p>
+                  <p className="text-xs text-amber-700 mt-0.5 truncate">
+                    {scanClientHint.name}
+                    {scanClientHint.phone && <span className="ml-2 text-amber-600">{scanClientHint.phone}</span>}
+                    {scanClientHint.email && <span className="ml-2 text-amber-600">{scanClientHint.email}</span>}
+                  </p>
+                </div>
+                <div className="flex gap-1.5 shrink-0">
+                  <button
+                    type="button"
+                    className="btn-primary text-xs py-1 px-2.5"
+                    onClick={handleCreateClientFromScan}
+                    disabled={creatingClient}
+                  >
+                    {creatingClient ? "Adding…" : "Create & Select"}
+                  </button>
+                  <button type="button" onClick={() => setScanClientHint(null)} className="text-amber-400 hover:text-amber-600">
+                    <X size={14} />
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
           <div>
             <label className="label">Expiry Date</label>
