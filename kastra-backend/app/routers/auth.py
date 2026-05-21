@@ -76,7 +76,7 @@ async def register(request: Request, payload: RegisterRequest, response: Respons
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="You must accept the Privacy Policy and Terms of Service to register")
     if not payload.business_name.strip():
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Business name is required")
-    user = await create_user_with_org(db, payload.email, payload.password, payload.display_name, payload.business_name.strip())
+    user = await create_user_with_org(db, payload.email, payload.password, payload.display_name, payload.business_name.strip(), plan=payload.plan)
     user.consented_at = datetime.now(timezone.utc)
     access_token = create_access_token(str(user.id), user.role)
     refresh_token = create_refresh_token(str(user.id), user.token_version)

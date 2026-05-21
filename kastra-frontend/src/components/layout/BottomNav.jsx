@@ -6,7 +6,7 @@ import {
 } from "lucide-react";
 
 const PRIMARY = [
-  { to: "/", icon: Home, label: "Home" },
+  { to: "/dashboard", icon: Home, label: "Home" },
   { to: "/quotations", icon: FileText, label: "Quotes" },
   { to: "/invoices", icon: Receipt, label: "Invoices" },
   { to: "/clients", icon: Users, label: "Clients" },
@@ -91,7 +91,7 @@ export default function BottomNav() {
           <NavLink
             key={to}
             to={to}
-            end={to === "/"}
+            end={to === "/dashboard"}
             className={({ isActive }) =>
               `flex-1 flex flex-col items-center justify-center text-xs font-medium transition-colors ${
                 isActive ? "text-green-600" : "text-gray-500"

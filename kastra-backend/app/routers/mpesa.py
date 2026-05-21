@@ -60,6 +60,31 @@ async def mpesa_callback(request: Request, db: AsyncSession = Depends(get_db)):
     )
     invoice = result.scalar_one_or_none()
 
+    # Check if this is a subscription payment
+    if result_code == 0 and not invoice:
+        sub_result = await db.execute(
+            select(Organization).where(Organization.sub_mpesa_checkout_id == checkout_request_id)
+        )
+        org = sub_result.scalar_one_or_none()
+        if org and org.pending_plan:
+            from app.utils.plan_limits import VALID_PLANS
+            from datetime import timedelta
+            if org.pending_plan in VALID_PLANS:
+                now = datetime.now(timezone.utc)
+                org.plan = org.pending_plan
+                org.plan_status = "active"
+                org.pending_plan = None
+                org.sub_mpesa_checkout_id = None
+                org.is_trial = False
+                org.trial_ends_at = None
+                if org.plan != "free":
+                    if not org.billing_cycle_start:
+                        org.billing_cycle_start = now
+                    org.next_billing_date = now + timedelta(days=30)
+                await db.commit()
+                logger.info("M-Pesa subscription activated: org=%s plan=%s", org.id, org.plan)
+        return {"ResultCode": 0, "ResultDesc": "Accepted"}
+
     if invoice and result_code == 0:
         metadata = stk_callback.get("CallbackMetadata", {}).get("Item", [])
         meta = {item["Name"]: item.get("Value") for item in metadata}

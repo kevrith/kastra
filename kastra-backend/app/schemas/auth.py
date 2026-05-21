@@ -10,6 +10,7 @@ class RegisterRequest(BaseModel):
     password: str
     display_name: str
     consent: bool  # Kenya DPA 2019 — explicit consent required
+    plan: str = "free"  # free | starter | business | premium
 
 
 class LoginRequest(BaseModel):
@@ -30,6 +31,13 @@ class OrganizationBrief(BaseModel):
     address: str | None
     kra_pin: str | None
     payment_terms_days: int
+    plan: str = "free"
+    plan_status: str = "active"
+    is_trial: bool = False
+    trial_ends_at: datetime | None = None
+    invoices_this_month: int = 0
+    quotations_this_month: int = 0
+    ocr_scans_this_month: int = 0
 
     model_config = {"from_attributes": True}
 

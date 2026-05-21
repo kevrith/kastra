@@ -49,6 +49,16 @@ class OrganizationOut(BaseModel):
     paystack_configured: bool = False
     mpesa_configured: bool = False
     mpesa_env: str = "sandbox"
+    # Subscription
+    plan: str = "free"
+    plan_status: str = "active"
+    is_trial: bool = False
+    trial_ends_at: datetime | None = None
+    invoices_this_month: int = 0
+    quotations_this_month: int = 0
+    ocr_scans_this_month: int = 0
+    billing_cycle_start: datetime | None = None
+    next_billing_date: datetime | None = None
 
     model_config = {"from_attributes": True}
 

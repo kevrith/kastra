@@ -30,6 +30,7 @@ from app.services.mpesa_service import initiate_stk_push
 from app.services.pdf_service import generate_pdf
 from app.services.sms_service import sms_invoice_sent
 from app.utils.id_generator import next_id
+from app.utils.plan_limits import get_limits
 from app.utils.totals import calculate_totals
 
 logger = logging.getLogger(__name__)
@@ -37,6 +38,17 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/invoices", tags=["invoices"])
 
 VAT_RATE = Decimal("0.16")
+
+
+def _maybe_reset_counters(org) -> None:
+    """Reset monthly counters if we've rolled into a new billing month."""
+    now = datetime.now(timezone.utc)
+    reset_at = org.counters_reset_at
+    if reset_at is None or (now.year > reset_at.year or now.month > reset_at.month):
+        org.invoices_this_month = 0
+        org.quotations_this_month = 0
+        org.ocr_scans_this_month = 0
+        org.counters_reset_at = now
 
 
 async def _upsert_client_price(db: AsyncSession, org_id, client_id, description: str, unit_price: Decimal):
@@ -113,6 +125,17 @@ async def create_invoice(
     org_result = await db.execute(select(Organization).where(Organization.id == current_user.organization_id))
     org = org_result.scalar_one_or_none()
 
+    # Enforce plan invoice limit
+    if org:
+        limits = get_limits(org.plan)
+        _maybe_reset_counters(org)
+        cap = limits["invoices_per_month"]
+        if cap != -1 and org.invoices_this_month >= cap:
+            raise HTTPException(
+                status_code=402,
+                detail=f"Invoice limit reached ({cap}/month on {org.plan} plan). Upgrade to create more.",
+            )
+
     due_date = payload.due_date
     if due_date is None and org:
         due_date = datetime.now(timezone.utc) + timedelta(days=org.payment_terms_days)
@@ -156,6 +179,9 @@ async def create_invoice(
             vat_exempt=charge.vat_exempt,
             sort_order=charge.sort_order if charge.sort_order else i,
         ))
+
+    if org:
+        org.invoices_this_month += 1
 
     await db.flush()
     result = await db.execute(

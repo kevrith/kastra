@@ -8,6 +8,7 @@ from sqlalchemy.orm import selectinload
 
 from app.database import AsyncSessionLocal
 from app.models.invoice import Invoice, InvoiceItem
+from app.models.organization import Organization
 from app.models.quotation import Quotation
 from app.models.recurring_invoice import RecurringInvoice
 from app.services.email_service import send_due_soon_reminder_email, send_overdue_reminder_email
@@ -225,11 +226,72 @@ async def _fire_recurring_invoices():
             await db.rollback()
 
 
+async def _expire_trials():
+    """
+    Nightly job — downgrades organisations whose free trial has ended to the free plan.
+    """
+    now = datetime.now(timezone.utc)
+    async with AsyncSessionLocal() as db:
+        try:
+            result = await db.execute(
+                select(Organization).where(
+                    Organization.is_trial.is_(True),
+                    Organization.trial_ends_at.isnot(None),
+                    Organization.trial_ends_at < now,
+                )
+            )
+            expired = result.scalars().all()
+            if not expired:
+                logger.info("[scheduler] No expired trials.")
+                return
+            for org in expired:
+                old_plan = org.plan
+                org.plan = "free"
+                org.plan_status = "active"
+                org.is_trial = False
+                org.trial_ends_at = None
+                org.next_billing_date = None
+                logger.info("[scheduler] Trial expired: org=%s plan=%s → free", org.id, old_plan)
+            await db.commit()
+            logger.info("[scheduler] Expired %d trial(s).", len(expired))
+        except Exception:
+            logger.exception("[scheduler] Error in trial expiry job")
+            await db.rollback()
+
+
+async def _reset_monthly_counters():
+    """
+    Nightly job — resets invoice/quotation/OCR counters for any org whose
+    billing cycle rolled over into a new calendar month.
+    """
+    now = datetime.now(timezone.utc)
+    async with AsyncSessionLocal() as db:
+        try:
+            result = await db.execute(select(Organization))
+            orgs = result.scalars().all()
+            reset_count = 0
+            for org in orgs:
+                reset_at = org.counters_reset_at
+                if reset_at is None or (now.year > reset_at.year or now.month > reset_at.month):
+                    org.invoices_this_month = 0
+                    org.quotations_this_month = 0
+                    org.ocr_scans_this_month = 0
+                    org.counters_reset_at = now
+                    reset_count += 1
+            await db.commit()
+            logger.info("[scheduler] Monthly counters reset for %d org(s).", reset_count)
+        except Exception:
+            logger.exception("[scheduler] Error in monthly counter reset job")
+            await db.rollback()
+
+
 def start_scheduler():
     # Run jobs daily at midnight EAT (21:00 UTC)
     scheduler.add_job(_process_smart_reminders, "cron", hour=21, minute=0, id="smart_reminders")
     scheduler.add_job(_expire_quotations, "cron", hour=21, minute=5, id="expire_quotations")
     scheduler.add_job(_fire_recurring_invoices, "cron", hour=21, minute=10, id="recurring_invoices")
+    scheduler.add_job(_reset_monthly_counters, "cron", hour=21, minute=15, id="reset_monthly_counters")
+    scheduler.add_job(_expire_trials, "cron", hour=21, minute=20, id="expire_trials")
     scheduler.start()
     logger.info("[scheduler] Started. Jobs run daily at 00:00 EAT.")
 

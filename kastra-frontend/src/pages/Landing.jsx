@@ -78,30 +78,43 @@ const testimonials = [
 
 const plans = [
   {
-    name: "Starter",
-    price: "Free",
-    period: "",
-    desc: "Perfect for freelancers and sole traders just getting started.",
-    features: ["Up to 5 clients", "Invoices & quotations", "M-Pesa payments", "Basic reports"],
+    id: "free",
+    name: "Free",
+    price: "KES 0",
+    period: "forever",
+    desc: "Perfect for freelancers just getting started.",
+    features: ["20 invoices / month", "20 quotations / month", "1 team member", "5 OCR scans / month", "3 clients", "M-Pesa payments", "Classic template"],
     cta: "Get started free",
     highlight: false,
   },
   {
-    name: "Business",
-    price: "KES 2,500",
+    id: "starter",
+    name: "Starter",
+    price: "KES 1,500",
     period: "/ month",
-    desc: "For growing businesses that need the full suite.",
-    features: ["Unlimited clients", "Recurring invoices", "eTIMS / KRA filing", "Expense tracking", "Team members", "Priority support"],
-    cta: "Start free trial",
+    desc: "For small businesses ready to grow.",
+    features: ["200 invoices / month", "150 quotations / month", "3 team members", "10 OCR scans / month", "20 clients", "M-Pesa + Paystack", "Email invoices", "Client portal", "Products catalog", "3-month reports"],
+    cta: "Start with Starter",
+    highlight: false,
+  },
+  {
+    id: "business",
+    name: "Business",
+    price: "KES 3,000",
+    period: "/ month",
+    desc: "For established businesses that need everything.",
+    features: ["400 invoices / month", "250 quotations / month", "6 team members", "35 OCR scans / month", "100 clients", "SMS notifications", "Recurring invoices", "eTIMS / KRA compliance", "Audit logs", "Full history reports"],
+    cta: "Go Business",
     highlight: true,
   },
   {
-    name: "Enterprise",
-    price: "Custom",
-    period: "",
-    desc: "For large organisations with custom requirements.",
-    features: ["Everything in Business", "Dedicated account manager", "Custom integrations", "SLA guarantee", "On-site training"],
-    cta: "Contact sales",
+    id: "premium",
+    name: "Premium",
+    price: "KES 5,500",
+    period: "/ month",
+    desc: "Unlimited power for high-volume operations.",
+    features: ["Unlimited invoices", "Unlimited quotations", "15 team members", "100+ OCR scans / month", "Unlimited clients", "White-label branding", "Priority support", "All 3 templates", "Full history reports"],
+    cta: "Go Premium",
     highlight: false,
   },
 ];
@@ -163,7 +176,7 @@ export default function Landing() {
               Sign in
             </Link>
           </div>
-          <p className="text-sm text-gray-400 mt-5">No credit card required · Free forever plan available</p>
+          <p className="text-sm text-gray-400 mt-5">No credit card required · 14-day free trial on paid plans · Free forever plan available</p>
         </div>
 
         {/* Stats bar */}
@@ -279,13 +292,13 @@ export default function Landing() {
           <div className="text-center mb-16">
             <p className="text-sm font-semibold text-green-600 uppercase tracking-widest mb-3">Pricing</p>
             <h2 className="text-4xl font-extrabold text-gray-900 mb-4">Simple, transparent pricing</h2>
-            <p className="text-lg text-gray-500">Start free. Upgrade when you're ready.</p>
+            <p className="text-lg text-gray-500">Start free forever — or try any paid plan free for 14 days. No credit card required.</p>
           </div>
-          <div className="grid md:grid-cols-3 gap-6 items-start">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5 items-start">
             {plans.map((plan) => (
               <div
-                key={plan.name}
-                className={`rounded-2xl p-7 border ${plan.highlight
+                key={plan.id}
+                className={`rounded-2xl p-6 border ${plan.highlight
                   ? "bg-green-600 border-green-600 text-white shadow-2xl shadow-green-200 scale-105"
                   : "bg-white border-gray-200"
                 }`}
@@ -297,21 +310,21 @@ export default function Landing() {
                 )}
                 <h3 className={`text-lg font-bold mb-1 ${plan.highlight ? "text-white" : "text-gray-900"}`}>{plan.name}</h3>
                 <p className={`text-xs mb-4 ${plan.highlight ? "text-green-200" : "text-gray-500"}`}>{plan.desc}</p>
-                <div className="mb-6">
-                  <span className={`text-4xl font-extrabold ${plan.highlight ? "text-white" : "text-gray-900"}`}>{plan.price}</span>
-                  <span className={`text-sm ${plan.highlight ? "text-green-200" : "text-gray-400"}`}>{plan.period}</span>
+                <div className="mb-5">
+                  <span className={`text-3xl font-extrabold ${plan.highlight ? "text-white" : "text-gray-900"}`}>{plan.price}</span>
+                  <span className={`text-xs ml-1 ${plan.highlight ? "text-green-200" : "text-gray-400"}`}>{plan.period}</span>
                 </div>
-                <ul className="space-y-2.5 mb-8">
+                <ul className="space-y-2 mb-6">
                   {plan.features.map((f) => (
-                    <li key={f} className={`flex items-center gap-2 text-sm ${plan.highlight ? "text-green-100" : "text-gray-600"}`}>
-                      <CheckCircle size={15} className={plan.highlight ? "text-green-300" : "text-green-500"} />
+                    <li key={f} className={`flex items-start gap-2 text-xs ${plan.highlight ? "text-green-100" : "text-gray-600"}`}>
+                      <CheckCircle size={13} className={`mt-0.5 flex-shrink-0 ${plan.highlight ? "text-green-300" : "text-green-500"}`} />
                       {f}
                     </li>
                   ))}
                 </ul>
                 <Link
-                  to="/register"
-                  className={`block text-center font-semibold py-3 rounded-xl transition-all ${plan.highlight
+                  to={`/register?plan=${plan.id}`}
+                  className={`block text-center text-sm font-semibold py-2.5 rounded-xl transition-all ${plan.highlight
                     ? "bg-white text-green-700 hover:bg-green-50"
                     : "bg-green-600 text-white hover:bg-green-700"
                   }`}

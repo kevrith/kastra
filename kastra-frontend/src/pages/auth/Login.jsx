@@ -21,7 +21,7 @@ export default function Login() {
       localStorage.setItem("access_token", data.access_token);
       const { data: userData } = await me();
       login(data.access_token, userData);
-      navigate("/");
+      navigate("/dashboard");
     } catch (err) {
       localStorage.removeItem("access_token");
       setError(err.response?.data?.detail ?? "Login failed");

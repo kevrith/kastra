@@ -1,13 +1,30 @@
 import base64
 import json
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.routers.auth import get_current_user
+from app.database import get_db
+from app.dependencies import get_current_user
+from app.models.organization import Organization
+from app.models.user import User
+from app.utils.plan_limits import get_limits
 
 router = APIRouter(prefix="/api/ocr", tags=["ocr"])
+
+
+def _maybe_reset_counters(org) -> None:
+    now = datetime.now(timezone.utc)
+    reset_at = org.counters_reset_at
+    if reset_at is None or (now.year > reset_at.year or now.month > reset_at.month):
+        org.invoices_this_month = 0
+        org.quotations_this_month = 0
+        org.ocr_scans_this_month = 0
+        org.counters_reset_at = now
 
 _SYSTEM = """You are a receipt/quotation data extraction assistant for a Kenyan business platform.
 Extract line items, client name, and any notes from the provided image.
@@ -54,8 +71,22 @@ class OcrScanResponse(BaseModel):
 @router.post("/scan", response_model=OcrScanResponse)
 async def scan_receipt(
     req: OcrScanRequest,
-    current_user=Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
+    # Enforce plan OCR limit
+    org_result = await db.execute(select(Organization).where(Organization.id == current_user.organization_id))
+    org = org_result.scalar_one_or_none()
+    if org:
+        limits = get_limits(org.plan)
+        _maybe_reset_counters(org)
+        cap = limits["ocr_scans_per_month"]
+        if cap != -1 and org.ocr_scans_this_month >= cap:
+            raise HTTPException(
+                status_code=402,
+                detail=f"OCR scan limit reached ({cap}/month on {org.plan} plan). Upgrade for more scans.",
+            )
+
     if not settings.anthropic_api_key:
         raise HTTPException(503, "OCR service not configured. Set ANTHROPIC_API_KEY in backend .env.")
 
@@ -122,6 +153,10 @@ async def scan_receipt(
         except (TypeError, ValueError):
             qty, price = 1.0, 0.0
         items.append(OcrItem(description=desc, quantity=qty, unit_price=price))
+
+    if org:
+        org.ocr_scans_this_month += 1
+        await db.commit()
 
     return OcrScanResponse(
         client_name=data.get("client_name") or None,

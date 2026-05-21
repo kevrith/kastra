@@ -8,7 +8,7 @@ import GlobalSearch from "../ui/GlobalSearch";
 import NotificationBell from "../ui/NotificationBell";
 
 const links = [
-  { to: "/", icon: Home, label: "Dashboard" },
+  { to: "/dashboard", icon: Home, label: "Dashboard" },
   { to: "/quotations", icon: FileText, label: "Quotations" },
   { to: "/invoices", icon: Receipt, label: "Invoices" },
   { to: "/clients", icon: Users, label: "Clients" },
@@ -48,7 +48,7 @@ export default function Sidebar() {
           <NavLink
             key={to}
             to={to}
-            end={to === "/"}
+            end={to === "/dashboard"}
             className={({ isActive }) =>
               `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                 isActive

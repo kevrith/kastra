@@ -57,6 +57,11 @@ class Settings(BaseSettings):
     # Error tracking (optional — set SENTRY_DSN in production)
     sentry_dsn: str = ""
 
+    # Super admin (separate credentials, never linked to org accounts)
+    superadmin_username: str = "superadmin"
+    superadmin_password: str = "change-me-superadmin"
+    superadmin_secret_key: str = "change-me-superadmin-secret"
+
     @property
     def is_production(self) -> bool:
         return self.environment == "production"

@@ -15,7 +15,7 @@ export default function AuthCallback() {
     localStorage.setItem("access_token", token);
     me().then(({ data }) => {
       login(token, data);
-      navigate("/");
+      navigate("/dashboard");
     }).catch(() => navigate("/login"));
   }, []);
 

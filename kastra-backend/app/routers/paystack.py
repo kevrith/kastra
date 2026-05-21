@@ -290,6 +290,36 @@ async def paystack_webhook(request: Request, db: AsyncSession = Depends(get_db))
     if not reference:
         return {"status": "no reference"}
 
+    # Check if this is a subscription payment (reference starts with SUB-)
+    meta = data.get("metadata", {})
+    if reference.startswith("SUB-") or meta.get("type") == "subscription":
+        import uuid
+        from app.models.organization import Organization
+        from datetime import timedelta
+        from app.utils.plan_limits import VALID_PLANS
+        org_id_str = meta.get("org_id", "")
+        plan = meta.get("plan", "")
+        if org_id_str and plan and plan in VALID_PLANS:
+            try:
+                org_uuid = uuid.UUID(org_id_str)
+                org_res = await db.execute(select(Organization).where(Organization.id == org_uuid))
+                org = org_res.scalar_one_or_none()
+                if org:
+                    now = datetime.now(timezone.utc)
+                    org.plan = plan
+                    org.plan_status = "active"
+                    org.pending_plan = None
+                    org.is_trial = False
+                    org.trial_ends_at = None
+                    if not org.billing_cycle_start:
+                        org.billing_cycle_start = now
+                    org.next_billing_date = now + timedelta(days=30)
+                    await db.commit()
+                    logger.info("Paystack subscription webhook: org=%s plan=%s ref=%s", org_id_str, plan, reference)
+            except Exception:
+                logger.exception("Error processing Paystack subscription webhook for ref=%s", reference)
+        return {"status": "ok"}
+
     invoice_id = reference.rsplit("-", 1)[0] if "-" in reference else reference
 
     result = await db.execute(

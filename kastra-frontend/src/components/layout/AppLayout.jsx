@@ -5,6 +5,7 @@ import BottomNav from "./BottomNav";
 import Spinner from "../ui/Spinner";
 import NotificationBell from "../ui/NotificationBell";
 import GlobalSearch from "../ui/GlobalSearch";
+import TrialBanner from "../ui/TrialBanner";
 
 export default function AppLayout() {
   const { user, loading } = useAuth();
@@ -22,6 +23,7 @@ export default function AppLayout() {
     <div className="flex min-h-screen">
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-auto">
+        <TrialBanner />
         {/* Mobile-only top header */}
         <header className="md:hidden sticky top-0 z-30 bg-white border-b border-gray-200 px-4 py-2.5 flex items-center justify-between gap-3">
           <span className="text-base font-bold text-green-600 tracking-tight">Kastra</span>

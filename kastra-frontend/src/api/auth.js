@@ -3,8 +3,8 @@ import api from "./axios";
 export const login = (email, password) =>
   api.post("/api/auth/login", { email, password });
 
-export const register = (email, password, display_name, business_name, consent = false) =>
-  api.post("/api/auth/register", { email, password, display_name, business_name, consent });
+export const register = (email, password, display_name, business_name, consent = false, plan = "free") =>
+  api.post("/api/auth/register", { email, password, display_name, business_name, consent, plan });
 
 export const exportMyData = () => api.get("/api/auth/me/export");
 

@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { AuthProvider } from "./context/AuthContext";
+import { AuthProvider, useAuth } from "./context/AuthContext";
 import AppLayout from "./components/layout/AppLayout";
 
 import Login from "./pages/auth/Login";
@@ -28,14 +28,28 @@ import PaystackVerify from "./pages/portal/PaystackVerify";
 import PrivacyPolicy from "./pages/legal/PrivacyPolicy";
 import TermsOfService from "./pages/legal/TermsOfService";
 import Landing from "./pages/Landing";
+import SuperAdmin from "./pages/superadmin/SuperAdmin";
+import Spinner from "./components/ui/Spinner";
+
+// Root route: Landing for visitors, dashboard for authenticated users
+function RootRoute() {
+  const { user, loading } = useAuth();
+  if (loading) return <div className="flex h-screen items-center justify-center"><Spinner size="lg" /></div>;
+  if (user) return <Navigate to="/dashboard" replace />;
+  return <Landing />;
+}
 
 export default function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
         <Routes>
+          {/* Super admin — standalone, no app layout */}
+          <Route path="/superadmin" element={<SuperAdmin />} />
+          <Route path="/superadmin/*" element={<SuperAdmin />} />
+
           {/* Public */}
-          <Route path="/home" element={<Landing />} />
+          <Route path="/" element={<RootRoute />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/auth/callback" element={<AuthCallback />} />
@@ -50,7 +64,7 @@ export default function App() {
 
           {/* Protected app */}
           <Route element={<AppLayout />}>
-            <Route path="/" element={<Dashboard />} />
+            <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/clients" element={<ClientList />} />
             <Route path="/clients/:id" element={<ClientDetail />} />
             <Route path="/quotations" element={<QuotationList />} />

@@ -3,8 +3,9 @@ import { useAuth } from "../context/AuthContext";
 import api from "../api/axios";
 import { getOrganization, updateOrganization } from "../api/organization";
 import { testEtimsConnection } from "../api/invoices";
-import { Building2, User, Lock, Upload, X, Palette, ShieldCheck, Eye, EyeOff, Loader, Package, ArrowRight, CreditCard, Smartphone, CheckCircle } from "lucide-react";
-import { Link } from "react-router-dom";
+import { getMyPlan, upgradePlan } from "../api/subscriptions";
+import { Building2, User, Lock, Upload, X, Palette, ShieldCheck, Eye, EyeOff, Loader, Package, ArrowRight, CreditCard, Smartphone, CheckCircle, Zap, Phone } from "lucide-react";
+import { Link, useSearchParams } from "react-router-dom";
 
 const TEMPLATES = [
   {
@@ -162,6 +163,7 @@ function Section({ title, icon: Icon, children }) {
 export default function Settings() {
   const { user } = useAuth();
   const fileInputRef = useRef(null);
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const [org, setOrg] = useState({
     name: "", email: "", phone: "", address: "", kra_pin: "",
@@ -196,7 +198,91 @@ export default function Settings() {
   const [pwError, setPwError] = useState("");
   const [pwSaving, setPwSaving] = useState(false);
 
+  const [planInfo, setPlanInfo] = useState(null);
+  const [upgradeModal, setUpgradeModal] = useState(null); // { plan, price }
+  const [payMethod, setPayMethod] = useState("mpesa"); // "mpesa" | "card"
+  const [mpesaPhone, setMpesaPhone] = useState("");
+  const [upgrading, setUpgrading] = useState(false);
+  const [upgradeMsg, setUpgradeMsg] = useState({ text: "", type: "success" });
+
+  const refreshPlan = async () => {
+    const { data } = await getMyPlan();
+    setPlanInfo(data.data);
+  };
+
+  const openUpgrade = (plan, price) => {
+    setUpgradeModal({ plan, price });
+    setPayMethod("mpesa");
+    setUpgradeMsg({ text: "", type: "success" });
+  };
+
+  const handleMpesaUpgrade = async () => {
+    if (!mpesaPhone) { setUpgradeMsg({ text: "Enter your M-Pesa phone number", type: "error" }); return; }
+    setUpgrading(true);
+    setUpgradeMsg({ text: "", type: "success" });
+    try {
+      const { data } = await api.post("/api/subscriptions/upgrade/mpesa", {
+        plan: upgradeModal.plan,
+        phone: mpesaPhone,
+      });
+      setUpgradeMsg({ text: data.message, type: "success" });
+      await refreshPlan();
+    } catch (err) {
+      setUpgradeMsg({ text: err.response?.data?.detail ?? "M-Pesa STK Push failed", type: "error" });
+    } finally {
+      setUpgrading(false);
+    }
+  };
+
+  const handlePaystackUpgrade = async () => {
+    if (!user?.email) { setUpgradeMsg({ text: "No email on your account", type: "error" }); return; }
+    setUpgrading(true);
+    try {
+      const { data } = await api.post("/api/subscriptions/upgrade/paystack", {
+        plan: upgradeModal.plan,
+        email: user.email,
+      });
+      window.location.href = data.authorization_url;
+    } catch (err) {
+      setUpgradeMsg({ text: err.response?.data?.detail ?? "Paystack initialization failed", type: "error" });
+      setUpgrading(false);
+    }
+  };
+
+  const handleDowngradeToFree = async () => {
+    if (!window.confirm("Downgrade to the Free plan? Your current plan features will be removed at end of billing cycle.")) return;
+    setUpgrading(true);
+    try {
+      await api.post("/api/subscriptions/upgrade/free");
+      setUpgradeMsg({ text: "Downgraded to Free plan", type: "success" });
+      await refreshPlan();
+      setUpgradeModal(null);
+    } catch (err) {
+      setUpgradeMsg({ text: err.response?.data?.detail ?? "Downgrade failed", type: "error" });
+    } finally {
+      setUpgrading(false);
+    }
+  };
+
+  // Auto-verify Paystack redirect after payment
   useEffect(() => {
+    const subRef = searchParams.get("sub_ref");
+    if (!subRef) return;
+    setSearchParams({}, { replace: true }); // clear the param
+    api.get(`/api/subscriptions/upgrade/paystack/verify/${subRef}`)
+      .then(({ data }) => {
+        if (data.status === "success") {
+          setUpgradeMsg({ text: `🎉 ${data.message}`, type: "success" });
+          refreshPlan();
+        } else {
+          setUpgradeMsg({ text: "Payment was not completed. Please try again.", type: "error" });
+        }
+      })
+      .catch(() => setUpgradeMsg({ text: "Could not verify payment. Contact support if charged.", type: "error" }));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    refreshPlan();
     getOrganization()
       .then(({ data }) => {
         const d = data.data;
@@ -312,6 +398,221 @@ export default function Settings() {
   return (
     <div className="p-4 md:p-6 max-w-2xl mx-auto space-y-5">
       <h1 className="text-xl font-bold text-gray-900">Settings</h1>
+
+      {/* Plan & Billing */}
+      <Section title="Plan &amp; Billing" icon={Zap}>
+        {planInfo ? (
+          <div className="space-y-4">
+            {upgradeMsg.text && (
+              <div className={`text-sm px-3 py-2 rounded-lg ${upgradeMsg.type === "error" ? "bg-red-50 text-red-700" : "bg-green-50 text-green-700"}`}>
+                {upgradeMsg.text}
+              </div>
+            )}
+            {/* Trial callout */}
+            {planInfo.is_trial && planInfo.trial_ends_at && (() => {
+              const daysLeft = Math.max(0, Math.ceil((new Date(planInfo.trial_ends_at) - Date.now()) / 86400000));
+              const urgent = daysLeft <= 3;
+              return (
+                <div className={`rounded-lg px-4 py-3 flex items-start gap-3 ${urgent ? "bg-red-50 border border-red-200" : "bg-blue-50 border border-blue-200"}`}>
+                  <Zap size={16} className={`mt-0.5 flex-shrink-0 ${urgent ? "text-red-600" : "text-blue-600"}`} />
+                  <div>
+                    <p className={`text-sm font-semibold ${urgent ? "text-red-700" : "text-blue-700"}`}>
+                      {daysLeft === 0 ? "Trial ends today!" : `${daysLeft} day${daysLeft === 1 ? "" : "s"} left on your free trial`}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      Trial expires {new Date(planInfo.trial_ends_at).toLocaleDateString("en-KE", { day: "numeric", month: "long", year: "numeric" })}.
+                      {" "}Pay below to keep your {planInfo.plan} features.
+                    </p>
+                  </div>
+                </div>
+              );
+            })()}
+
+            <div className="flex items-center gap-3 flex-wrap">
+              <div>
+                <p className="text-xs text-gray-400 uppercase tracking-wide">Current Plan</p>
+                <div className="flex items-center gap-2">
+                  <p className="text-lg font-bold text-green-600 capitalize">{planInfo.plan}</p>
+                  {planInfo.is_trial && (
+                    <span className="text-xs bg-blue-100 text-blue-700 font-medium px-2 py-0.5 rounded-full">Trial</span>
+                  )}
+                </div>
+              </div>
+              {planInfo.pending_plan && (
+                <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full">
+                  Pending upgrade to {planInfo.pending_plan} — awaiting payment
+                </span>
+              )}
+              <div className="text-gray-200">|</div>
+              <div>
+                <p className="text-xs text-gray-400 uppercase tracking-wide">Status</p>
+                <p className="text-sm font-medium text-gray-700 capitalize">{planInfo.plan_status}</p>
+              </div>
+              {planInfo.next_billing_date && !planInfo.is_trial && (
+                <>
+                  <div className="text-gray-200">|</div>
+                  <div>
+                    <p className="text-xs text-gray-400 uppercase tracking-wide">Next billing</p>
+                    <p className="text-sm text-gray-700">{new Date(planInfo.next_billing_date).toLocaleDateString("en-KE")}</p>
+                  </div>
+                </>
+              )}
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              {[
+                { label: "Invoices this month", used: planInfo.invoices_this_month, cap: planInfo.limits?.invoices_per_month },
+                { label: "Quotations this month", used: planInfo.quotations_this_month, cap: planInfo.limits?.quotations_per_month },
+                { label: "OCR scans this month", used: planInfo.ocr_scans_this_month, cap: planInfo.limits?.ocr_scans_per_month },
+              ].map(({ label, used, cap }) => (
+                <div key={label} className="bg-gray-50 rounded-lg p-3">
+                  <p className="text-xs text-gray-500 mb-1">{label}</p>
+                  <p className="text-lg font-bold text-gray-900">{used}<span className="text-xs text-gray-400 font-normal"> / {cap === -1 ? "∞" : cap}</span></p>
+                  {cap !== -1 && (
+                    <div className="h-1.5 bg-gray-200 rounded-full mt-1.5 overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all ${used / cap > 0.9 ? "bg-red-500" : used / cap > 0.7 ? "bg-yellow-400" : "bg-green-500"}`}
+                        style={{ width: `${Math.min(100, (used / cap) * 100)}%` }}
+                      />
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+            {planInfo.plan !== "premium" && (
+              <div>
+                <p className="text-sm font-medium text-gray-700 mb-2">
+                  {planInfo.is_trial ? `Activate your ${planInfo.plan} plan` : "Upgrade your plan"}
+                </p>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {[
+                    { id: "starter", label: "Starter", price: 1500 },
+                    { id: "business", label: "Business", price: 3000 },
+                    { id: "premium", label: "Premium", price: 5500 },
+                  ].filter((p) => planInfo.is_trial ? true : p.id !== planInfo.plan).map((p) => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => openUpgrade(p.id, p.price)}
+                      className={`rounded-lg px-3 py-2 text-left transition border ${
+                        planInfo.is_trial && p.id === planInfo.plan
+                          ? "border-green-500 bg-green-50"
+                          : "border-green-300 hover:bg-green-50"
+                      }`}
+                    >
+                      <p className="text-sm font-semibold text-green-700">
+                        {planInfo.is_trial && p.id === planInfo.plan ? `Activate ${p.label}` : p.label}
+                      </p>
+                      <p className="text-xs text-gray-500">KES {p.price.toLocaleString()}/mo</p>
+                    </button>
+                  ))}
+                </div>
+                {planInfo.plan !== "free" && (
+                  <button
+                    type="button"
+                    onClick={handleDowngradeToFree}
+                    disabled={upgrading}
+                    className="mt-2 text-xs text-gray-400 hover:text-gray-600 underline"
+                  >
+                    Downgrade to Free
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="text-sm text-gray-400">Loading plan info…</div>
+        )}
+      </Section>
+
+      {/* Upgrade payment modal */}
+      {upgradeModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-bold text-gray-900">
+                Upgrade to {upgradeModal.plan.charAt(0).toUpperCase() + upgradeModal.plan.slice(1)}
+              </h2>
+              <button onClick={() => setUpgradeModal(null)} className="text-gray-400 hover:text-gray-600"><X size={18} /></button>
+            </div>
+            <p className="text-sm text-gray-500">
+              KES {upgradeModal.price.toLocaleString()} / month — billed monthly
+            </p>
+
+            {upgradeMsg.text && (
+              <div className={`text-sm px-3 py-2 rounded-lg ${upgradeMsg.type === "error" ? "bg-red-50 text-red-700" : "bg-green-50 text-green-700"}`}>
+                {upgradeMsg.text}
+              </div>
+            )}
+
+            {/* Payment method tabs */}
+            <div className="flex rounded-lg border border-gray-200 overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setPayMethod("mpesa")}
+                className={`flex-1 py-2 text-sm font-medium flex items-center justify-center gap-1.5 transition ${payMethod === "mpesa" ? "bg-green-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
+              >
+                <Smartphone size={14} /> M-Pesa
+              </button>
+              <button
+                type="button"
+                onClick={() => setPayMethod("card")}
+                className={`flex-1 py-2 text-sm font-medium flex items-center justify-center gap-1.5 transition ${payMethod === "card" ? "bg-green-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
+              >
+                <CreditCard size={14} /> Card
+              </button>
+            </div>
+
+            {payMethod === "mpesa" && (
+              <div className="space-y-3">
+                <div>
+                  <label className="label">M-Pesa Phone Number</label>
+                  <div className="relative">
+                    <Phone size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <input
+                      className="input pl-8"
+                      type="tel"
+                      placeholder="254700000000"
+                      value={mpesaPhone}
+                      onChange={(e) => setMpesaPhone(e.target.value)}
+                    />
+                  </div>
+                  <p className="text-xs text-gray-400 mt-1">Format: 254XXXXXXXXX (no +)</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleMpesaUpgrade}
+                  disabled={upgrading}
+                  className="btn-primary w-full justify-center"
+                >
+                  {upgrading ? "Sending STK Push…" : `Pay KES ${upgradeModal.price.toLocaleString()} via M-Pesa`}
+                </button>
+                <p className="text-xs text-gray-400 text-center">
+                  A payment request will be sent to your phone. Approve it to activate your plan.
+                </p>
+              </div>
+            )}
+
+            {payMethod === "card" && (
+              <div className="space-y-3">
+                <p className="text-sm text-gray-600">
+                  You'll be redirected to Paystack's secure checkout to pay with Visa or Mastercard.
+                </p>
+                <button
+                  type="button"
+                  onClick={handlePaystackUpgrade}
+                  disabled={upgrading}
+                  className="btn-primary w-full justify-center"
+                >
+                  {upgrading ? "Redirecting…" : `Pay KES ${upgradeModal.price.toLocaleString()} with Card`}
+                </button>
+                <p className="text-xs text-gray-400 text-center">
+                  Secured by Paystack. You'll return here after payment.
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Business Profile */}
       <form onSubmit={handleOrgSave}>

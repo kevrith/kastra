@@ -25,7 +25,19 @@ from app.schemas.quotation import ConvertRequest, QuotationCreate, QuotationList
 from app.services.email_service import send_quotation_email
 from app.services.pdf_service import generate_pdf
 from app.utils.id_generator import next_id
+from app.utils.plan_limits import get_limits
 from app.utils.totals import calculate_totals
+
+
+def _maybe_reset_counters(org) -> None:
+    from datetime import datetime, timezone
+    now = datetime.now(timezone.utc)
+    reset_at = org.counters_reset_at
+    if reset_at is None or (now.year > reset_at.year or now.month > reset_at.month):
+        org.invoices_this_month = 0
+        org.quotations_this_month = 0
+        org.ocr_scans_this_month = 0
+        org.counters_reset_at = now
 
 logger = logging.getLogger(__name__)
 
@@ -98,6 +110,19 @@ async def create_quotation(
     if not client or client.organization_id != current_user.organization_id:
         raise HTTPException(status_code=404, detail="Client not found")
 
+    # Enforce plan quotation limit
+    org_result = await db.execute(select(Organization).where(Organization.id == current_user.organization_id))
+    org = org_result.scalar_one_or_none()
+    if org:
+        limits = get_limits(org.plan)
+        _maybe_reset_counters(org)
+        cap = limits["quotations_per_month"]
+        if cap != -1 and org.quotations_this_month >= cap:
+            raise HTTPException(
+                status_code=402,
+                detail=f"Quotation limit reached ({cap}/month on {org.plan} plan). Upgrade to create more.",
+            )
+
     qt_id = await next_id(db, "quotation", current_user.organization_id)
     totals = calculate_totals(payload.items, payload.charges, payload.discount_pct, payload.wht_pct)
 
@@ -136,6 +161,9 @@ async def create_quotation(
             vat_exempt=charge.vat_exempt,
             sort_order=charge.sort_order if charge.sort_order else i,
         ))
+
+    if org:
+        org.quotations_this_month += 1
 
     await db.flush()
     result = await db.execute(

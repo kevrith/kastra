@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime, timedelta, timezone
 
 import httpx
 from sqlalchemy import select
@@ -8,6 +9,7 @@ from sqlalchemy.orm import selectinload
 from app.config import settings
 from app.models.organization import Organization
 from app.models.user import User
+from app.utils.plan_limits import VALID_PLANS
 from app.utils.security import hash_password, verify_password
 
 
@@ -23,8 +25,21 @@ async def create_user_with_org(
     display_name: str,
     business_name: str,
     role: str = "admin",
+    plan: str = "free",
 ) -> User:
-    org = Organization(name=business_name)
+    now = datetime.now(timezone.utc)
+    chosen_plan = plan if plan in VALID_PLANS else "free"
+    is_trial = chosen_plan != "free"
+    trial_ends_at = now + timedelta(days=14) if is_trial else None
+    org = Organization(
+        name=business_name,
+        plan=chosen_plan,
+        plan_status="active",
+        billing_cycle_start=now,
+        counters_reset_at=now,
+        is_trial=is_trial,
+        trial_ends_at=trial_ends_at,
+    )
     db.add(org)
     await db.flush()
 
@@ -96,7 +111,14 @@ async def get_or_create_google_user(db: AsyncSession, google_info: dict) -> User
         user.google_id = google_id
         return user
 
-    org = Organization(name=display_name)
+    now = datetime.now(timezone.utc)
+    org = Organization(
+        name=display_name,
+        plan="free",
+        plan_status="active",
+        billing_cycle_start=now,
+        counters_reset_at=now,
+    )
     db.add(org)
     await db.flush()
 

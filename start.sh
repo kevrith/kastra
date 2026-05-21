@@ -56,6 +56,13 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8080 \
   --log-level info 2>&1 | sed "s/^/$(echo -e "${BLUE}[backend]${NC}") /" &
 BACKEND_PID=$!
 
+# Wait for backend to accept connections before starting frontend
+echo -e "${BLUE}[backend]${NC} Waiting for API to be ready..."
+until curl -sf http://localhost:8080/health > /dev/null 2>&1; do
+  sleep 0.5
+done
+echo -e "${BLUE}[backend]${NC} API is ready."
+
 # ── Frontend ───────────────────────────────────────────────────
 echo -e "${BLUE}[frontend]${NC} Starting Vite..."
 

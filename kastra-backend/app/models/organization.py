@@ -35,6 +35,21 @@ class Organization(Base):
     etims_branch_id: Mapped[str | None] = mapped_column(String(10), nullable=True)
     etims_device_serial: Mapped[str | None] = mapped_column(String(50), nullable=True)
     etims_auth_token: Mapped[str | None] = mapped_column(String(255), nullable=True)
+
+    # Subscription / plan
+    plan: Mapped[str] = mapped_column(String(20), nullable=False, default="free")
+    plan_status: Mapped[str] = mapped_column(String(20), nullable=False, default="active")  # active | suspended | cancelled
+    billing_cycle_start: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    next_billing_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    invoices_this_month: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    quotations_this_month: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    ocr_scans_this_month: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    counters_reset_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    pending_plan: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    sub_mpesa_checkout_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    is_trial: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    trial_ends_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
