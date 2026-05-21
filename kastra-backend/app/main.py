@@ -71,10 +71,47 @@ async def lifespan(app: FastAPI):
                 environment=settings.environment,
                 integrations=[StarletteIntegration(), FastApiIntegration()],
                 traces_sample_rate=0.2,
-                send_default_pii=False,  # DPA compliance — no PII in error reports
+                send_default_pii=False,
             )
         except ImportError:
             pass
+
+    # Backfill products from existing quotation/invoice items (idempotent upsert)
+    try:
+        from app.database import AsyncSessionLocal
+        from app.models.product import Product
+        from sqlalchemy import text
+        from sqlalchemy.dialects.postgresql import insert as pg_insert
+        import uuid as _uuid
+        from decimal import Decimal as _Decimal
+
+        async with AsyncSessionLocal() as db:
+            rows = (await db.execute(text("""
+                SELECT description, unit_price, organization_id FROM (
+                    SELECT qi.description, qi.unit_price, q.organization_id
+                    FROM quotation_items qi JOIN quotations q ON q.id = qi.quotation_id
+                    UNION ALL
+                    SELECT ii.description, ii.unit_price, i.organization_id
+                    FROM invoice_items ii JOIN invoices i ON i.id = ii.invoice_id
+                ) src
+            """))).all()
+            catalog: dict[tuple, _Decimal] = {}
+            for desc, price, org_id in rows:
+                catalog[(str(org_id), desc)] = _Decimal(str(price))
+            for (org_id, name), unit_price in catalog.items():
+                await db.execute(
+                    pg_insert(Product).values(
+                        id=_uuid.uuid4(), organization_id=org_id,
+                        name=name, unit_price=unit_price,
+                    ).on_conflict_do_update(
+                        index_elements=["organization_id", "name"],
+                        set_={"unit_price": unit_price},
+                    )
+                )
+            await db.commit()
+            logger.info("Products backfill: %d entries synced", len(catalog))
+    except Exception:
+        logger.exception("Products backfill failed (non-fatal)")
 
     start_scheduler()
     yield
