@@ -66,7 +66,7 @@ class QuotationCreate(BaseModel):
     expires_at: datetime | None = None
     discount_pct: Decimal = Decimal("0")
     wht_pct: Decimal = Decimal("0")
-    status: str = "pending"
+    status: str = "draft"
 
     @field_validator("status")
     @classmethod

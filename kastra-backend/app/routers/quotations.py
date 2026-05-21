@@ -229,7 +229,7 @@ async def update_quotation(
     qt = result.scalar_one_or_none()
     if not qt:
         raise HTTPException(status_code=404, detail="Quotation not found")
-    if qt.status not in ("draft", "pending", "declined"):
+    if qt.status not in ("draft", "pending"):
         raise HTTPException(status_code=400, detail="Cannot edit an accepted or converted quotation")
 
     if payload.client_id:
@@ -242,9 +242,6 @@ async def update_quotation(
         qt.discount_pct = payload.discount_pct
     if payload.wht_pct is not None:
         qt.wht_pct = payload.wht_pct
-    if qt.status == "declined":
-        qt.status = "draft"
-        qt.decline_reason = None
 
     # Determine current items/charges for recalculation
     new_items = payload.items
@@ -336,7 +333,7 @@ async def convert_to_invoice(
     qt = result.scalar_one_or_none()
     if not qt:
         raise HTTPException(status_code=404, detail="Quotation not found")
-    if qt.status != "accepted":
+    if qt.status != "accepted" or qt.converted_to_invoice:
         raise HTTPException(status_code=400, detail="Only accepted quotations can be converted")
 
     await db.refresh(current_user, ["organization"])
