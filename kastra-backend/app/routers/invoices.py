@@ -1,30 +1,61 @@
+import asyncio
+import logging
 import math
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+from decimal import Decimal
 from sqlalchemy import and_
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.responses import Response as RawResponse
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 
+from app.config import settings
 from app.database import get_db
 from app.dependencies import get_current_user
-from app.models.invoice import Invoice, PaymentDetail
+from app.models.client import Client
+from app.models.client_price import ClientPrice
+from app.models.invoice import Invoice, InvoiceCharge, InvoiceItem, PaymentDetail
 from app.models.organization import Organization
 from app.models.user import User
 from app.schemas.common import MessageResponse, Meta, PaginatedResponse, Response
-from app.schemas.invoice import EtimsSubmitRequest, InvoiceListOut, InvoiceOut, MarkPaidRequest, MpesaPayRequest
-from app.config import settings
+from app.schemas.invoice import EtimsSubmitRequest, InvoiceCreate, InvoiceListOut, InvoiceOut, MarkPaidRequest, MpesaPayRequest
+from app.schemas.organization import OrganizationOut
 from app.services.email_service import send_invoice_email
 from app.services.etims_service import submit_to_kra, verification_url
 from app.services.mpesa_service import initiate_stk_push
+from app.services.pdf_service import generate_pdf
+from app.services.sms_service import sms_invoice_sent
+from app.utils.id_generator import next_id
+from app.utils.totals import calculate_totals
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/invoices", tags=["invoices"])
+
+VAT_RATE = Decimal("0.16")
+
+
+async def _upsert_client_price(db: AsyncSession, org_id, client_id, description: str, unit_price: Decimal):
+    stmt = pg_insert(ClientPrice).values(
+        organization_id=org_id,
+        client_id=client_id,
+        description=description,
+        unit_price=unit_price,
+    ).on_conflict_do_update(
+        index_elements=["organization_id", "client_id", "description"],
+        set_={"unit_price": unit_price},
+    )
+    await db.execute(stmt)
+
 
 _load_full = (
     selectinload(Invoice.client),
     selectinload(Invoice.items),
+    selectinload(Invoice.charges),
     selectinload(Invoice.payment_detail),
 )
 
@@ -35,6 +66,7 @@ async def list_invoices(
     limit: int = Query(20, ge=1, le=100),
     payment_status: str | None = Query(None),
     client_id: uuid.UUID | None = Query(None),
+    quotation_id: str | None = Query(None),
     overdue: bool | None = Query(None),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -46,6 +78,8 @@ async def list_invoices(
         q = q.where(Invoice.payment_status == payment_status)
     if client_id:
         q = q.where(Invoice.client_id == client_id)
+    if quotation_id:
+        q = q.where(Invoice.quotation_id == quotation_id)
     if overdue is True:
         q = q.where(and_(
             Invoice.payment_status == "unpaid",
@@ -64,6 +98,69 @@ async def list_invoices(
         data=rows,
         meta=Meta(page=page, limit=limit, total=total, pages=math.ceil(total / limit)),
     )
+
+
+@router.post("", response_model=Response[InvoiceOut], status_code=status.HTTP_201_CREATED)
+async def create_invoice(
+    payload: InvoiceCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    client = await db.get(Client, payload.client_id)
+    if not client or client.organization_id != current_user.organization_id:
+        raise HTTPException(status_code=404, detail="Client not found")
+
+    org_result = await db.execute(select(Organization).where(Organization.id == current_user.organization_id))
+    org = org_result.scalar_one_or_none()
+
+    due_date = payload.due_date
+    if due_date is None and org:
+        due_date = datetime.now(timezone.utc) + timedelta(days=org.payment_terms_days)
+
+    totals = calculate_totals(payload.items, payload.charges, payload.discount_pct, payload.wht_pct)
+
+    inv_id = await next_id(db, "invoice", current_user.organization_id)
+    invoice = Invoice(
+        id=inv_id,
+        organization_id=current_user.organization_id,
+        client_id=payload.client_id,
+        lpo_number=payload.lpo_number,
+        discount_pct=payload.discount_pct,
+        wht_pct=payload.wht_pct,
+        deposit_amount=payload.deposit_amount,
+        due_date=due_date,
+        **totals,
+    )
+    db.add(invoice)
+
+    for i, item in enumerate(payload.items):
+        line_total = Decimal(str(item.quantity)) * Decimal(str(item.unit_price))
+        db.add(InvoiceItem(
+            invoice_id=inv_id,
+            description=item.description,
+            quantity=item.quantity,
+            unit_price=item.unit_price,
+            line_total=line_total,
+            discount_pct=item.discount_pct,
+            vat_exempt=item.vat_exempt,
+            sort_order=item.sort_order if item.sort_order else i,
+        ))
+        await _upsert_client_price(db, current_user.organization_id, payload.client_id, item.description, Decimal(str(item.unit_price)))
+
+    for i, charge in enumerate(payload.charges):
+        db.add(InvoiceCharge(
+            invoice_id=inv_id,
+            description=charge.description,
+            amount=charge.amount,
+            vat_exempt=charge.vat_exempt,
+            sort_order=charge.sort_order if charge.sort_order else i,
+        ))
+
+    await db.flush()
+    result = await db.execute(
+        select(Invoice).where(Invoice.id == inv_id).options(*_load_full)
+    )
+    return Response(data=result.scalar_one())
 
 
 @router.get("/{invoice_id}", response_model=Response[InvoiceOut])
@@ -171,7 +268,7 @@ async def etims_submit(
         raise HTTPException(status_code=400, detail="eTIMS credentials incomplete. Add Device Serial and Auth Token in Settings.")
 
     try:
-        inv = await submit_to_kra(db, invoice_id, org)
+        await submit_to_kra(db, invoice_id, org)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -187,12 +284,12 @@ async def email_invoice(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Send the invoice to the client by email."""
+    """Send the invoice to the client by email with a PDF attachment."""
     result = await db.execute(
         select(Invoice).where(
             Invoice.id == invoice_id,
             Invoice.organization_id == current_user.organization_id,
-        ).options(selectinload(Invoice.client), selectinload(Invoice.organization))
+        ).options(selectinload(Invoice.client), selectinload(Invoice.organization), selectinload(Invoice.items))
     )
     inv = result.scalar_one_or_none()
     if not inv:
@@ -200,18 +297,34 @@ async def email_invoice(
     if not inv.client or not inv.client.email:
         raise HTTPException(status_code=400, detail="Client has no email address")
 
-    from app.models.organization import Organization
     org_res = await db.execute(select(Organization).where(Organization.id == current_user.organization_id))
     org = org_res.scalar_one_or_none()
+    biz_name = org.name if org else "Business"
+
+    doc = InvoiceOut.model_validate(inv).model_dump(mode="json")
+    org_data = OrganizationOut.model_validate(org).model_dump(mode="json") if org else {}
+    try:
+        pdf_bytes = await generate_pdf("invoice", doc, org_data)
+    except Exception:
+        logger.exception("PDF generation failed for invoice email %s", inv.id)
+        pdf_bytes = None
 
     await send_invoice_email(
         client_email=inv.client.email,
         client_name=inv.client.name,
         invoice_id=inv.id,
         amount=float(inv.grand_total),
-        business_name=org.name if org else "Business",
+        business_name=biz_name,
         due_date=inv.due_date.strftime("%d %b %Y") if inv.due_date else None,
+        pdf_bytes=pdf_bytes,
     )
+    asyncio.ensure_future(sms_invoice_sent(
+        client_phone=inv.client.phone if inv.client else None,
+        client_name=inv.client.name,
+        invoice_id=inv.id,
+        amount=float(inv.grand_total),
+        business_name=biz_name,
+    ))
     return MessageResponse(message="Invoice emailed to client")
 
 
@@ -242,3 +355,34 @@ async def send_reminder(
     inv.reminders_sent += 1
 
     return MessageResponse(message=whatsapp_url)
+
+
+@router.get("/{invoice_id}/pdf")
+async def download_invoice_pdf(
+    invoice_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Generate and return invoice as a PDF file."""
+    result = await db.execute(
+        select(Invoice).where(
+            Invoice.id == invoice_id,
+            Invoice.organization_id == current_user.organization_id,
+        ).options(*_load_full)
+    )
+    inv = result.scalar_one_or_none()
+    if not inv:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+
+    org_result = await db.execute(select(Organization).where(Organization.id == current_user.organization_id))
+    org = org_result.scalar_one_or_none()
+
+    doc = InvoiceOut.model_validate(inv).model_dump(mode="json")
+    org_data = OrganizationOut.model_validate(org).model_dump(mode="json") if org else {}
+
+    pdf_bytes = await generate_pdf("invoice", doc, org_data)
+    return RawResponse(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{invoice_id}.pdf"'},
+    )

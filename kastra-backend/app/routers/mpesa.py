@@ -1,3 +1,5 @@
+import asyncio
+import logging
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -13,6 +15,11 @@ from app.models.notification import Notification
 from app.models.organization import Organization
 from app.services.audit_service import log_action
 from app.services.email_service import send_payment_received_email, send_receipt_email
+from app.services.payment_events import publish as publish_payment_event
+from app.services.pdf_service import generate_pdf
+from app.services.sms_service import sms_payment_received
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/mpesa", tags=["mpesa"])
 
@@ -110,8 +117,16 @@ async def mpesa_callback(request: Request, db: AsyncSession = Depends(get_db)):
             organization_id=str(invoice.organization_id),
         )
 
-        import asyncio
+        # Commit before notifying SSE subscribers so they see the updated status
+        await db.commit()
+        await publish_payment_event(invoice.id, {
+            "payment_status": invoice.payment_status,
+            "amount_paid": float(invoice.amount_paid),
+            "receipt": receipt_number,
+        })
+
         org_email = invoice.organization.email if invoice.organization else None
+        biz_name = invoice.organization.name if invoice.organization else "Business"
 
         if org_email:
             asyncio.ensure_future(send_payment_received_email(
@@ -121,14 +136,38 @@ async def mpesa_callback(request: Request, db: AsyncSession = Depends(get_db)):
                 client_name=client_name,
                 receipt_number=receipt_number or None,
             ))
+
         if client_email:
-            asyncio.ensure_future(send_receipt_email(
-                client_email=client_email,
-                client_name=client_name,
-                invoice_id=invoice.id,
-                amount_paid=paid_amount,
-                business_name=invoice.organization.name if invoice.organization else "Business",
-                receipt_ref=receipt_number or None,
-            ))
+            from app.schemas.invoice import InvoiceOut
+            from app.schemas.organization import OrganizationOut
+            _doc = InvoiceOut.model_validate(invoice).model_dump(mode="json")
+            _org = OrganizationOut.model_validate(invoice.organization).model_dump(mode="json") if invoice.organization else {}
+            _inv_id = invoice.id
+
+            async def _send_receipt_with_pdf():
+                try:
+                    pdf = await generate_pdf("invoice", _doc, _org)
+                except Exception:
+                    logger.exception("PDF generation failed for M-Pesa receipt %s", _inv_id)
+                    pdf = None
+                await send_receipt_email(
+                    client_email=client_email,
+                    client_name=client_name,
+                    invoice_id=_inv_id,
+                    amount_paid=paid_amount,
+                    business_name=biz_name,
+                    receipt_ref=receipt_number or None,
+                    pdf_bytes=pdf,
+                )
+            asyncio.ensure_future(_send_receipt_with_pdf())
+
+        asyncio.ensure_future(sms_payment_received(
+            client_phone=invoice.client.phone if invoice.client else None,
+            client_name=client_name,
+            invoice_id=invoice.id,
+            amount=paid_amount,
+            business_name=biz_name,
+            receipt=receipt_number or None,
+        ))
 
     return {"ResultCode": 0, "ResultDesc": "Accepted"}

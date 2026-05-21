@@ -109,6 +109,9 @@ export default function ExecutiveTemplate({ org, doc, type }) {
             {isInvoice && doc.quotation_id && (
               <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>Ref: {doc.quotation_id}</div>
             )}
+            {isInvoice && doc.lpo_number && (
+              <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>LPO: {doc.lpo_number}</div>
+            )}
           </div>
         </div>
       </div>
@@ -144,20 +147,57 @@ export default function ExecutiveTemplate({ org, doc, type }) {
 
         <ItemsTable items={doc.items} />
 
+        {doc.charges?.length > 0 && (
+          <div style={{ marginBottom: 14 }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 6 }}>Other Charges</div>
+            {doc.charges.map((c, i) => (
+              <div key={c.id ?? i} style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", fontSize: 12, color: SLATE, borderBottom: "1px solid #f1f5f9" }}>
+                <span>{c.description}</span><span>{ksh(c.amount)}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* Totals */}
         <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 28 }}>
-          <div style={{ width: 240, border: "1px solid #e2e8f0", borderRadius: 8, overflow: "hidden" }}>
+          <div style={{ width: 270, border: "1px solid #e2e8f0", borderRadius: 8, overflow: "hidden" }}>
             <div style={{ display: "flex", justifyContent: "space-between", padding: "9px 16px", background: "#f8fafc", color: SLATE }}>
-              <span>Subtotal</span><span>{ksh(doc.subtotal)}</span>
+              <span>Items subtotal</span><span>{ksh(doc.subtotal)}</span>
             </div>
+            {Number(doc.total_discount) > 0 && (
+              <div style={{ display: "flex", justifyContent: "space-between", padding: "9px 16px", color: "#dc2626", borderTop: "1px solid #e2e8f0" }}>
+                <span>Total discount</span><span>− {ksh(doc.total_discount)}</span>
+              </div>
+            )}
+            {Number(doc.charges_total) > 0 && (
+              <div style={{ display: "flex", justifyContent: "space-between", padding: "9px 16px", color: SLATE, borderTop: "1px solid #e2e8f0" }}>
+                <span>Other charges</span><span>{ksh(doc.charges_total)}</span>
+              </div>
+            )}
             {Number(doc.vat_amount) > 0 && (
               <div style={{ display: "flex", justifyContent: "space-between", padding: "9px 16px", color: SLATE, borderTop: "1px solid #e2e8f0" }}>
                 <span>VAT (16%)</span><span>{ksh(doc.vat_amount)}</span>
               </div>
             )}
             <div style={{ display: "flex", justifyContent: "space-between", padding: "12px 16px", background: DARK2, color: "#fff", fontWeight: 700, fontSize: 15, borderTop: "1px solid #e2e8f0" }}>
-              <span>Total Due</span><span style={{ color: ACCENT }}>{ksh(doc.grand_total)}</span>
+              <span>Grand Total</span><span style={{ color: ACCENT }}>{ksh(doc.grand_total)}</span>
             </div>
+            {Number(doc.wht_amount) > 0 && (
+              <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 16px", background: "#fffbeb", color: "#92400e", fontSize: 11, borderTop: "1px solid #fde68a" }}>
+                <span>WHT ({doc.wht_pct}%) — deducted by client</span><span>− {ksh(doc.wht_amount)}</span>
+              </div>
+            )}
+            {isInvoice && Number(doc.deposit_amount) > 0 && (
+              <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 16px", background: "#f0fdf4", color: "#15803d", fontSize: 11, borderTop: "1px solid #bbf7d0" }}>
+                <span>Deposit received</span><span>− {ksh(doc.deposit_amount)}</span>
+              </div>
+            )}
+            {(Number(doc.wht_amount) > 0 || (isInvoice && Number(doc.deposit_amount) > 0)) && (
+              <div style={{ display: "flex", justifyContent: "space-between", padding: "12px 16px", background: DARK2, color: "#fff", fontWeight: 700, fontSize: 14, borderTop: "2px solid #475569" }}>
+                <span>Amount Payable</span>
+                <span style={{ color: ACCENT }}>{ksh(Number(doc.grand_total) - Number(doc.wht_amount) - (isInvoice ? Number(doc.deposit_amount) : 0))}</span>
+              </div>
+            )}
             {isInvoice && isPartial && (
               <>
                 <div style={{ display: "flex", justifyContent: "space-between", padding: "9px 16px", background: "#f0fdf4", color: "#15803d", fontSize: 13, borderTop: "1px solid #bbf7d0" }}>

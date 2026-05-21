@@ -540,14 +540,48 @@ export default function InvoiceDetail() {
             ))}
           </tbody>
         </table>
+        {invoice.charges?.length > 0 && (
+          <div className="px-4 py-2 border-t border-gray-100">
+            <p className="text-xs text-gray-400 uppercase tracking-wide mb-1.5">Other Charges</p>
+            {invoice.charges.map((c) => (
+              <div key={c.id} className="flex justify-between text-sm text-gray-600 py-0.5">
+                <span>{c.description}</span><span>{ksh(c.amount)}</span>
+              </div>
+            ))}
+          </div>
+        )}
         <div className="px-4 py-3 border-t border-gray-100 space-y-1.5 text-sm">
-          <div className="flex justify-between text-gray-600"><span>Subtotal</span><span>{ksh(invoice.subtotal)}</span></div>
+          <div className="flex justify-between text-gray-600"><span>Items subtotal</span><span>{ksh(invoice.subtotal)}</span></div>
+          {Number(invoice.total_discount) > 0 && (
+            <div className="flex justify-between text-red-500"><span>Total discount</span><span>− {ksh(invoice.total_discount)}</span></div>
+          )}
+          {Number(invoice.charges_total) > 0 && (
+            <div className="flex justify-between text-gray-600"><span>Other charges</span><span>{ksh(invoice.charges_total)}</span></div>
+          )}
           {Number(invoice.vat_amount) > 0 && (
             <div className="flex justify-between text-gray-600"><span>VAT (16%)</span><span>{ksh(invoice.vat_amount)}</span></div>
           )}
           <div className="flex justify-between font-bold text-gray-900 text-base border-t pt-2">
             <span>Grand Total</span><span>{ksh(invoice.grand_total)}</span>
           </div>
+          {Number(invoice.wht_amount) > 0 && (
+            <div className="flex justify-between text-amber-600 text-xs">
+              <span>WHT ({invoice.wht_pct}%) — deducted by client</span>
+              <span>− {ksh(invoice.wht_amount)}</span>
+            </div>
+          )}
+          {Number(invoice.deposit_amount) > 0 && (
+            <div className="flex justify-between text-green-600 text-xs">
+              <span>Deposit received</span>
+              <span>− {ksh(invoice.deposit_amount)}</span>
+            </div>
+          )}
+          {(Number(invoice.wht_amount) > 0 || Number(invoice.deposit_amount) > 0) && (
+            <div className="flex justify-between font-bold text-gray-900 border-t pt-2">
+              <span>Amount Payable</span>
+              <span>{ksh(Number(invoice.grand_total) - Number(invoice.wht_amount) - Number(invoice.deposit_amount))}</span>
+            </div>
+          )}
         </div>
       </div>
 

@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{ doc_type | title }} {{ doc.id }}</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    font-size: 13px;
+    color: #1f2937;
+    background: #fff;
+    line-height: 1.55;
+  }
+  .page {
+    padding: 44px 52px;
+    max-width: 700px;
+    margin: 0 auto;
+    min-height: 900px;
+  }
+  @page { size: A4; margin: 10mm 12mm; }
+
+  /* Header */
+  .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 32px; }
+  .header-left { display: flex; align-items: flex-start; gap: 14px; }
+  .logo-box {
+    width: 56px; height: 56px; border-radius: 8px;
+    border: 2px solid #16a34a; background: #f0fdf4;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 21px; font-weight: 700; color: #16a34a;
+    flex-shrink: 0;
+  }
+  .logo-box img { width: 56px; height: 56px; object-fit: contain; border-radius: 8px; }
+  .org-name { font-size: 20px; font-weight: 700; color: #16a34a; letter-spacing: -0.5px; }
+  .org-detail { font-size: 11px; color: #6b7280; margin-top: 2px; }
+  .header-right { text-align: right; }
+  .doc-label { font-size: 11px; color: #9ca3af; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 4px; }
+  .doc-id { font-size: 24px; font-weight: 800; color: #111827; letter-spacing: -0.5px; font-family: monospace; }
+  .doc-meta { font-size: 11px; color: #6b7280; margin-top: 6px; }
+  .doc-due { font-size: 11px; margin-top: 2px; font-weight: 600; }
+  .status-badge {
+    display: inline-block; margin-top: 8px; padding: 3px 12px;
+    border-radius: 20px; font-size: 10px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.8px;
+  }
+  .divider { border-top: 3px solid #16a34a; margin-bottom: 28px; }
+
+  /* Bill To */
+  .bill-to { margin-bottom: 28px; }
+  .section-label { font-size: 10px; font-weight: 700; color: #9ca3af; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 6px; }
+  .client-name { font-weight: 700; font-size: 14px; color: #111827; }
+  .client-detail { color: #4b5563; margin-top: 2px; font-size: 12px; }
+
+  /* Items table */
+  table { width: 100%; border-collapse: collapse; margin-bottom: 24px; font-size: 13px; }
+  thead tr { background: #f9fafb; border-bottom: 2px solid #16a34a; }
+  th { text-align: left; padding: 10px 12px; font-weight: 600; color: #374151; }
+  th.right, td.right { text-align: right; }
+  td { padding: 10px 12px; color: #1f2937; border-bottom: 1px solid #f3f4f6; }
+  tr:nth-child(even) td { background: #f9fafb; }
+  td.qty, td.price { color: #6b7280; }
+
+  /* Totals */
+  .totals { display: flex; justify-content: flex-end; margin-bottom: 28px; }
+  .totals-inner { width: 230px; }
+  .total-row { display: flex; justify-content: space-between; padding: 5px 0; color: #6b7280; }
+  .total-row.grand { font-weight: 800; font-size: 16px; color: #111827; margin-top: 4px; padding: 10px 0 6px; }
+  .total-row.grand span:last-child { color: #16a34a; }
+  .total-row.vat { border-bottom: 1px solid #e5e7eb; }
+  .total-row.paid-row { color: #15803d; border-top: 1px dashed #e5e7eb; margin-top: 2px; font-size: 13px; }
+  .total-row.balance-row { font-weight: 700; color: #b91c1c; font-size: 14px; }
+
+  /* Notes / payment blocks */
+  .block {
+    background: #f9fafb; border: 1px solid #e5e7eb;
+    border-radius: 8px; padding: 14px 16px; margin-bottom: 20px;
+  }
+  .block.green { background: #f0fdf4; border-color: #bbf7d0; }
+  .block.orange { background: #fff7ed; border-color: #fed7aa; }
+  .block-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
+  .block.green .block-label { color: #15803d; }
+  .block.orange .block-label { color: #c2410c; }
+  .block:not(.green):not(.orange) .block-label { color: #9ca3af; }
+  .block p { color: #4b5563; font-size: 12px; white-space: pre-line; }
+
+  /* Partial payment progress */
+  .partial-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 12px; }
+  .progress-track { background: #fee2e2; border-radius: 4px; height: 6px; overflow: hidden; }
+  .progress-fill { background: #16a34a; height: 100%; border-radius: 4px; }
+  .progress-label { font-size: 10px; color: #9a3412; margin-top: 4px; }
+
+  /* Payment detail grid */
+  .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 24px; color: #166534; font-size: 12px; }
+
+  /* eTIMS QR block */
+  .etims-block {
+    display: flex; align-items: flex-start; gap: 14px;
+    background: #f0fdf4; border: 1px solid #bbf7d0;
+    border-radius: 8px; padding: 12px 16px; margin-bottom: 20px;
+  }
+  .etims-block svg { flex-shrink: 0; }
+  .etims-label { font-size: 10px; font-weight: 700; color: #15803d; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
+  .etims-inv { font-size: 11px; color: #166534; }
+  .etims-hint { font-size: 10px; color: #4ade80; margin-top: 3px; }
+  .etims-url { font-size: 9px; color: #6b7280; margin-top: 2px; word-break: break-all; }
+
+  /* Signature */
+  .signature-wrap { display: flex; justify-content: flex-end; margin-top: 36px; margin-bottom: 8px; }
+  .signature-box { text-align: center; min-width: 220px; }
+  .signature-line { height: 40px; }
+  .signature-rule { border-top: 1.5px solid #374151; padding-top: 8px; }
+  .sig-name { font-weight: 700; font-size: 13px; color: #111827; }
+  .sig-role { font-size: 11px; color: #6b7280; margin-top: 2px; }
+
+  /* Footer */
+  .footer {
+    border-top: 1px solid #e5e7eb; margin-top: 32px; padding-top: 16px;
+    text-align: center; font-size: 11px; color: #9ca3af;
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-left">
+      <div class="logo-box">
+        {% if org.logo_url %}
+          <img src="{{ org.logo_url }}" alt="logo">
+        {% else %}
+          {{ org_initials }}
+        {% endif %}
+      </div>
+      <div>
+        <div class="org-name">{{ org.name or "Your Business" }}</div>
+        {% if org.address %}<div class="org-detail">{{ org.address }}</div>{% endif %}
+        {% if org.phone %}<div class="org-detail">{{ org.phone }}</div>{% endif %}
+        {% if org.email %}<div class="org-detail">{{ org.email }}</div>{% endif %}
+        {% if org.kra_pin %}<div class="org-detail" style="color:#9ca3af;margin-top:2px">KRA PIN: {{ org.kra_pin }}</div>{% endif %}
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="doc-label">{{ "Tax Invoice" if doc_type == "invoice" else "Quotation" }}</div>
+      <div class="doc-id">{{ doc.id }}</div>
+      <div class="doc-meta">Date: {{ doc.created_at | fmtdate }}</div>
+      {% if doc_type == "invoice" and doc.due_date %}
+        <div class="doc-due" style="color:{{ '#9ca3af' if doc.payment_status == 'paid' else '#b91c1c' }}">
+          Due: {{ doc.due_date | fmtdate }}
+        </div>
+      {% endif %}
+      {% if doc_type == "invoice" and doc.quotation_id %}
+        <div class="doc-meta">Ref: {{ doc.quotation_id }}</div>
+      {% endif %}
+      <span class="status-badge" style="background:{{ status_color.bg }};color:{{ status_color.text }}">
+        {{ status_label }}
+      </span>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- Bill To -->
+  <div class="bill-to">
+    <div class="section-label">Bill To</div>
+    <div class="client-name">{{ doc.client.name }}</div>
+    {% if doc.client.email %}<div class="client-detail">{{ doc.client.email }}</div>{% endif %}
+    {% if doc.client.phone %}<div class="client-detail">{{ doc.client.phone }}</div>{% endif %}
+    {% if doc.client.address %}<div class="client-detail">{{ doc.client.address }}</div>{% endif %}
+  </div>
+
+  <!-- Line items -->
+  <table>
+    <thead>
+      <tr>
+        <th>Description</th>
+        <th class="right" style="width:55px">Qty</th>
+        <th class="right" style="width:110px">Unit Price</th>
+        <th class="right" style="width:110px">Total</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in doc['items'] %}
+      <tr>
+        <td>{{ item.description }}</td>
+        <td class="right qty">{{ item.quantity }}</td>
+        <td class="right price">{{ item.unit_price | ksh }}</td>
+        <td class="right" style="font-weight:500">{{ item.line_total | ksh }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <!-- Totals -->
+  <div class="totals">
+    <div class="totals-inner">
+      <div class="total-row"><span>Subtotal</span><span>{{ doc.subtotal | ksh }}</span></div>
+      {% if doc.vat_amount | float > 0 %}
+      <div class="total-row vat"><span>VAT (16%)</span><span>{{ doc.vat_amount | ksh }}</span></div>
+      {% endif %}
+      <div class="total-row grand"><span>Grand Total</span><span>{{ doc.grand_total | ksh }}</span></div>
+      {% if doc_type == "invoice" and doc.payment_status == "partial" %}
+      <div class="total-row paid-row"><span>Amount Paid</span><span>{{ doc.amount_paid | ksh }}</span></div>
+      <div class="total-row balance-row"><span>Balance Due</span><span>{{ balance_due | ksh }}</span></div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Notes -->
+  {% if doc.notes %}
+  <div class="block">
+    <div class="block-label">Notes</div>
+    <p>{{ doc.notes }}</p>
+  </div>
+  {% endif %}
+
+  <!-- Partial payment details -->
+  {% if doc_type == "invoice" and doc.payment_status == "partial" %}
+  <div class="block orange">
+    <div class="block-label">Partial Payment Received</div>
+    <div class="partial-row">
+      <div style="color:#15803d"><strong>Paid:</strong> {{ doc.amount_paid | ksh }}</div>
+      <div style="color:#b91c1c"><strong>Balance:</strong> {{ balance_due | ksh }}</div>
+    </div>
+    <div class="progress-track">
+      <div class="progress-fill" style="width:{{ paid_pct }}%"></div>
+    </div>
+    <div class="progress-label">{{ paid_pct }}% paid — balance of {{ balance_due | ksh }} outstanding</div>
+  </div>
+  {% endif %}
+
+  <!-- Payment received block -->
+  {% if doc_type == "invoice" and doc.payment_detail %}
+  <div class="block green">
+    <div class="block-label">{{ "Last Payment Detail" if doc.payment_status == "partial" else "Payment Received" }}</div>
+    <div class="detail-grid">
+      <div><strong>Method:</strong> {{ doc.payment_detail.payment_method }}</div>
+      <div><strong>Date:</strong> {{ doc.payment_detail.payment_date | fmtdate }}</div>
+      {% if doc.payment_detail.mpesa_receipt_number %}
+      <div><strong>M-Pesa Ref:</strong> {{ doc.payment_detail.mpesa_receipt_number }}</div>
+      {% elif doc.payment_detail.transaction_id %}
+      <div><strong>Reference:</strong> {{ doc.payment_detail.transaction_id }}</div>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Payment instructions (unpaid/partial) -->
+  {% if doc_type == "invoice" and doc.payment_status != "paid" %}
+  <div class="block">
+    <div class="block-label">Payment Instructions</div>
+    <p style="font-size:12px">
+      {% if doc.payment_status == "partial" %}
+        Balance of <strong style="color:#b91c1c">{{ balance_due | ksh }}</strong> remaining.
+        Pay via M-Pesa, Bank Transfer, or Cash. Reference: <strong style="font-family:monospace">{{ doc.id }}</strong>
+      {% else %}
+        Pay via M-Pesa, Bank Transfer, or Cash. Use reference: <strong style="font-family:monospace">{{ doc.id }}</strong>
+      {% endif %}
+    </p>
+  </div>
+  {% endif %}
+
+  <!-- eTIMS QR -->
+  {% if doc_type == "invoice" and qr_svg %}
+  <div class="etims-block">
+    {{ qr_svg | safe }}
+    <div>
+      <div class="etims-label">KRA eTIMS Verified Receipt</div>
+      <div class="etims-inv">CU Invoice No: <strong style="font-family:monospace">{{ doc.etims_cu_invoice_no }}</strong></div>
+      <div class="etims-hint">Scan QR code to verify on KRA portal</div>
+      <div class="etims-url">https://etims.kra.go.ke/etims-portal/searchDetails/{{ doc.etims_cu_invoice_no }}</div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Signature (quotations) -->
+  {% if doc_type == "quotation" and org.authorised_by %}
+  <div class="signature-wrap">
+    <div class="signature-box">
+      <div class="signature-line"></div>
+      <div class="signature-rule">
+        <div class="sig-name">{{ org.authorised_by }}</div>
+        <div class="sig-role">Authorised Signatory</div>
+        <div class="sig-role">{{ org.name }}</div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Footer -->
+  <div class="footer">
+    <div>
+      {% if doc_type == "invoice" %}
+        This is a computer-generated tax invoice. No signature required.
+      {% else %}
+        This quotation is valid for {{ org.quotation_validity_days or 30 }} days.
+      {% endif %}
+    </div>
+    <div style="margin-top:4px">{{ org.name or "Your Business" }}</div>
+  </div>
+
+</div>
+</body>
+</html>

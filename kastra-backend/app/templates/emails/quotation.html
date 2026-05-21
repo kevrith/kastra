@@ -1,0 +1,53 @@
+{% extends "emails/base.html" %}
+
+{% block subject %}Quotation {{ quotation_id }} from {{ business_name }}{% endblock %}
+{% block brand %}{{ business_name }}{% endblock %}
+{% block heading %}Quotation {{ quotation_id }}{% endblock %}
+
+{% block content %}
+<p style="margin:0 0 16px;color:#374151;font-size:14px;line-height:1.6">Hi {{ client_name }},</p>
+<p style="margin:0 0 20px;color:#374151;font-size:14px;line-height:1.6">
+  We've prepared a quotation for you. Please review the details and let us know your decision.
+</p>
+
+<table width="100%" cellpadding="0" cellspacing="0" role="presentation"
+       style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:24px">
+  <tr>
+    <td style="padding:16px 20px">
+      <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
+        <tr>
+          <td style="font-size:13px;color:#6b7280;padding-bottom:8px">Reference</td>
+          <td align="right" style="font-size:13px;color:#111827;font-weight:600;font-family:monospace;padding-bottom:8px">{{ quotation_id }}</td>
+        </tr>
+        <tr>
+          <td style="font-size:13px;color:#6b7280;padding-bottom:{% if expires_at %}8{% else %}0{% endif %}px">Total</td>
+          <td align="right" style="font-size:16px;color:#16a34a;font-weight:700;padding-bottom:{% if expires_at %}8{% else %}0{% endif %}px">KSh {{ "{:,.2f}".format(amount) }}</td>
+        </tr>
+        {% if expires_at %}
+        <tr>
+          <td style="font-size:13px;color:#6b7280">Valid Until</td>
+          <td align="right" style="font-size:13px;color:#111827;font-weight:600">{{ expires_at }}</td>
+        </tr>
+        {% endif %}
+      </table>
+    </td>
+  </tr>
+</table>
+
+{% if has_attachment %}
+<p style="margin:0 0 20px;font-size:13px;color:#6b7280;line-height:1.5">
+  A PDF copy of this quotation is attached to this email for your records.
+</p>
+{% endif %}
+
+<p style="margin:0 0 24px">
+  <a href="{{ portal_url }}"
+     style="display:inline-block;background:#16a34a;color:#fff;padding:11px 26px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px">
+    Review Quotation
+  </a>
+</p>
+
+<p style="margin:0;font-size:11px;color:#9ca3af">
+  View online at: <a href="{{ portal_url }}" style="color:#9ca3af">{{ portal_url }}</a>
+</p>
+{% endblock %}

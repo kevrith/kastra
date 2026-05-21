@@ -28,6 +28,13 @@ class Invoice(Base):
     vat_amount: Mapped[Decimal] = mapped_column(Numeric(15, 2), nullable=False, default=0)
     grand_total: Mapped[Decimal] = mapped_column(Numeric(15, 2), nullable=False, default=0)
     due_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    lpo_number: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    discount_pct: Mapped[Decimal] = mapped_column(Numeric(5, 2), nullable=False, default=0)
+    total_discount: Mapped[Decimal] = mapped_column(Numeric(15, 2), nullable=False, default=0)
+    charges_total: Mapped[Decimal] = mapped_column(Numeric(15, 2), nullable=False, default=0)
+    wht_pct: Mapped[Decimal] = mapped_column(Numeric(5, 2), nullable=False, default=0)
+    wht_amount: Mapped[Decimal] = mapped_column(Numeric(15, 2), nullable=False, default=0)
+    deposit_amount: Mapped[Decimal] = mapped_column(Numeric(15, 2), nullable=False, default=0)
     mpesa_checkout_request_id: Mapped[str | None] = mapped_column(String(100), nullable=True, index=True)
     amount_paid: Mapped[float] = mapped_column(Numeric(15, 2), nullable=False, default=0)
     reminders_sent: Mapped[int] = mapped_column(Integer, default=0)
@@ -51,6 +58,9 @@ class Invoice(Base):
     items: Mapped[list["InvoiceItem"]] = relationship(
         back_populates="invoice", cascade="all, delete-orphan", order_by="InvoiceItem.sort_order"
     )
+    charges: Mapped[list["InvoiceCharge"]] = relationship(
+        back_populates="invoice", cascade="all, delete-orphan", order_by="InvoiceCharge.sort_order"
+    )
     payment_detail: Mapped["PaymentDetail | None"] = relationship(
         back_populates="invoice", cascade="all, delete-orphan", uselist=False
     )
@@ -71,6 +81,7 @@ class InvoiceItem(Base):
     quantity: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
     unit_price: Mapped[Decimal] = mapped_column(Numeric(15, 2), nullable=False)
     line_total: Mapped[Decimal] = mapped_column(Numeric(15, 2), nullable=False)
+    discount_pct: Mapped[Decimal] = mapped_column(Numeric(5, 2), nullable=False, default=0)
     vat_exempt: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
 
@@ -89,6 +100,20 @@ class PaymentDetail(Base):
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     invoice: Mapped["Invoice"] = relationship(back_populates="payment_detail")
+
+
+class InvoiceCharge(Base):
+    __tablename__ = "invoice_charges"
+    __table_args__ = (Index("ix_invoice_charges_invoice_id", "invoice_id"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    invoice_id: Mapped[str] = mapped_column(String(20), ForeignKey("invoices.id"), nullable=False)
+    description: Mapped[str] = mapped_column(String(200), nullable=False)
+    amount: Mapped[Decimal] = mapped_column(Numeric(15, 2), nullable=False)
+    vat_exempt: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+
+    invoice: Mapped["Invoice"] = relationship(back_populates="charges")
 
 
 class SequenceCounter(Base):

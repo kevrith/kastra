@@ -51,7 +51,7 @@ def _set_refresh_cookie(response: Response, token: str) -> None:
         value=token,
         httponly=True,
         secure=settings.is_production,
-        samesite="lax",
+        samesite="none" if settings.is_production else "lax",
         max_age=settings.refresh_token_expire_days * 86400,
     )
 

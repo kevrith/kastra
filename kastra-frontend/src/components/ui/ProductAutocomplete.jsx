@@ -1,11 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { getProducts } from "../../api/products";
 
-/**
- * A description input that shows a product dropdown when the user types.
- * When a product is selected, it calls onSelect({ description, unit_price }).
- */
-export default function ProductAutocomplete({ value, onChange, onSelect, placeholder }) {
+export default function ProductAutocomplete({ value, onChange, onSelect, placeholder, clientId }) {
   const [suggestions, setSuggestions] = useState([]);
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
@@ -18,7 +14,7 @@ export default function ProductAutocomplete({ value, onChange, onSelect, placeho
     }
     const timer = setTimeout(async () => {
       try {
-        const { data } = await getProducts(value);
+        const { data } = await getProducts(value, clientId);
         setSuggestions(data);
         setOpen(data.length > 0);
       } catch {
@@ -26,7 +22,7 @@ export default function ProductAutocomplete({ value, onChange, onSelect, placeho
       }
     }, 250);
     return () => clearTimeout(timer);
-  }, [value]);
+  }, [value, clientId]);
 
   useEffect(() => {
     const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
@@ -35,7 +31,9 @@ export default function ProductAutocomplete({ value, onChange, onSelect, placeho
   }, []);
 
   const pick = (product) => {
-    onSelect({ description: product.name, unit_price: product.unit_price });
+    // Use client-specific price if available, otherwise fall back to default
+    const price = product.client_price ?? product.unit_price;
+    onSelect({ description: product.name, unit_price: price });
     setOpen(false);
     setSuggestions([]);
   };
@@ -51,16 +49,27 @@ export default function ProductAutocomplete({ value, onChange, onSelect, placeho
       />
       {open && (
         <ul className="absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-lg max-h-52 overflow-auto text-sm">
-          {suggestions.map((p) => (
-            <li
-              key={p.id}
-              onMouseDown={() => pick(p)}
-              className="px-3 py-2 cursor-pointer hover:bg-green-50 flex items-center justify-between gap-2"
-            >
-              <span className="text-gray-800">{p.name}</span>
-              <span className="text-xs text-gray-400 shrink-0">KSh {Number(p.unit_price).toLocaleString("en-KE", { minimumFractionDigits: 2 })}</span>
-            </li>
-          ))}
+          {suggestions.map((p) => {
+            const displayPrice = p.client_price ?? p.unit_price;
+            const isClientPrice = p.client_price != null;
+            return (
+              <li
+                key={p.id}
+                onMouseDown={() => pick(p)}
+                className="px-3 py-2 cursor-pointer hover:bg-green-50 flex items-center justify-between gap-2"
+              >
+                <span className="text-gray-800">{p.name}</span>
+                <div className="text-right shrink-0">
+                  <span className={`text-xs ${isClientPrice ? "text-green-600 font-medium" : "text-gray-400"}`}>
+                    KSh {Number(displayPrice).toLocaleString("en-KE", { minimumFractionDigits: 2 })}
+                  </span>
+                  {isClientPrice && (
+                    <div className="text-[10px] text-green-500 leading-none">agreed rate</div>
+                  )}
+                </div>
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>

@@ -29,6 +29,11 @@ class Quotation(Base):
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     decline_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    discount_pct: Mapped[Decimal] = mapped_column(Numeric(5, 2), nullable=False, default=0)
+    total_discount: Mapped[Decimal] = mapped_column(Numeric(15, 2), nullable=False, default=0)
+    charges_total: Mapped[Decimal] = mapped_column(Numeric(15, 2), nullable=False, default=0)
+    wht_pct: Mapped[Decimal] = mapped_column(Numeric(5, 2), nullable=False, default=0)
+    wht_amount: Mapped[Decimal] = mapped_column(Numeric(15, 2), nullable=False, default=0)
     converted_to_invoice: Mapped[bool] = mapped_column(Boolean, default=False)
     invoice_id: Mapped[str | None] = mapped_column(String(20), ForeignKey("invoices.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
@@ -41,6 +46,9 @@ class Quotation(Base):
     created_by_user: Mapped["User"] = relationship(back_populates="quotations")  # noqa: F821
     items: Mapped[list["QuotationItem"]] = relationship(
         back_populates="quotation", cascade="all, delete-orphan", order_by="QuotationItem.sort_order"
+    )
+    charges: Mapped[list["QuotationCharge"]] = relationship(
+        back_populates="quotation", cascade="all, delete-orphan", order_by="QuotationCharge.sort_order"
     )
 
 
@@ -56,7 +64,22 @@ class QuotationItem(Base):
     quantity: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
     unit_price: Mapped[Decimal] = mapped_column(Numeric(15, 2), nullable=False)
     line_total: Mapped[Decimal] = mapped_column(Numeric(15, 2), nullable=False)
+    discount_pct: Mapped[Decimal] = mapped_column(Numeric(5, 2), nullable=False, default=0)
     vat_exempt: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
 
     quotation: Mapped["Quotation"] = relationship(back_populates="items")
+
+
+class QuotationCharge(Base):
+    __tablename__ = "quotation_charges"
+    __table_args__ = (Index("ix_quotation_charges_quotation_id", "quotation_id"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    quotation_id: Mapped[str] = mapped_column(String(20), ForeignKey("quotations.id"), nullable=False)
+    description: Mapped[str] = mapped_column(String(200), nullable=False)
+    amount: Mapped[Decimal] = mapped_column(Numeric(15, 2), nullable=False)
+    vat_exempt: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+
+    quotation: Mapped["Quotation"] = relationship(back_populates="charges")

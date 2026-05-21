@@ -15,6 +15,7 @@ import QuotationForm from "./pages/quotations/QuotationForm";
 import QuotationDetail from "./pages/quotations/QuotationDetail";
 import InvoiceList from "./pages/invoices/InvoiceList";
 import InvoiceDetail from "./pages/invoices/InvoiceDetail";
+import InvoiceCreate from "./pages/invoices/InvoiceCreate";
 import Reports from "./pages/Reports";
 import Settings from "./pages/Settings";
 import Expenses from "./pages/expenses/Expenses";
@@ -55,6 +56,7 @@ export default function App() {
             <Route path="/quotations/:id" element={<QuotationDetail />} />
             <Route path="/quotations/:id/edit" element={<QuotationForm />} />
             <Route path="/invoices" element={<InvoiceList />} />
+            <Route path="/invoices/new" element={<InvoiceCreate />} />
             <Route path="/invoices/:id" element={<InvoiceDetail />} />
             <Route path="/reports" element={<Reports />} />
             <Route path="/settings" element={<Settings />} />

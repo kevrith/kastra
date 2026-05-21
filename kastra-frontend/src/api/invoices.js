@@ -2,6 +2,7 @@ import api from "./axios";
 
 export const getInvoices = (params) => api.get("/api/invoices", { params });
 export const getInvoice = (id) => api.get(`/api/invoices/${id}`);
+export const createInvoice = (data) => api.post("/api/invoices", data);
 export const markPaid = (id, data) => api.patch(`/api/invoices/${id}/mark-paid`, data);
 export const mpesaPay = (id, phone_number) =>
   api.post(`/api/invoices/${id}/mpesa-pay`, { phone_number });

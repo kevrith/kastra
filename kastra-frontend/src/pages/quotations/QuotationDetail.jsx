@@ -2,11 +2,12 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { publicOrigin } from "../../utils/publicUrl";
 import { getQuotation, updateQuotationStatus, convertToInvoice, emailQuotation } from "../../api/quotations";
+import { getInvoices } from "../../api/invoices";
 import { getOrganization } from "../../api/organization";
 import { ksh, date, phone, statusBadgeClass } from "../../utils/formatters";
-import { ArrowLeft, Edit2, RefreshCw, MessageCircle, FileDown, Copy, Mail } from "lucide-react";
+import { ArrowLeft, Edit2, RefreshCw, MessageCircle, FileDown, Copy, Mail, Receipt } from "lucide-react";
 import Spinner from "../../components/ui/Spinner";
-import ConfirmDialog from "../../components/ui/ConfirmDialog";
+import Modal from "../../components/ui/Modal";
 import PDFPreviewModal from "../../components/ui/PDFPreviewModal";
 import QuotationDocument from "../../components/documents/QuotationDocument";
 
@@ -19,6 +20,10 @@ export default function QuotationDetail() {
   const [showConvert, setShowConvert] = useState(false);
   const [showPDF, setShowPDF] = useState(false);
   const [converting, setConverting] = useState(false);
+  const [convertError, setConvertError] = useState("");
+  const [lpoNumber, setLpoNumber] = useState("");
+  const [lpoQtys, setLpoQtys] = useState({});
+  const [relatedInvoices, setRelatedInvoices] = useState([]);
   const [linkCopied, setLinkCopied] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
 
@@ -29,6 +34,9 @@ export default function QuotationDetail() {
 
   useEffect(() => { load(); }, [id]);
   useEffect(() => { getOrganization().then(({ data }) => setOrg(data.data)).catch(() => {}); }, []);
+  useEffect(() => {
+    getInvoices({ quotation_id: id, limit: 50 }).then(({ data }) => setRelatedInvoices(data.data)).catch(() => {});
+  }, [id]);
 
   // Poll every 15s while quotation is pending — auto-update when client accepts/declines
   useEffect(() => {
@@ -47,9 +55,24 @@ export default function QuotationDetail() {
 
   const handleConvert = async () => {
     setConverting(true);
+    setConvertError("");
     try {
-      const { data } = await convertToInvoice(id);
-      navigate(`/invoices/${data.data.invoice_id}`);
+      const item_quantities = quotation.items
+        .filter((item) => lpoQtys[item.sort_order] !== undefined && lpoQtys[item.sort_order] !== String(item.quantity))
+        .map((item) => ({ sort_order: item.sort_order, quantity: parseFloat(lpoQtys[item.sort_order]) }));
+
+      const { data } = await convertToInvoice(id, {
+        lpo_number: lpoNumber || null,
+        item_quantities: item_quantities.length > 0 ? item_quantities : null,
+      });
+      const newInvId = data.data.invoice_id;
+      setShowConvert(false);
+      setLpoNumber("");
+      setLpoQtys({});
+      setRelatedInvoices((prev) => [...prev, { id: newInvId, lpo_number: lpoNumber || null }]);
+      navigate(`/invoices/${newInvId}`);
+    } catch (err) {
+      setConvertError(err.response?.data?.detail ?? "Failed to create invoice");
     } finally {
       setConverting(false);
     }
@@ -83,7 +106,7 @@ export default function QuotationDetail() {
   if (!quotation) return null;
 
   const canEdit = ["draft", "pending", "declined"].includes(quotation.status);
-  const canConvert = quotation.status === "accepted" && !quotation.converted_to_invoice;
+  const canConvert = quotation.status === "accepted";
   const nextStatuses = { draft: ["pending"], pending: ["accepted", "declined"], accepted: [], declined: ["pending"] }[quotation.status] ?? [];
 
   return (
@@ -129,8 +152,8 @@ export default function QuotationDetail() {
             <MessageCircle size={15} /> WhatsApp
           </button>
           {canConvert && (
-            <button className="btn-primary" onClick={() => setShowConvert(true)} disabled={converting}>
-              <RefreshCw size={15} /> Convert to Invoice
+            <button className="btn-primary" onClick={() => { setShowConvert(true); setConvertError(""); setLpoNumber(""); setLpoQtys({}); }} disabled={converting}>
+              <RefreshCw size={15} /> {quotation.converted_to_invoice ? "New Invoice (LPO)" : "Convert to Invoice"}
             </button>
           )}
         </div>
@@ -195,14 +218,42 @@ export default function QuotationDetail() {
             ))}
           </tbody>
         </table>
+        {quotation.charges?.length > 0 && (
+          <div className="px-4 py-2 border-t border-gray-100">
+            <p className="text-xs text-gray-400 uppercase tracking-wide mb-1.5">Other Charges</p>
+            {quotation.charges.map((c) => (
+              <div key={c.id} className="flex justify-between text-sm text-gray-600 py-0.5">
+                <span>{c.description}</span><span>{ksh(c.amount)}</span>
+              </div>
+            ))}
+          </div>
+        )}
         <div className="px-4 py-3 border-t border-gray-100 space-y-1.5 text-sm">
-          <div className="flex justify-between text-gray-600"><span>Subtotal</span><span>{ksh(quotation.subtotal)}</span></div>
+          <div className="flex justify-between text-gray-600"><span>Items subtotal</span><span>{ksh(quotation.subtotal)}</span></div>
+          {Number(quotation.total_discount) > 0 && (
+            <div className="flex justify-between text-red-500"><span>Total discount</span><span>− {ksh(quotation.total_discount)}</span></div>
+          )}
+          {Number(quotation.charges_total) > 0 && (
+            <div className="flex justify-between text-gray-600"><span>Other charges</span><span>{ksh(quotation.charges_total)}</span></div>
+          )}
           {Number(quotation.vat_amount) > 0 && (
             <div className="flex justify-between text-gray-600"><span>VAT (16%)</span><span>{ksh(quotation.vat_amount)}</span></div>
           )}
           <div className="flex justify-between font-bold text-gray-900 text-base border-t pt-2">
             <span>Grand Total</span><span>{ksh(quotation.grand_total)}</span>
           </div>
+          {Number(quotation.wht_amount) > 0 && (
+            <div className="flex justify-between text-amber-600 text-xs">
+              <span>WHT ({quotation.wht_pct}%) — deducted by client</span>
+              <span>− {ksh(quotation.wht_amount)}</span>
+            </div>
+          )}
+          {Number(quotation.wht_amount) > 0 && (
+            <div className="flex justify-between font-bold text-gray-900 border-t pt-2">
+              <span>Amount Payable</span>
+              <span>{ksh(Number(quotation.grand_total) - Number(quotation.wht_amount))}</span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -210,6 +261,30 @@ export default function QuotationDetail() {
         <div className="card p-4">
           <h2 className="text-xs text-gray-500 uppercase tracking-wide mb-1">Notes</h2>
           <p className="text-sm text-gray-700 whitespace-pre-line">{quotation.notes}</p>
+        </div>
+      )}
+
+      {/* Related invoices */}
+      {relatedInvoices.length > 0 && (
+        <div className="card p-4 space-y-2">
+          <h2 className="text-xs text-gray-500 uppercase tracking-wide flex items-center gap-1.5">
+            <Receipt size={13} /> Invoices from this Quotation
+          </h2>
+          <div className="divide-y divide-gray-100">
+            {relatedInvoices.map((inv) => (
+              <div key={inv.id} className="flex items-center justify-between py-2 text-sm">
+                <div className="flex items-center gap-3">
+                  <span className="font-mono text-xs text-green-700 font-medium">{inv.id}</span>
+                  {inv.lpo_number && (
+                    <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded">LPO: {inv.lpo_number}</span>
+                  )}
+                </div>
+                <button className="text-xs text-green-600 hover:underline" onClick={() => navigate(`/invoices/${inv.id}`)}>
+                  View →
+                </button>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
@@ -222,13 +297,74 @@ export default function QuotationDetail() {
         <QuotationDocument quotation={quotation} org={org} />
       </PDFPreviewModal>
 
-      <ConfirmDialog
+      {/* LPO / Invoice creation modal */}
+      <Modal
         open={showConvert}
         onClose={() => setShowConvert(false)}
-        onConfirm={handleConvert}
-        title="Convert to Invoice"
-        message={`Convert ${quotation.id} to an invoice? This creates a new invoice and cannot be undone.`}
-      />
+        title={quotation.converted_to_invoice ? "Create Invoice from LPO" : "Convert to Invoice"}
+        size="md"
+      >
+        <p className="text-sm text-gray-500 mb-4">
+          Invoice for <strong>{quotation.client.name}</strong> · <span className="font-mono">{quotation.id}</span>
+        </p>
+        <div className="space-y-4">
+          <div>
+            <label className="label">LPO Number <span className="text-gray-400 font-normal">(optional)</span></label>
+            <input
+              className="input"
+              type="text"
+              placeholder="e.g. LPO-2026-001"
+              value={lpoNumber}
+              onChange={(e) => setLpoNumber(e.target.value)}
+            />
+          </div>
+
+          <div>
+            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
+              Delivery Quantities <span className="normal-case text-gray-400 font-normal">(adjust for partial LPO — unit prices are locked)</span>
+            </p>
+            <div className="border border-gray-100 rounded-lg overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 text-xs text-gray-500">
+                  <tr>
+                    <th className="px-3 py-2 text-left">Item</th>
+                    <th className="px-3 py-2 text-right">Quoted Qty</th>
+                    <th className="px-3 py-2 text-right w-28">This LPO Qty</th>
+                    <th className="px-3 py-2 text-right">Unit Price</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {quotation.items.map((item) => (
+                    <tr key={item.id}>
+                      <td className="px-3 py-2 text-gray-800 truncate max-w-[160px]">{item.description}</td>
+                      <td className="px-3 py-2 text-right text-gray-400">{item.quantity}</td>
+                      <td className="px-3 py-2 text-right">
+                        <input
+                          type="number"
+                          min="0.01"
+                          step="any"
+                          className="input text-right py-1 px-2 text-xs w-24"
+                          value={lpoQtys[item.sort_order] ?? String(item.quantity)}
+                          onChange={(e) => setLpoQtys((prev) => ({ ...prev, [item.sort_order]: e.target.value }))}
+                        />
+                      </td>
+                      <td className="px-3 py-2 text-right text-gray-500 text-xs">{ksh(item.unit_price)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {convertError && <p className="text-xs text-red-600">{convertError}</p>}
+        </div>
+        <div className="mt-4 flex justify-end gap-2">
+          <button className="btn-secondary" onClick={() => setShowConvert(false)}>Cancel</button>
+          <button className="btn-primary" onClick={handleConvert} disabled={converting}>
+            {converting ? "Creating…" : "Create Invoice"}
+          </button>
+        </div>
+      </Modal>
     </div>
   );
 }

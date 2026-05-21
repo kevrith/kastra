@@ -8,6 +8,7 @@ import asyncio
 import hashlib
 import hmac
 import json
+import logging
 from datetime import datetime, timezone
 
 import httpx
@@ -24,6 +25,11 @@ from app.models.invoice_payment import InvoicePayment
 from app.models.notification import Notification
 from app.services.audit_service import log_action
 from app.services.email_service import send_payment_received_email, send_receipt_email
+from app.services.payment_events import publish as publish_payment_event
+from app.services.pdf_service import generate_pdf
+from app.services.sms_service import sms_payment_received
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/paystack", tags=["paystack"])
 
@@ -46,7 +52,6 @@ async def _record_card_payment(db: AsyncSession, invoice: Invoice, paid_amount: 
     """Accumulate a card payment on invoice, setting partial or paid status."""
     now = datetime.now(timezone.utc)
     client_name = invoice.client.name if invoice.client else "Client"
-    client_email = invoice.client.email if invoice.client else None
 
     new_total_paid = float(invoice.amount_paid or 0) + paid_amount
     invoice.amount_paid = new_total_paid
@@ -107,17 +112,54 @@ async def _record_card_payment(db: AsyncSession, invoice: Invoice, paid_amount: 
             client_name=client_name,
             receipt_number=reference,
         ))
-    if client_email:
-        asyncio.ensure_future(send_receipt_email(
-            client_email=client_email,
-            client_name=client_name,
-            invoice_id=invoice.id,
-            amount_paid=paid_amount,
-            business_name=invoice.organization.name if invoice.organization else "Business",
-            receipt_ref=reference,
-        ))
 
     return invoice.payment_status
+
+
+def _fire_post_payment(invoice: Invoice, paid_amount: float, reference: str) -> None:
+    """Fire SSE, PDF receipt email, and SMS after a commit."""
+    client_name = invoice.client.name if invoice.client else "Client"
+    client_email = invoice.client.email if invoice.client else None
+    biz_name = invoice.organization.name if invoice.organization else "Business"
+
+    asyncio.ensure_future(publish_payment_event(invoice.id, {
+        "payment_status": invoice.payment_status,
+        "amount_paid": float(invoice.amount_paid),
+        "receipt": reference,
+    }))
+
+    if client_email:
+        from app.schemas.invoice import InvoiceOut
+        from app.schemas.organization import OrganizationOut
+        _doc = InvoiceOut.model_validate(invoice).model_dump(mode="json")
+        _org = OrganizationOut.model_validate(invoice.organization).model_dump(mode="json") if invoice.organization else {}
+        _inv_id = invoice.id
+
+        async def _send_receipt():
+            try:
+                pdf = await generate_pdf("invoice", _doc, _org)
+            except Exception:
+                logger.exception("PDF generation failed for Paystack receipt %s", _inv_id)
+                pdf = None
+            await send_receipt_email(
+                client_email=client_email,
+                client_name=client_name,
+                invoice_id=_inv_id,
+                amount_paid=paid_amount,
+                business_name=biz_name,
+                receipt_ref=reference,
+                pdf_bytes=pdf,
+            )
+        asyncio.ensure_future(_send_receipt())
+
+    asyncio.ensure_future(sms_payment_received(
+        client_phone=invoice.client.phone if invoice.client else None,
+        client_name=client_name,
+        invoice_id=invoice.id,
+        amount=paid_amount,
+        business_name=biz_name,
+        receipt=reference,
+    ))
 
 
 @router.post("/initialize")
@@ -211,7 +253,7 @@ async def verify_payment(reference: str, db: AsyncSession = Depends(get_db)):
             "business_name": invoice.organization.name if invoice.organization else "",
         }
 
-    # Check idempotency — don't double-record the same reference
+    # Idempotency check — don't double-record the same reference
     existing = await db.execute(
         select(InvoicePayment).where(InvoicePayment.reference == reference)
     )
@@ -222,6 +264,7 @@ async def verify_payment(reference: str, db: AsyncSession = Depends(get_db)):
         card_note = f"Paystack: {auth.get('card_type', 'card')} ending {auth.get('last4', '****')}"
         new_status = await _record_card_payment(db, invoice, paid_amount, reference, card_note)
         await db.commit()
+        _fire_post_payment(invoice, paid_amount, reference)
 
     balance_due = float(invoice.grand_total) - float(invoice.amount_paid or 0)
     return {
@@ -281,4 +324,6 @@ async def paystack_webhook(request: Request, db: AsyncSession = Depends(get_db))
     card_note = f"Paystack: {auth.get('card_type', 'card')} ending {auth.get('last4', '****')}"
 
     await _record_card_payment(db, invoice, paid_amount, reference, card_note)
+    await db.commit()
+    _fire_post_payment(invoice, paid_amount, reference)
     return {"status": "ok"}

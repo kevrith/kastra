@@ -1,0 +1,37 @@
+{% extends "emails/base.html" %}
+
+{% block subject %}[{{ urgency_label }}] Payment {{ days_overdue }}d overdue — {{ invoice_id }}{% endblock %}
+{% block brand %}{{ business_name }}{% endblock %}
+{% block heading %}Payment Overdue{% endblock %}
+
+{% block content %}
+<table width="100%" cellpadding="0" cellspacing="0" role="presentation"
+       style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;margin-bottom:20px">
+  <tr>
+    <td style="padding:14px 18px">
+      <p style="margin:0 0 4px;font-size:10px;font-weight:700;color:{{ urgency_color }};text-transform:uppercase;letter-spacing:1px">{{ urgency_label }}</p>
+      <p style="margin:0;font-size:13px;color:#991b1b;line-height:1.5">
+        Invoice <strong style="font-family:monospace">{{ invoice_id }}</strong> for
+        <strong>KSh {{ "{:,.2f}".format(display_amount) }}</strong> is
+        <strong>{{ days_overdue }} day{{ 's' if days_overdue != 1 else '' }} overdue</strong>.
+      </p>
+    </td>
+  </tr>
+</table>
+
+<p style="margin:0 0 24px;font-size:13px;color:#374151;line-height:1.5">
+  Please settle this invoice immediately to avoid further action.
+  Contact us if you have already made payment or need to discuss a payment arrangement.
+</p>
+
+<p style="margin:0 0 20px">
+  <a href="{{ pay_url }}"
+     style="display:inline-block;background:#dc2626;color:#fff;padding:11px 26px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px">
+    Pay Now &mdash; KSh {{ "{:,.2f}".format(display_amount) }}
+  </a>
+</p>
+
+<p style="margin:0;font-size:11px;color:#9ca3af;border-top:1px solid #f1f5f9;padding-top:14px">
+  Reference: <span style="font-family:monospace">{{ invoice_id }}</span> &middot; {{ business_name }}
+</p>
+{% endblock %}

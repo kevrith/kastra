@@ -6,7 +6,7 @@ export const createQuotation = (data) => api.post("/api/quotations", data);
 export const updateQuotation = (id, data) => api.put(`/api/quotations/${id}`, data);
 export const updateQuotationStatus = (id, status) =>
   api.patch(`/api/quotations/${id}/status`, { status });
-export const convertToInvoice = (id) =>
-  api.post(`/api/quotations/${id}/convert`);
+export const convertToInvoice = (id, data = {}) =>
+  api.post(`/api/quotations/${id}/convert`, data);
 export const deleteQuotation = (id) => api.delete(`/api/quotations/${id}`);
 export const emailQuotation = (id) => api.post(`/api/quotations/${id}/email`);

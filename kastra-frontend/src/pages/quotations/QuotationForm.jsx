@@ -4,11 +4,11 @@ import { createQuotation, getQuotation, updateQuotation } from "../../api/quotat
 import { getClients } from "../../api/clients";
 import { getOrganization } from "../../api/organization";
 import { scanReceipt } from "../../api/ocr";
-import { ksh } from "../../utils/formatters";
 import { Plus, Trash2, ArrowLeft, ScanLine, X, Camera } from "lucide-react";
 import ProductAutocomplete from "../../components/ui/ProductAutocomplete";
+import FinancialsForm from "../../components/ui/FinancialsForm";
 
-const emptyItem = () => ({ description: "", quantity: "1", unit_price: "", vat_exempt: false });
+const emptyItem = () => ({ description: "", quantity: "1", unit_price: "", discount_pct: "0", vat_exempt: false });
 
 export default function QuotationForm() {
   const { id } = useParams();
@@ -20,6 +20,9 @@ export default function QuotationForm() {
   const [notes, setNotes] = useState("");
   const [expiresAt, setExpiresAt] = useState("");
   const [items, setItems] = useState([emptyItem()]);
+  const [charges, setCharges] = useState([]);
+  const [discountPct, setDiscountPct] = useState("0");
+  const [whtPct, setWhtPct] = useState("0");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [showScan, setShowScan] = useState(false);
@@ -40,9 +43,13 @@ export default function QuotationForm() {
           description: i.description,
           quantity: String(i.quantity),
           unit_price: String(i.unit_price),
+          discount_pct: String(i.discount_pct ?? 0),
           vat_exempt: i.vat_exempt ?? false,
           sort_order: i.sort_order,
         })));
+        setCharges((q.charges || []).map((c) => ({ description: c.description, amount: String(c.amount), vat_exempt: c.vat_exempt })));
+        setDiscountPct(String(q.discount_pct ?? 0));
+        setWhtPct(String(q.wht_pct ?? 0));
       });
     } else {
       getOrganization().then(({ data }) => {
@@ -59,20 +66,6 @@ export default function QuotationForm() {
 
   const removeItem = (i) => setItems((prev) => prev.filter((_, idx) => idx !== i));
   const addItem = () => setItems((prev) => [...prev, emptyItem()]);
-
-  const subtotal = items.reduce((sum, item) => {
-    const qty = parseFloat(item.quantity) || 0;
-    const price = parseFloat(item.unit_price) || 0;
-    return sum + qty * price;
-  }, 0);
-  const taxable = items.reduce((sum, item) => {
-    if (item.vat_exempt) return sum;
-    const qty = parseFloat(item.quantity) || 0;
-    const price = parseFloat(item.unit_price) || 0;
-    return sum + qty * price;
-  }, 0);
-  const vat = taxable * 0.16;
-  const grandTotal = subtotal + vat;
 
   const handleFileSelect = (e) => {
     const file = e.target.files?.[0];
@@ -126,11 +119,20 @@ export default function QuotationForm() {
         client_id: clientId,
         notes: notes || null,
         expires_at: expiresAt ? new Date(expiresAt).toISOString() : null,
+        discount_pct: parseFloat(discountPct) || 0,
+        wht_pct: parseFloat(whtPct) || 0,
         items: items.map((item, i) => ({
           description: item.description,
           quantity: parseFloat(item.quantity),
           unit_price: parseFloat(item.unit_price),
+          discount_pct: parseFloat(item.discount_pct) || 0,
           vat_exempt: item.vat_exempt,
+          sort_order: i,
+        })),
+        charges: charges.filter((c) => c.description && c.amount).map((c, i) => ({
+          description: c.description,
+          amount: parseFloat(c.amount),
+          vat_exempt: c.vat_exempt,
           sort_order: i,
         })),
       };
@@ -250,7 +252,7 @@ export default function QuotationForm() {
           <h2 className="text-sm font-semibold text-gray-700">Line Items</h2>
           {items.map((item, i) => (
             <div key={i} className="grid grid-cols-12 gap-2 items-center">
-              <div className="col-span-12 sm:col-span-5">
+              <div className="col-span-12 sm:col-span-4">
                 <ProductAutocomplete
                   value={item.description}
                   onChange={(v) => setItem(i, "description", v)}
@@ -258,17 +260,25 @@ export default function QuotationForm() {
                     prev.map((it, idx) => idx === i ? { ...it, description, unit_price: String(unit_price) } : it)
                   )}
                   placeholder="Description (type to search products)"
+                  clientId={clientId || undefined}
                 />
               </div>
               <div className="col-span-3 sm:col-span-2">
                 <input className="input" type="number" placeholder="Qty" min="0.01" step="any"
                   value={item.quantity} onChange={(e) => setItem(i, "quantity", e.target.value)} required />
               </div>
-              <div className="col-span-5 sm:col-span-3">
+              <div className="col-span-4 sm:col-span-2">
                 <input className="input" type="number" placeholder="Unit Price" min="0" step="any"
                   value={item.unit_price} onChange={(e) => setItem(i, "unit_price", e.target.value)} required />
               </div>
-              <div className="col-span-3 sm:col-span-1 flex items-center justify-center" title={item.vat_exempt ? "VAT exempt" : "VAT applies (16%)"}>
+              <div className="col-span-3 sm:col-span-2">
+                <div className="relative">
+                  <input className="input pr-5" type="number" placeholder="Disc" min="0" max="100" step="0.01"
+                    value={item.discount_pct} onChange={(e) => setItem(i, "discount_pct", e.target.value)} />
+                  <span className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 text-xs">%</span>
+                </div>
+              </div>
+              <div className="col-span-1 sm:col-span-1 flex items-center justify-center" title={item.vat_exempt ? "VAT exempt" : "VAT applies (16%)"}>
                 <label className="flex flex-col items-center gap-0.5 cursor-pointer select-none">
                   <input
                     type="checkbox"
@@ -293,22 +303,16 @@ export default function QuotationForm() {
           </button>
         </div>
 
-        {/* Totals */}
-        <div className="card p-4">
-          <div className="space-y-2 text-sm">
-            <div className="flex justify-between text-gray-600">
-              <span>Subtotal</span><span>{ksh(subtotal)}</span>
-            </div>
-            {vat > 0 && (
-              <div className="flex justify-between text-gray-600">
-                <span>VAT (16%)</span><span>{ksh(vat)}</span>
-              </div>
-            )}
-            <div className="flex justify-between font-bold text-gray-900 text-base border-t pt-2">
-              <span>Grand Total</span><span>{ksh(grandTotal)}</span>
-            </div>
-          </div>
-        </div>
+        <FinancialsForm
+          items={items}
+          setItems={setItems}
+          charges={charges}
+          setCharges={setCharges}
+          discountPct={discountPct}
+          setDiscountPct={setDiscountPct}
+          whtPct={whtPct}
+          setWhtPct={setWhtPct}
+        />
 
         <div className="card p-4">
           <label className="label">Notes</label>

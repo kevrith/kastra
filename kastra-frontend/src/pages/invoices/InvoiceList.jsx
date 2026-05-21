@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getInvoices } from "../../api/invoices";
 import { ksh, date, statusBadgeClass } from "../../utils/formatters";
-import { Receipt } from "lucide-react";
+import { Plus, Receipt } from "lucide-react";
 import Spinner from "../../components/ui/Spinner";
 import Pagination from "../../components/ui/Pagination";
 import EmptyState from "../../components/ui/EmptyState";
@@ -39,7 +39,12 @@ export default function InvoiceList() {
 
   return (
     <div className="p-4 md:p-6 max-w-5xl mx-auto space-y-4">
-      <h1 className="text-xl font-bold text-gray-900">Invoices</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-xl font-bold text-gray-900">Invoices</h1>
+        <button className="btn-primary" onClick={() => navigate("/invoices/new")}>
+          <Plus size={15} /> New Invoice
+        </button>
+      </div>
 
       <div className="flex gap-2 flex-wrap">
         {FILTERS.map(({ label, value }) => (
@@ -60,7 +65,7 @@ export default function InvoiceList() {
         {loading ? (
           <div className="flex h-48 items-center justify-center"><Spinner /></div>
         ) : invoices.length === 0 ? (
-          <EmptyState icon={Receipt} title="No invoices" description="Convert an accepted quotation to create an invoice" />
+          <EmptyState icon={Receipt} title="No invoices" description="Create an invoice directly or convert an accepted quotation" />
         ) : (
           <>
             <div className="overflow-x-auto">
@@ -79,7 +84,10 @@ export default function InvoiceList() {
                   {invoices.map((inv) => (
                     <tr key={inv.id} className="hover:bg-gray-50 cursor-pointer"
                       onClick={() => navigate(`/invoices/${inv.id}`)}>
-                      <td className="px-4 py-3 font-mono text-xs text-green-700 font-medium">{inv.id}</td>
+                      <td className="px-4 py-3">
+                        <div className="font-mono text-xs text-green-700 font-medium">{inv.id}</div>
+                        {inv.lpo_number && <div className="text-[11px] text-gray-400 mt-0.5">LPO: {inv.lpo_number}</div>}
+                      </td>
                       <td className="px-4 py-3 font-medium text-gray-900">{inv.client.name}</td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-1.5 flex-wrap">

@@ -37,11 +37,18 @@ if [[ ! -f "$BACKEND/.env" ]]; then
   cp "$BACKEND/.env.example" "$BACKEND/.env"
 fi
 
-# Activate venv if present, otherwise rely on system/pyenv python
+# Activate virtualenv — prefer local venv, then pipenv, then system
 if [[ -f "$BACKEND/venv/bin/activate" ]]; then
   source "$BACKEND/venv/bin/activate"
 elif [[ -f "$BACKEND/.venv/bin/activate" ]]; then
   source "$BACKEND/.venv/bin/activate"
+else
+  # Locate the pipenv virtualenv for this project
+  PIPENV_VENV=$(cd "$BACKEND" && pipenv --venv 2>/dev/null || true)
+  if [[ -n "$PIPENV_VENV" && -f "$PIPENV_VENV/bin/activate" ]]; then
+    source "$PIPENV_VENV/bin/activate"
+    echo -e "${BLUE}[backend]${NC} Using pipenv virtualenv: $PIPENV_VENV"
+  fi
 fi
 
 cd "$BACKEND"
