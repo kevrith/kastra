@@ -3,14 +3,14 @@ services:
     name: kastra-api
     runtime: python
     rootDir: kastra-backend
+    pythonVersion: "3.12.7"
     buildCommand: pip install -r requirements.txt && alembic upgrade head
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /health
     envVars:
+      # Paste your Neon (neon.tech) connection string here after creating a free database
       - key: DATABASE_URL
-        fromDatabase:
-          name: kastra-db
-          property: connectionString
+        sync: false   # postgresql+asyncpg://user:pass@ep-xxx.neon.tech/kastra?sslmode=require
 
       # Auto-generated secrets — Render fills these on first deploy
       - key: SECRET_KEY
@@ -66,9 +66,3 @@ services:
       # Error tracking (optional)
       - key: SENTRY_DSN
         sync: false
-
-databases:
-  - name: kastra-db
-    databaseName: kastra
-    user: kastra
-    plan: free
