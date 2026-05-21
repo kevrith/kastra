@@ -43,6 +43,7 @@ export default function Login() {
     <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
+          <img src="/kastra.png" alt="Kastra" className="h-16 w-16 object-contain mx-auto mb-3" />
           <h1 className="text-3xl font-bold text-green-600">Kastra</h1>
           <p className="text-gray-500 text-sm mt-1">Sign in to your account</p>
         </div>

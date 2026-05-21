@@ -31,9 +31,12 @@ export default function Sidebar() {
     <aside className="hidden md:flex flex-col w-56 min-h-screen bg-white border-r border-gray-200">
       <div className="px-5 py-4 border-b border-gray-200">
         <div className="flex items-center justify-between mb-3">
-          <div>
-            <span className="text-lg font-bold text-green-600 tracking-tight">Kastra</span>
-            <p className="text-xs text-gray-400">Enterprise Management</p>
+          <div className="flex items-center gap-2">
+            <img src="/kastra.png" alt="Kastra" className="h-8 w-8 object-contain" />
+            <div>
+              <span className="text-lg font-bold text-green-600 tracking-tight">Kastra</span>
+              <p className="text-xs text-gray-400">Enterprise Management</p>
+            </div>
           </div>
           <NotificationBell />
         </div>
