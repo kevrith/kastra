@@ -244,7 +244,7 @@ export default function QuotationDetail() {
             return (
               <>
                 {labourCharge && (
-                  <div className="flex justify-between text-gray-600"><span>Labour</span><span>{ksh(labourCharge.amount)}</span></div>
+                  <div className="flex justify-between text-gray-600"><span>Labour ({Number(quotation.subtotal) > 0 ? Math.round(Number(labourCharge.amount) / Number(quotation.subtotal) * 10000) / 100 : 0}%)</span><span>{ksh(labourCharge.amount)}</span></div>
                 )}
                 {otherChargesTotal > 0 && (
                   <div className="flex justify-between text-gray-600"><span>Other charges</span><span>{ksh(otherChargesTotal)}</span></div>

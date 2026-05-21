@@ -176,7 +176,7 @@ export default function ExecutiveTemplate({ org, doc, type }) {
                 <>
                   {labour && (
                     <div style={{ display: "flex", justifyContent: "space-between", padding: "9px 16px", color: SLATE, borderTop: "1px solid #e2e8f0" }}>
-                      <span>Labour</span><span>{ksh(labour.amount)}</span>
+                      <span>Labour ({Number(doc.subtotal) > 0 ? Math.round(Number(labour.amount) / Number(doc.subtotal) * 10000) / 100 : 0}%)</span><span>{ksh(labour.amount)}</span>
                     </div>
                   )}
                   {otherTotal > 0 && (
