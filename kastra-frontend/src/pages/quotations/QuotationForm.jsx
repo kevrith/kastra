@@ -10,6 +10,35 @@ import FinancialsForm from "../../components/ui/FinancialsForm";
 
 const emptyItem = () => ({ description: "", quantity: "1", unit_price: "", discount_pct: "0", vat_exempt: false });
 
+// Resize + re-encode to JPEG so the base64 payload stays under Claude's 5 MB limit
+function compressImage(file, maxDimension = 1920) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    const objectUrl = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+      let { width, height } = img;
+      if (width > maxDimension || height > maxDimension) {
+        if (width >= height) { height = Math.round(height * maxDimension / width); width = maxDimension; }
+        else { width = Math.round(width * maxDimension / height); height = maxDimension; }
+      }
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      canvas.getContext("2d").drawImage(img, 0, 0, width, height);
+      // Drop quality until base64 is under 4 MB (leaves headroom below the 5 MB API limit)
+      const encode = (q) => {
+        const dataUrl = canvas.toDataURL("image/jpeg", q);
+        const b64 = dataUrl.split(",")[1];
+        if (b64.length > 4 * 1024 * 1024 && q > 0.3) return encode(Math.max(0.3, q - 0.15));
+        return { dataUrl, base64: b64, mediaType: "image/jpeg" };
+      };
+      resolve(encode(0.85));
+    };
+    img.src = objectUrl;
+  });
+}
+
 export default function QuotationForm() {
   const { id } = useParams();
   const isEdit = !!id;
@@ -67,13 +96,12 @@ export default function QuotationForm() {
   const removeItem = (i) => setItems((prev) => prev.filter((_, idx) => idx !== i));
   const addItem = () => setItems((prev) => [...prev, emptyItem()]);
 
-  const handleFileSelect = (e) => {
+  const handleFileSelect = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setScanError("");
-    const reader = new FileReader();
-    reader.onload = (ev) => setScanPreview({ dataUrl: ev.target.result, file });
-    reader.readAsDataURL(file);
+    const compressed = await compressImage(file);
+    setScanPreview(compressed);
   };
 
   const handleScan = async () => {
@@ -81,9 +109,7 @@ export default function QuotationForm() {
     setScanning(true);
     setScanError("");
     try {
-      const { dataUrl, file } = scanPreview;
-      const base64 = dataUrl.split(",")[1];
-      const mediaType = file.type || "image/jpeg";
+      const { base64, mediaType } = scanPreview;
       const { data } = await scanReceipt(base64, mediaType);
       const result = data;
 
