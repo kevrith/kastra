@@ -7,6 +7,9 @@ from fastapi.responses import JSONResponse
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from starlette.types import ASGIApp, Receive, Scope, Send
+import logging
+
+logger = logging.getLogger(__name__)
 
 from app.config import settings
 from app.routers import auth, clients, dashboard, invoices, mpesa, organization, quotations, reports
@@ -88,8 +91,7 @@ app = FastAPI(
 )
 
 app.state.limiter = limiter
-app.add_middleware(SecurityHeadersMiddleware)
-app.add_middleware(SlowAPIMiddleware)
+# CORS must be outermost so its headers survive even on unhandled 500s
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.allowed_origins,
@@ -97,6 +99,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(SecurityHeadersMiddleware)
+app.add_middleware(SlowAPIMiddleware)
 
 
 @app.exception_handler(RateLimitExceeded)
@@ -105,6 +109,12 @@ async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
         status_code=429,
         content={"error": "Too many requests", "detail": "Please wait before trying again."},
     )
+
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    logger.exception("Unhandled exception: %s", exc)
+    return JSONResponse(status_code=500, content={"detail": "Internal server error"})
 
 
 app.include_router(auth.router)
