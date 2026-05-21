@@ -259,6 +259,39 @@ async def _expire_trials():
             await db.rollback()
 
 
+async def _expire_complimentary():
+    """
+    Nightly job — revokes complimentary access when complimentary_ends_at has passed.
+    Downgrades the org to free plan.
+    """
+    now = datetime.now(timezone.utc)
+    async with AsyncSessionLocal() as db:
+        try:
+            result = await db.execute(
+                select(Organization).where(
+                    Organization.plan_status == "complimentary",
+                    Organization.complimentary_ends_at.isnot(None),
+                    Organization.complimentary_ends_at < now,
+                )
+            )
+            expired = result.scalars().all()
+            if not expired:
+                logger.info("[scheduler] No expired complimentary accounts.")
+                return
+            for org in expired:
+                old_plan = org.plan
+                org.plan = "free"
+                org.plan_status = "active"
+                org.complimentary_ends_at = None
+                org.complimentary_reason = None
+                logger.info("[scheduler] Complimentary expired: org=%s plan=%s → free", org.id, old_plan)
+            await db.commit()
+            logger.info("[scheduler] Expired %d complimentary account(s).", len(expired))
+        except Exception:
+            logger.exception("[scheduler] Error in complimentary expiry job")
+            await db.rollback()
+
+
 async def _reset_monthly_counters():
     """
     Nightly job — resets invoice/quotation/OCR counters for any org whose
@@ -292,6 +325,7 @@ def start_scheduler():
     scheduler.add_job(_fire_recurring_invoices, "cron", hour=21, minute=10, id="recurring_invoices")
     scheduler.add_job(_reset_monthly_counters, "cron", hour=21, minute=15, id="reset_monthly_counters")
     scheduler.add_job(_expire_trials, "cron", hour=21, minute=20, id="expire_trials")
+    scheduler.add_job(_expire_complimentary, "cron", hour=21, minute=25, id="expire_complimentary")
     scheduler.start()
     logger.info("[scheduler] Started. Jobs run daily at 00:00 EAT.")
 

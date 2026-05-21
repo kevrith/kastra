@@ -16,12 +16,16 @@ export default function QuotationList() {
   const [statusFilter, setStatusFilter] = useState("");
   const [loading, setLoading] = useState(true);
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [draftCount, setDraftCount] = useState(0);
 
   const load = () => {
     setLoading(true);
     getQuotations({ page, limit: 20, status: statusFilter || undefined })
       .then(({ data }) => { setQuotations(data.data); setMeta(data.meta); })
       .finally(() => setLoading(false));
+    if (!statusFilter) {
+      getQuotations({ page: 1, limit: 1, status: "draft" }).then(({ data }) => setDraftCount(data.meta.total)).catch(() => {});
+    }
   };
 
   useEffect(() => { load(); }, [page, statusFilter]);
@@ -39,6 +43,18 @@ export default function QuotationList() {
           <Plus size={16} /> New Quotation
         </button>
       </div>
+
+      {draftCount > 0 && !statusFilter && (
+        <div className="flex items-center justify-between rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5">
+          <p className="text-sm text-amber-800">
+            <span className="font-semibold">{draftCount} draft{draftCount > 1 ? "s" : ""}</span> in progress
+          </p>
+          <button className="text-xs text-amber-700 font-medium hover:underline"
+            onClick={() => { setStatusFilter("draft"); setPage(1); }}>
+            View drafts →
+          </button>
+        </div>
+      )}
 
       <div className="flex gap-2">
         {["", "draft", "pending", "accepted", "declined"].map((s) => (

@@ -49,6 +49,8 @@ class Organization(Base):
     sub_mpesa_checkout_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
     is_trial: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     trial_ends_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    complimentary_ends_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    complimentary_reason: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(

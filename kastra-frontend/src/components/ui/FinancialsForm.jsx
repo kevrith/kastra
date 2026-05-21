@@ -4,14 +4,14 @@ import { ksh } from "../../utils/formatters";
 const emptyCharge = () => ({ description: "", amount: "", vat_exempt: false });
 
 /**
- * Reusable section for the financial extras on quotation / invoice forms:
- * per-item discount, other charges, overall discount %, WHT, and (optionally) deposit.
+ * Reusable section for the financial extras on quotation / invoice forms.
  *
  * Props:
  *   items / setItems  — line items array + setter
  *   charges / setCharges — extra charges array + setter
  *   discountPct / setDiscountPct
  *   whtPct / setWhtPct
+ *   labourPct / setLabourPct — labour as % of items subtotal (omit to hide)
  *   depositAmount / setDepositAmount  (pass null/undefined to hide deposit)
  *   showDeposit — bool (true for invoices only)
  */
@@ -24,6 +24,8 @@ export default function FinancialsForm({
   setDiscountPct,
   whtPct,
   setWhtPct,
+  labourPct,
+  setLabourPct,
   depositAmount,
   setDepositAmount,
   showDeposit = false,
@@ -36,8 +38,11 @@ export default function FinancialsForm({
   const setCharge = (i, field, value) =>
     setCharges((prev) => prev.map((c, idx) => (idx === i ? { ...c, [field]: value } : c)));
 
+  const showLabour = labourPct !== undefined && setLabourPct !== undefined;
+
   // Live totals
   const itemsGross = items.reduce((s, it) => s + (parseFloat(it.quantity) || 0) * (parseFloat(it.unit_price) || 0), 0);
+  const labourAmount = showLabour ? itemsGross * (parseFloat(labourPct) || 0) / 100 : 0;
   const lineDiscounts = items.reduce((s, it) => {
     const gross = (parseFloat(it.quantity) || 0) * (parseFloat(it.unit_price) || 0);
     return s + gross * (parseFloat(it.discount_pct) || 0) / 100;
@@ -55,16 +60,34 @@ export default function FinancialsForm({
   }, 0);
   const taxableItemsDiscounted = taxableItems * (1 - (parseFloat(discountPct) || 0) / 100);
   const taxableCharges = charges.reduce((s, c) => c.vat_exempt ? s : s + (parseFloat(c.amount) || 0), 0);
-  const vat = (taxableItemsDiscounted + taxableCharges) * 0.16;
-  const grandTotal = finalItems + chargesTotal + vat;
+  const vat = (taxableItemsDiscounted + taxableCharges + labourAmount) * 0.16;
+  const grandTotal = finalItems + chargesTotal + labourAmount + vat;
   const whtAmount = finalItems * (parseFloat(whtPct) || 0) / 100;
   const depositAmt = showDeposit ? (parseFloat(depositAmount) || 0) : 0;
   const amountPayable = grandTotal - whtAmount - depositAmt;
 
   return (
     <div className="space-y-5">
-      {/* Per-item discount column is shown inline in the parent items table via items prop */}
-      {/* This section handles Other Charges + document-level settings */}
+      {/* Labour */}
+      {showLabour && (
+        <div className="card p-4 space-y-3">
+          <h2 className="text-sm font-semibold text-gray-700">Labour</h2>
+          <div className="flex items-end gap-4">
+            <div className="flex-1">
+              <label className="label">Labour % of items subtotal</label>
+              <div className="relative">
+                <input className="input pr-6" type="number" min="0" max="100" step="0.01" placeholder="0"
+                  value={labourPct} onChange={(e) => setLabourPct(e.target.value)} />
+                <span className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 text-sm">%</span>
+              </div>
+              <p className="text-xs text-gray-400 mt-1">Calculated on items subtotal before discounts</p>
+            </div>
+            {labourAmount > 0 && (
+              <div className="pb-6 text-sm font-medium text-gray-700">= {ksh(labourAmount)}</div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Other Charges */}
       <div className="card p-4 space-y-3">
@@ -143,6 +166,9 @@ export default function FinancialsForm({
           <div className="flex justify-between text-gray-600"><span>Items subtotal</span><span>{ksh(itemsGross)}</span></div>
           {totalDiscount > 0 && (
             <div className="flex justify-between text-red-500"><span>Total discount</span><span>- {ksh(totalDiscount)}</span></div>
+          )}
+          {labourAmount > 0 && (
+            <div className="flex justify-between text-gray-600"><span>Labour ({labourPct}%)</span><span>{ksh(labourAmount)}</span></div>
           )}
           {chargesTotal > 0 && (
             <div className="flex justify-between text-gray-600"><span>Other charges</span><span>{ksh(chargesTotal)}</span></div>

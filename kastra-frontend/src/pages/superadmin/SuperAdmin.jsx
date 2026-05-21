@@ -4,12 +4,13 @@ import {
   superadminTrials, superadminAuditLog, superadminOrgs, superadminOrgDetail,
   superadminChangePlan, superadminSuspendOrg, superadminUnsuspendOrg,
   superadminExtendTrial, superadminRecordPayment,
+  superadminGrantComplimentary, superadminRevokeComplimentary,
 } from "../../api/subscriptions";
 import {
   LayoutDashboard, Building2, LogOut, Search, ChevronLeft, ChevronRight,
   TrendingUp, Users, FileText, RefreshCw, AlertCircle, CheckCircle2,
   CreditCard, Clock, Activity, DollarSign, BarChart2, ShieldAlert,
-  PlusCircle, X,
+  PlusCircle, X, Gift,
 } from "lucide-react";
 
 // ── Colour maps ────────────────────────────────────────────────────────────────
@@ -26,9 +27,10 @@ const PLAN_COLORS_LIGHT = {
   premium:  "bg-purple-100 text-purple-700",
 };
 const STATUS_COLORS = {
-  active:    "bg-emerald-900 text-emerald-300",
-  suspended: "bg-red-900 text-red-300",
-  cancelled: "bg-gray-700 text-gray-400",
+  active:        "bg-emerald-900 text-emerald-300",
+  suspended:     "bg-red-900 text-red-300",
+  cancelled:     "bg-gray-700 text-gray-400",
+  complimentary: "bg-pink-900 text-pink-300",
 };
 const METHOD_COLORS = {
   mpesa:    "bg-green-900 text-green-300",
@@ -36,13 +38,15 @@ const METHOD_COLORS = {
   manual:   "bg-yellow-900 text-yellow-300",
 };
 const ACTION_ICONS = {
-  change_plan:    <TrendingUp size={13} />,
-  suspend:        <ShieldAlert size={13} />,
-  unsuspend:      <CheckCircle2 size={13} />,
-  extend_trial:   <Clock size={13} />,
-  record_payment: <CreditCard size={13} />,
-  mpesa_payment:  <CreditCard size={13} />,
-  paystack_payment: <CreditCard size={13} />,
+  change_plan:          <TrendingUp size={13} />,
+  suspend:              <ShieldAlert size={13} />,
+  unsuspend:            <CheckCircle2 size={13} />,
+  extend_trial:         <Clock size={13} />,
+  record_payment:       <CreditCard size={13} />,
+  mpesa_payment:        <CreditCard size={13} />,
+  paystack_payment:     <CreditCard size={13} />,
+  grant_complimentary:  <Gift size={13} />,
+  revoke_complimentary: <X size={13} />,
 };
 
 // ── Reusable components ────────────────────────────────────────────────────────
@@ -169,6 +173,8 @@ export default function SuperAdmin() {
   const [extendDays, setExtendDays] = useState(7);
   const [paymentModal, setPaymentModal] = useState(false);
   const [paymentForm, setPaymentForm] = useState({ plan: "starter", amount_kes: 1500, payment_method: "manual", reference: "", note: "" });
+  const [compModal, setCompModal] = useState(false);
+  const [compForm, setCompForm] = useState({ plan: "starter", reason: "", days: "" });
 
   const isAuthed = Boolean(token);
 
@@ -294,6 +300,29 @@ export default function SuperAdmin() {
       setExtendModal(false);
       await loadOrgDetail(selectedOrg.id);
     } catch (e) { flash(e.response?.data?.detail ?? "Error extending trial", "error"); }
+  };
+
+  const doGrantComplimentary = async () => {
+    if (!compForm.reason.trim()) { flash("Reason is required", "error"); return; }
+    try {
+      await superadminGrantComplimentary(token, selectedOrg.id, {
+        plan: compForm.plan,
+        reason: compForm.reason,
+        days: compForm.days ? Number(compForm.days) : null,
+      });
+      flash(`Complimentary ${compForm.plan} access granted`);
+      setCompModal(false);
+      await loadOrgDetail(selectedOrg.id);
+    } catch (e) { flash(e.response?.data?.detail ?? "Error granting access", "error"); }
+  };
+
+  const doRevokeComplimentary = async () => {
+    if (!window.confirm("Revoke complimentary access? The org will move to the free plan.")) return;
+    try {
+      await superadminRevokeComplimentary(token, selectedOrg.id);
+      flash("Complimentary access revoked");
+      await loadOrgDetail(selectedOrg.id);
+    } catch { flash("Error revoking access", "error"); }
   };
 
   const doRecordPayment = async () => {
@@ -443,8 +472,8 @@ export default function SuperAdmin() {
                   <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                     <StatCard label="Active Trials" value={stats.trials_active} icon={Clock} color="text-orange-400" />
                     <StatCard label="Trials Expiring (7d)" value={stats.trials_expiring_7d} icon={AlertCircle} color={stats.trials_expiring_7d > 0 ? "text-red-400" : "text-gray-500"} />
+                    <StatCard label="Complimentary Accounts" value={stats.complimentary_count} sub="Not in MRR" icon={Gift} color="text-pink-400" />
                     <StatCard label="Suspended Orgs" value={stats.suspended_orgs} icon={ShieldAlert} color={stats.suspended_orgs > 0 ? "text-red-400" : "text-gray-500"} />
-                    <StatCard label="Total Invoices" value={stats.total_invoices?.toLocaleString()} icon={FileText} color="text-gray-300" />
                   </div>
 
                   {/* Plan distribution */}
@@ -749,6 +778,11 @@ export default function SuperAdmin() {
                     Trial · {selectedOrg.days_left_trial}d left
                   </span>
                 )}
+                {selectedOrg.plan_status === "complimentary" && (
+                  <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-pink-900 text-pink-300 flex items-center gap-1">
+                    <Gift size={10} /> Complimentary{selectedOrg.complimentary_ends_at ? ` · expires ${fmtDate(selectedOrg.complimentary_ends_at)}` : " · indefinite"}
+                  </span>
+                )}
               </div>
 
               {/* KPI row */}
@@ -798,6 +832,17 @@ export default function SuperAdmin() {
                       className="w-full text-sm text-blue-400 border border-blue-800 rounded-lg py-2 hover:bg-blue-900/30 transition">
                       Record Manual Payment
                     </button>
+                    {selectedOrg.plan_status !== "complimentary" ? (
+                      <button onClick={() => setCompModal(true)}
+                        className="w-full text-sm text-pink-400 border border-pink-800 rounded-lg py-2 hover:bg-pink-900/30 transition flex items-center justify-center gap-1.5">
+                        <Gift size={13} /> Grant Complimentary Access
+                      </button>
+                    ) : (
+                      <button onClick={doRevokeComplimentary}
+                        className="w-full text-sm text-gray-400 border border-gray-700 rounded-lg py-2 hover:bg-gray-700 transition">
+                        Revoke Complimentary Access
+                      </button>
+                    )}
                   </div>
                 </div>
 
@@ -831,6 +876,8 @@ export default function SuperAdmin() {
                       ["Billing Start", fmtDate(selectedOrg.billing_cycle_start)],
                       ["Next Billing", fmtDate(selectedOrg.next_billing_date)],
                       ["Trial Ends", selectedOrg.trial_ends_at ? fmtDate(selectedOrg.trial_ends_at) : null],
+                      ["Comp. Ends", selectedOrg.complimentary_ends_at ? fmtDate(selectedOrg.complimentary_ends_at) : (selectedOrg.plan_status === "complimentary" ? "Indefinite" : null)],
+                      ["Comp. Reason", selectedOrg.complimentary_reason],
                       ["OCR Scans/mo", selectedOrg.ocr_scans_this_month],
                       ["Quotations/mo", selectedOrg.quotations_this_month],
                     ].filter(([, v]) => v != null).map(([k, v]) => (
@@ -880,6 +927,52 @@ export default function SuperAdmin() {
             <div className="flex gap-2">
               <button onClick={() => setExtendModal(false)} className="flex-1 py-2 rounded-lg border border-gray-700 text-gray-400 hover:bg-gray-700 text-sm transition">Cancel</button>
               <button onClick={doExtendTrial} className="flex-1 py-2 rounded-lg bg-yellow-600 hover:bg-yellow-500 text-white text-sm font-semibold transition">Extend Trial</button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* ─── GRANT COMPLIMENTARY MODAL ─── */}
+      {compModal && (
+        <Modal title="Grant Complimentary Access" onClose={() => setCompModal(false)}>
+          <div className="space-y-3">
+            <div className="bg-pink-900/20 border border-pink-800 rounded-lg px-3 py-2 text-xs text-pink-300 flex items-start gap-2">
+              <Gift size={13} className="mt-0.5 shrink-0" />
+              This grants full tier access at no charge. It will NOT appear in your MRR or revenue figures.
+            </div>
+            <div>
+              <label className="block text-xs text-gray-400 mb-1 uppercase tracking-wide">Plan</label>
+              <select
+                className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-pink-500"
+                value={compForm.plan}
+                onChange={(e) => setCompForm({ ...compForm, plan: e.target.value })}
+              >
+                {["starter", "business", "premium"].map((p) => <option key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs text-gray-400 mb-1 uppercase tracking-wide">Reason <span className="text-red-400">*</span></label>
+              <input
+                className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-pink-500"
+                placeholder="e.g. Beta tester, Partnership, Influencer, Press review"
+                value={compForm.reason}
+                onChange={(e) => setCompForm({ ...compForm, reason: e.target.value })}
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-400 mb-1 uppercase tracking-wide">Duration (days) — leave blank for indefinite</label>
+              <input type="number" min="1"
+                className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-pink-500"
+                placeholder="e.g. 30, 90, 365 — blank = forever"
+                value={compForm.days}
+                onChange={(e) => setCompForm({ ...compForm, days: e.target.value })}
+              />
+            </div>
+            <div className="flex gap-2 pt-1">
+              <button onClick={() => setCompModal(false)} className="flex-1 py-2 rounded-lg border border-gray-700 text-gray-400 hover:bg-gray-700 text-sm transition">Cancel</button>
+              <button onClick={doGrantComplimentary} className="flex-1 py-2 rounded-lg bg-pink-700 hover:bg-pink-600 text-white text-sm font-semibold transition flex items-center justify-center gap-1.5">
+                <Gift size={13} /> Grant Access
+              </button>
             </div>
           </div>
         </Modal>

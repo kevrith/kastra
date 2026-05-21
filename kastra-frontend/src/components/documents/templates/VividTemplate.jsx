@@ -154,7 +154,7 @@ export default function VividTemplate({ org, doc, type }) {
 
         {doc.charges?.length > 0 && (
           <div style={{ marginBottom: 14 }}>
-            <div style={{ fontSize: 10, fontWeight: 700, color: G1, textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 6 }}>Other Charges</div>
+            <div style={{ fontSize: 10, fontWeight: 700, color: G1, textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 6 }}>Charges</div>
             {doc.charges.map((c, i) => (
               <div key={c.id ?? i} style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", fontSize: 12, color: "#6b7280", borderBottom: "1px solid #dcfce7" }}>
                 <span>{c.description}</span><span>{ksh(c.amount)}</span>
@@ -174,11 +174,24 @@ export default function VividTemplate({ org, doc, type }) {
                 <span>Total discount</span><span>− {ksh(doc.total_discount)}</span>
               </div>
             )}
-            {Number(doc.charges_total) > 0 && (
-              <div style={{ display: "flex", justifyContent: "space-between", padding: "9px 16px", color: "#6b7280", borderTop: "1px solid #dcfce7" }}>
-                <span>Other charges</span><span>{ksh(doc.charges_total)}</span>
-              </div>
-            )}
+            {(() => {
+              const labour = doc.charges?.find((c) => c.description === "Labour");
+              const otherTotal = Number(doc.charges_total) - (labour ? Number(labour.amount) : 0);
+              return (
+                <>
+                  {labour && (
+                    <div style={{ display: "flex", justifyContent: "space-between", padding: "9px 16px", color: "#6b7280", borderTop: "1px solid #dcfce7" }}>
+                      <span>Labour</span><span>{ksh(labour.amount)}</span>
+                    </div>
+                  )}
+                  {otherTotal > 0 && (
+                    <div style={{ display: "flex", justifyContent: "space-between", padding: "9px 16px", color: "#6b7280", borderTop: "1px solid #dcfce7" }}>
+                      <span>Other charges</span><span>{ksh(otherTotal)}</span>
+                    </div>
+                  )}
+                </>
+              );
+            })()}
             {Number(doc.vat_amount) > 0 && (
               <div style={{ display: "flex", justifyContent: "space-between", padding: "9px 16px", color: "#6b7280", borderTop: "1px solid #dcfce7" }}>
                 <span>VAT (16%)</span><span>{ksh(doc.vat_amount)}</span>

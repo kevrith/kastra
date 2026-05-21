@@ -45,3 +45,9 @@ export const superadminExtendTrial = (token, orgId, days) =>
 
 export const superadminRecordPayment = (token, orgId, payload) =>
   api.post(`/api/superadmin/organizations/${orgId}/record-payment`, payload, saHeaders(token));
+
+export const superadminGrantComplimentary = (token, orgId, payload) =>
+  api.post(`/api/superadmin/organizations/${orgId}/grant-complimentary`, payload, saHeaders(token));
+
+export const superadminRevokeComplimentary = (token, orgId) =>
+  api.post(`/api/superadmin/organizations/${orgId}/revoke-complimentary`, {}, saHeaders(token));

@@ -10,7 +10,6 @@ import FinancialsForm from "../../components/ui/FinancialsForm";
 
 const emptyItem = () => ({ description: "", quantity: "1", unit_price: "", discount_pct: "0", vat_exempt: false });
 
-// Resize + re-encode to JPEG so the base64 payload stays under Claude's 5 MB limit
 function compressImage(file, maxDimension = 1920) {
   return new Promise((resolve) => {
     const img = new Image();
@@ -26,7 +25,6 @@ function compressImage(file, maxDimension = 1920) {
       canvas.width = width;
       canvas.height = height;
       canvas.getContext("2d").drawImage(img, 0, 0, width, height);
-      // Drop quality until base64 is under 4 MB (leaves headroom below the 5 MB API limit)
       const encode = (q) => {
         const dataUrl = canvas.toDataURL("image/jpeg", q);
         const b64 = dataUrl.split(",")[1];
@@ -52,13 +50,15 @@ export default function QuotationForm() {
   const [charges, setCharges] = useState([]);
   const [discountPct, setDiscountPct] = useState("0");
   const [whtPct, setWhtPct] = useState("0");
+  const [labourPct, setLabourPct] = useState("0");
   const [saving, setSaving] = useState(false);
+  const [savingDraft, setSavingDraft] = useState(false);
   const [error, setError] = useState("");
   const [showScan, setShowScan] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [scanPreview, setScanPreview] = useState(null);
   const [scanError, setScanError] = useState("");
-  const [scanClientHint, setScanClientHint] = useState(null); // { name, phone, email } when OCR finds unknown client
+  const [scanClientHint, setScanClientHint] = useState(null);
   const [creatingClient, setCreatingClient] = useState(false);
   const fileInputRef = useRef(null);
 
@@ -78,7 +78,13 @@ export default function QuotationForm() {
           vat_exempt: i.vat_exempt ?? false,
           sort_order: i.sort_order,
         })));
-        setCharges((q.charges || []).map((c) => ({ description: c.description, amount: String(c.amount), vat_exempt: c.vat_exempt })));
+        const labourCharge = (q.charges || []).find((c) => c.description === "Labour");
+        const otherCharges = (q.charges || []).filter((c) => c.description !== "Labour");
+        if (labourCharge) {
+          const subtotal = q.items.reduce((s, i) => s + parseFloat(i.quantity) * parseFloat(i.unit_price), 0);
+          setLabourPct(subtotal > 0 ? String(Math.round((parseFloat(labourCharge.amount) / subtotal) * 10000) / 100) : "0");
+        }
+        setCharges(otherCharges.map((c) => ({ description: c.description, amount: String(c.amount), vat_exempt: c.vat_exempt })));
         setDiscountPct(String(q.discount_pct ?? 0));
         setWhtPct(String(q.wht_pct ?? 0));
       });
@@ -98,6 +104,62 @@ export default function QuotationForm() {
   const removeItem = (i) => setItems((prev) => prev.filter((_, idx) => idx !== i));
   const addItem = () => setItems((prev) => [...prev, emptyItem()]);
 
+  const buildPayload = () => {
+    const itemsGross = items.reduce((s, it) => s + (parseFloat(it.quantity) || 0) * (parseFloat(it.unit_price) || 0), 0);
+    return {
+      client_id: clientId,
+      notes: notes || null,
+      expires_at: expiresAt ? new Date(expiresAt).toISOString() : null,
+      discount_pct: parseFloat(discountPct) || 0,
+      wht_pct: parseFloat(whtPct) || 0,
+      items: items.map((item, i) => ({
+        description: item.description,
+        quantity: parseFloat(item.quantity),
+        unit_price: parseFloat(item.unit_price),
+        discount_pct: parseFloat(item.discount_pct) || 0,
+        vat_exempt: item.vat_exempt,
+        sort_order: i,
+      })),
+      charges: [
+        ...(parseFloat(labourPct) > 0 ? [{
+          description: "Labour",
+          amount: parseFloat(labourPct) / 100 * itemsGross,
+          vat_exempt: false,
+          sort_order: 0,
+        }] : []),
+        ...charges.filter((c) => c.description && c.amount).map((c, i) => ({
+          description: c.description,
+          amount: parseFloat(c.amount),
+          vat_exempt: c.vat_exempt,
+          sort_order: i + 1,
+        })),
+      ],
+    };
+  };
+
+  const save = async (setLoader) => {
+    if (!clientId) { setError("Please select a client"); return; }
+    setLoader(true);
+    setError("");
+    try {
+      const payload = buildPayload();
+      if (isEdit) {
+        await updateQuotation(id, payload);
+        navigate(`/quotations/${id}`);
+      } else {
+        const { data } = await createQuotation(payload);
+        navigate(`/quotations/${data.data.id}`);
+      }
+    } catch (err) {
+      setError(err.response?.data?.detail ?? "Failed to save quotation");
+    } finally {
+      setLoader(false);
+    }
+  };
+
+  const handleSubmit = (e) => { e.preventDefault(); save(setSaving); };
+  const handleSaveDraft = () => save(setSavingDraft);
+
   const handleFileSelect = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -114,7 +176,6 @@ export default function QuotationForm() {
       const { base64, mediaType } = scanPreview;
       const { data } = await scanReceipt(base64, mediaType);
       const result = data;
-
       if (result.items?.length) {
         setItems(result.items.map((it) => ({
           description: it.description,
@@ -133,11 +194,7 @@ export default function QuotationForm() {
           setClientId(match.id);
           setScanClientHint(null);
         } else {
-          setScanClientHint({
-            name: result.client_name,
-            phone: result.client_phone || "",
-            email: result.client_email || "",
-          });
+          setScanClientHint({ name: result.client_name, phone: result.client_phone || "", email: result.client_email || "" });
         }
       }
       setShowScan(false);
@@ -149,56 +206,11 @@ export default function QuotationForm() {
     }
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!clientId) { setError("Please select a client"); return; }
-    setSaving(true);
-    setError("");
-    try {
-      const payload = {
-        client_id: clientId,
-        notes: notes || null,
-        expires_at: expiresAt ? new Date(expiresAt).toISOString() : null,
-        discount_pct: parseFloat(discountPct) || 0,
-        wht_pct: parseFloat(whtPct) || 0,
-        items: items.map((item, i) => ({
-          description: item.description,
-          quantity: parseFloat(item.quantity),
-          unit_price: parseFloat(item.unit_price),
-          discount_pct: parseFloat(item.discount_pct) || 0,
-          vat_exempt: item.vat_exempt,
-          sort_order: i,
-        })),
-        charges: charges.filter((c) => c.description && c.amount).map((c, i) => ({
-          description: c.description,
-          amount: parseFloat(c.amount),
-          vat_exempt: c.vat_exempt,
-          sort_order: i,
-        })),
-      };
-      if (isEdit) {
-        await updateQuotation(id, payload);
-        navigate(`/quotations/${id}`);
-      } else {
-        const { data } = await createQuotation(payload);
-        navigate(`/quotations/${data.data.id}`);
-      }
-    } catch (err) {
-      setError(err.response?.data?.detail ?? "Failed to save quotation");
-    } finally {
-      setSaving(false);
-    }
-  };
-
   const handleCreateClientFromScan = async () => {
     if (!scanClientHint) return;
     setCreatingClient(true);
     try {
-      const { data } = await createClient({
-        name: scanClientHint.name,
-        phone: scanClientHint.phone || null,
-        email: scanClientHint.email || null,
-      });
+      const { data } = await createClient({ name: scanClientHint.name, phone: scanClientHint.phone || null, email: scanClientHint.email || null });
       const newClient = data.data;
       setClients((prev) => [...prev, newClient]);
       setClientId(newClient.id);
@@ -236,54 +248,27 @@ export default function QuotationForm() {
               Take a photo or upload an image of a receipt, handwritten quote, or printed invoice.
               Claude AI will extract the items and pre-fill the form for you.
             </p>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              capture="environment"
-              className="hidden"
-              onChange={handleFileSelect}
-            />
+            <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" capture="environment"
+              className="hidden" onChange={handleFileSelect} />
             {!scanPreview ? (
-              <div className="flex flex-col gap-2">
-                <button
-                  type="button"
-                  className="btn-primary w-full"
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  <Camera size={16} /> Take Photo / Choose Image
-                </button>
-              </div>
+              <button type="button" className="btn-primary w-full" onClick={() => fileInputRef.current?.click()}>
+                <Camera size={16} /> Take Photo / Choose Image
+              </button>
             ) : (
               <div className="space-y-3">
-                <img
-                  src={scanPreview.dataUrl}
-                  alt="Receipt preview"
-                  className="w-full max-h-56 object-contain rounded-lg border border-gray-200"
-                />
+                <img src={scanPreview.dataUrl} alt="Receipt preview"
+                  className="w-full max-h-56 object-contain rounded-lg border border-gray-200" />
                 {scanError && <p className="text-xs text-red-600">{scanError}</p>}
                 <div className="flex gap-2">
-                  <button
-                    type="button"
-                    className="btn-secondary flex-1"
-                    onClick={() => { setScanPreview(null); fileInputRef.current?.click(); }}
-                  >
-                    Retake
-                  </button>
-                  <button
-                    type="button"
-                    className="btn-primary flex-1"
-                    onClick={handleScan}
-                    disabled={scanning}
-                  >
+                  <button type="button" className="btn-secondary flex-1"
+                    onClick={() => { setScanPreview(null); fileInputRef.current?.click(); }}>Retake</button>
+                  <button type="button" className="btn-primary flex-1" onClick={handleScan} disabled={scanning}>
                     {scanning ? "Scanning…" : "Extract Items"}
                   </button>
                 </div>
               </div>
             )}
-            <p className="text-[10px] text-gray-400 text-center">
-              Powered by Claude AI · Review extracted data before saving
-            </p>
+            <p className="text-[10px] text-gray-400 text-center">Powered by Claude AI · Review extracted data before saving</p>
           </div>
         </div>
       )}
@@ -309,12 +294,8 @@ export default function QuotationForm() {
                   </p>
                 </div>
                 <div className="flex gap-1.5 shrink-0">
-                  <button
-                    type="button"
-                    className="btn-primary text-xs py-1 px-2.5"
-                    onClick={handleCreateClientFromScan}
-                    disabled={creatingClient}
-                  >
+                  <button type="button" className="btn-primary text-xs py-1 px-2.5"
+                    onClick={handleCreateClientFromScan} disabled={creatingClient}>
                     {creatingClient ? "Adding…" : "Create & Select"}
                   </button>
                   <button type="button" onClick={() => setScanClientHint(null)} className="text-amber-400 hover:text-amber-600">
@@ -365,12 +346,9 @@ export default function QuotationForm() {
               </div>
               <div className="col-span-1 sm:col-span-1 flex items-center justify-center" title={item.vat_exempt ? "VAT exempt" : "VAT applies (16%)"}>
                 <label className="flex flex-col items-center gap-0.5 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={!item.vat_exempt}
+                  <input type="checkbox" checked={!item.vat_exempt}
                     onChange={(e) => setItem(i, "vat_exempt", !e.target.checked)}
-                    className="accent-green-600"
-                  />
+                    className="accent-green-600" />
                   <span className="text-[10px] text-gray-400 leading-none">VAT</span>
                 </label>
               </div>
@@ -397,6 +375,8 @@ export default function QuotationForm() {
           setDiscountPct={setDiscountPct}
           whtPct={whtPct}
           setWhtPct={setWhtPct}
+          labourPct={labourPct}
+          setLabourPct={setLabourPct}
         />
 
         <div className="card p-4">
@@ -407,7 +387,12 @@ export default function QuotationForm() {
 
         <div className="flex justify-end gap-3">
           <button type="button" className="btn-secondary" onClick={() => navigate(-1)}>Cancel</button>
-          <button type="submit" className="btn-primary" disabled={saving}>
+          {!isEdit && (
+            <button type="button" className="btn-secondary" onClick={handleSaveDraft} disabled={savingDraft || saving}>
+              {savingDraft ? "Saving…" : "Save Draft"}
+            </button>
+          )}
+          <button type="submit" className="btn-primary" disabled={saving || savingDraft}>
             {saving ? "Saving…" : isEdit ? "Update Quotation" : "Create Quotation"}
           </button>
         </div>

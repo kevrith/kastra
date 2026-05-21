@@ -65,6 +65,12 @@ class RecordPaymentRequest(BaseModel):
     note: str | None = None
 
 
+class GrantComplimentaryRequest(BaseModel):
+    plan: str
+    reason: str
+    days: int | None = None  # None = indefinite
+
+
 @router.post("/login")
 async def superadmin_login(payload: SALoginRequest):
     if payload.username != settings.superadmin_username:
@@ -117,12 +123,14 @@ async def superadmin_stats(db: AsyncSession = Depends(get_db)):
         select(func.count()).select_from(Organization).where(Organization.plan_status == "suspended")
     )).scalar_one()
 
-    # Plan distribution
+    # Plan distribution — only real paying customers (active, not trial, not complimentary)
     plan_counts: dict[str, int] = {}
     for plan in VALID_PLANS:
         count = (await db.execute(
             select(func.count()).select_from(Organization).where(
-                Organization.plan == plan, Organization.is_trial == False  # noqa: E712
+                Organization.plan == plan,
+                Organization.is_trial == False,  # noqa: E712
+                Organization.plan_status != "complimentary",
             )
         )).scalar_one()
         plan_counts[plan] = count
@@ -138,6 +146,11 @@ async def superadmin_stats(db: AsyncSession = Depends(get_db)):
             )
         )).scalar_one()
         trial_counts[plan] = count
+
+    # Complimentary accounts
+    complimentary_count = (await db.execute(
+        select(func.count()).select_from(Organization).where(Organization.plan_status == "complimentary")
+    )).scalar_one()
 
     mrr = sum(count * PLAN_PRICES_KES.get(plan, 0) for plan, count in plan_counts.items())
     arr = mrr * 12
@@ -164,6 +177,7 @@ async def superadmin_stats(db: AsyncSession = Depends(get_db)):
         "trials_active": trials_active,
         "trials_expiring_7d": trials_expiring_7d,
         "suspended_orgs": suspended_orgs,
+        "complimentary_count": complimentary_count,
         "plan_distribution": plan_counts,
         "trial_distribution": trial_counts,
         "mrr_kes": mrr,
@@ -500,6 +514,63 @@ async def record_manual_payment(
     return {"message": f"Payment recorded and {payload.plan} plan activated", "org_id": org_id}
 
 
+@router.post("/organizations/{org_id}/grant-complimentary", dependencies=[Depends(_verify_sa_token)])
+async def grant_complimentary(
+    org_id: str,
+    payload: GrantComplimentaryRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    if payload.plan not in VALID_PLANS or payload.plan == "free":
+        raise HTTPException(400, "plan must be starter, business, or premium")
+    if not payload.reason.strip():
+        raise HTTPException(400, "reason is required")
+
+    result = await db.execute(select(Organization).where(Organization.id == org_id))
+    org = result.scalar_one_or_none()
+    if not org:
+        raise HTTPException(404, "Organization not found")
+
+    now = datetime.now(timezone.utc)
+    org.plan = payload.plan
+    org.plan_status = "complimentary"
+    org.is_trial = False
+    org.trial_ends_at = None
+    org.pending_plan = None
+    org.complimentary_reason = payload.reason.strip()
+    org.complimentary_ends_at = now + timedelta(days=payload.days) if payload.days else None
+    if not org.billing_cycle_start:
+        org.billing_cycle_start = now
+
+    await record_audit(db, "grant_complimentary", org_id, org.name, {
+        "plan": payload.plan,
+        "reason": payload.reason,
+        "days": payload.days,
+        "ends_at": org.complimentary_ends_at.isoformat() if org.complimentary_ends_at else "indefinite",
+    })
+    await db.commit()
+    return {
+        "message": f"Complimentary {payload.plan} access granted",
+        "ends_at": org.complimentary_ends_at.isoformat() if org.complimentary_ends_at else "indefinite",
+    }
+
+
+@router.post("/organizations/{org_id}/revoke-complimentary", dependencies=[Depends(_verify_sa_token)])
+async def revoke_complimentary(org_id: str, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(Organization).where(Organization.id == org_id))
+    org = result.scalar_one_or_none()
+    if not org:
+        raise HTTPException(404, "Organization not found")
+
+    org.plan = "free"
+    org.plan_status = "active"
+    org.complimentary_ends_at = None
+    org.complimentary_reason = None
+
+    await record_audit(db, "revoke_complimentary", org_id, org.name)
+    await db.commit()
+    return {"message": "Complimentary access revoked — org moved to free plan"}
+
+
 @router.get("/organizations/{org_id}", dependencies=[Depends(_verify_sa_token)])
 async def get_org_detail(org_id: str, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Organization).where(Organization.id == org_id))
@@ -538,6 +609,8 @@ async def get_org_detail(org_id: str, db: AsyncSession = Depends(get_db)):
         "is_trial": org.is_trial,
         "trial_ends_at": org.trial_ends_at.isoformat() if org.trial_ends_at else None,
         "days_left_trial": max(0, (org.trial_ends_at - now).days) if org.is_trial and org.trial_ends_at else None,
+        "complimentary_ends_at": org.complimentary_ends_at.isoformat() if org.complimentary_ends_at else None,
+        "complimentary_reason": org.complimentary_reason,
         "invoices_this_month": org.invoices_this_month,
         "quotations_this_month": org.quotations_this_month,
         "ocr_scans_this_month": org.ocr_scans_this_month,

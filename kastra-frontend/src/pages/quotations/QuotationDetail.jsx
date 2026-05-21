@@ -220,7 +220,7 @@ export default function QuotationDetail() {
         </table>
         {quotation.charges?.length > 0 && (
           <div className="px-4 py-2 border-t border-gray-100">
-            <p className="text-xs text-gray-400 uppercase tracking-wide mb-1.5">Other Charges</p>
+            <p className="text-xs text-gray-400 uppercase tracking-wide mb-1.5">Charges</p>
             {quotation.charges.map((c) => (
               <div key={c.id} className="flex justify-between text-sm text-gray-600 py-0.5">
                 <span>{c.description}</span><span>{ksh(c.amount)}</span>
@@ -233,9 +233,20 @@ export default function QuotationDetail() {
           {Number(quotation.total_discount) > 0 && (
             <div className="flex justify-between text-red-500"><span>Total discount</span><span>− {ksh(quotation.total_discount)}</span></div>
           )}
-          {Number(quotation.charges_total) > 0 && (
-            <div className="flex justify-between text-gray-600"><span>Other charges</span><span>{ksh(quotation.charges_total)}</span></div>
-          )}
+          {(() => {
+            const labourCharge = quotation.charges?.find((c) => c.description === "Labour");
+            const otherChargesTotal = Number(quotation.charges_total) - (labourCharge ? Number(labourCharge.amount) : 0);
+            return (
+              <>
+                {labourCharge && (
+                  <div className="flex justify-between text-gray-600"><span>Labour</span><span>{ksh(labourCharge.amount)}</span></div>
+                )}
+                {otherChargesTotal > 0 && (
+                  <div className="flex justify-between text-gray-600"><span>Other charges</span><span>{ksh(otherChargesTotal)}</span></div>
+                )}
+              </>
+            );
+          })()}
           {Number(quotation.vat_amount) > 0 && (
             <div className="flex justify-between text-gray-600"><span>VAT (16%)</span><span>{ksh(quotation.vat_amount)}</span></div>
           )}
