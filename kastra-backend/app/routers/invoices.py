@@ -125,6 +125,7 @@ async def create_invoice(
         organization_id=current_user.organization_id,
         client_id=payload.client_id,
         lpo_number=payload.lpo_number,
+        invoice_date=payload.invoice_date,
         discount_pct=payload.discount_pct,
         wht_pct=payload.wht_pct,
         deposit_amount=payload.deposit_amount,

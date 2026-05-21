@@ -27,6 +27,7 @@ import ClientPortal from "./pages/portal/ClientPortal";
 import PaystackVerify from "./pages/portal/PaystackVerify";
 import PrivacyPolicy from "./pages/legal/PrivacyPolicy";
 import TermsOfService from "./pages/legal/TermsOfService";
+import Landing from "./pages/Landing";
 
 export default function App() {
   return (
@@ -34,6 +35,7 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           {/* Public */}
+          <Route path="/home" element={<Landing />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/auth/callback" element={<AuthCallback />} />

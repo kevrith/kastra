@@ -35,6 +35,7 @@ class InvoiceItemCreate(BaseModel):
 
 class InvoiceCreate(BaseModel):
     client_id: uuid.UUID
+    invoice_date: datetime | None = None
     lpo_number: str | None = None
     due_date: datetime | None = None
     notes: str | None = None
@@ -108,6 +109,7 @@ class InvoiceOut(BaseModel):
     vat_amount: Decimal
     grand_total: Decimal
     amount_paid: Decimal
+    invoice_date: datetime | None
     due_date: datetime | None
     mpesa_checkout_request_id: str | None
     reminders_sent: int

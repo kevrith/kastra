@@ -27,6 +27,7 @@ class Invoice(Base):
     subtotal: Mapped[Decimal] = mapped_column(Numeric(15, 2), nullable=False, default=0)
     vat_amount: Mapped[Decimal] = mapped_column(Numeric(15, 2), nullable=False, default=0)
     grand_total: Mapped[Decimal] = mapped_column(Numeric(15, 2), nullable=False, default=0)
+    invoice_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     due_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     lpo_number: Mapped[str | None] = mapped_column(String(100), nullable=True)
     discount_pct: Mapped[Decimal] = mapped_column(Numeric(5, 2), nullable=False, default=0)

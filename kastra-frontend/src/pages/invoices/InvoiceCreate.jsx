@@ -14,6 +14,7 @@ export default function InvoiceCreate() {
   const [clients, setClients] = useState([]);
   const [clientId, setClientId] = useState("");
   const [lpoNumber, setLpoNumber] = useState("");
+  const [invoiceDate, setInvoiceDate] = useState(new Date().toISOString().slice(0, 10));
   const [dueDate, setDueDate] = useState("");
   const [notes, setNotes] = useState("");
   const [items, setItems] = useState([emptyItem()]);
@@ -48,6 +49,7 @@ export default function InvoiceCreate() {
     try {
       const { data } = await createInvoice({
         client_id: clientId,
+        invoice_date: invoiceDate ? new Date(invoiceDate).toISOString() : null,
         lpo_number: lpoNumber || null,
         due_date: dueDate ? new Date(dueDate).toISOString() : null,
         notes: notes || null,
@@ -97,14 +99,21 @@ export default function InvoiceCreate() {
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="label">LPO Number <span className="text-gray-400 font-normal">(optional)</span></label>
-              <input className="input" type="text" placeholder="e.g. LPO-2026-001"
-                value={lpoNumber} onChange={(e) => setLpoNumber(e.target.value)} />
+              <label className="label">Invoice Date</label>
+              <input className="input" type="date" value={invoiceDate}
+                onChange={(e) => setInvoiceDate(e.target.value)} />
             </div>
             <div>
               <label className="label">Due Date</label>
               <input className="input" type="date" value={dueDate}
                 onChange={(e) => setDueDate(e.target.value)} />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="label">LPO Number <span className="text-gray-400 font-normal">(optional)</span></label>
+              <input className="input" type="text" placeholder="e.g. LPO-2026-001"
+                value={lpoNumber} onChange={(e) => setLpoNumber(e.target.value)} />
             </div>
           </div>
         </div>
