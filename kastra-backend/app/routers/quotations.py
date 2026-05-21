@@ -122,13 +122,13 @@ async def create_quotation(
 ):
     is_draft = payload.status == "draft"
 
-    # Client required for non-draft quotations
-    if not is_draft:
-        if not payload.client_id:
-            raise HTTPException(status_code=422, detail="client_id is required")
+    # Validate client_id if provided (required for non-drafts, optional for drafts)
+    if payload.client_id:
         client = await db.get(Client, payload.client_id)
         if not client or client.organization_id != current_user.organization_id:
             raise HTTPException(status_code=404, detail="Client not found")
+    elif not is_draft:
+        raise HTTPException(status_code=422, detail="client_id is required")
 
     # Enforce plan quotation limit (drafts don't count against the limit)
     org_result = await db.execute(select(Organization).where(Organization.id == current_user.organization_id))
