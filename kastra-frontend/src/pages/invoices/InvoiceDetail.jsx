@@ -555,9 +555,23 @@ export default function InvoiceDetail() {
           {Number(invoice.total_discount) > 0 && (
             <div className="flex justify-between text-red-500"><span>Total discount</span><span>− {ksh(invoice.total_discount)}</span></div>
           )}
-          {Number(invoice.charges_total) > 0 && (
-            <div className="flex justify-between text-gray-600"><span>Other charges</span><span>{ksh(invoice.charges_total)}</span></div>
-          )}
+          {(() => {
+            const labour = invoice.charges?.find((c) => c.description === "Labour");
+            const otherTotal = Number(invoice.charges_total) - (labour ? Number(labour.amount) : 0);
+            return (
+              <>
+                {labour && (
+                  <div className="flex justify-between text-gray-600">
+                    <span>Labour ({Number(invoice.subtotal) > 0 ? Math.round(Number(labour.amount) / Number(invoice.subtotal) * 10000) / 100 : 0}%)</span>
+                    <span>{ksh(labour.amount)}</span>
+                  </div>
+                )}
+                {otherTotal > 0 && (
+                  <div className="flex justify-between text-gray-600"><span>Other charges</span><span>{ksh(otherTotal)}</span></div>
+                )}
+              </>
+            );
+          })()}
           {Number(invoice.vat_amount) > 0 && (
             <div className="flex justify-between text-gray-600"><span>VAT (16%)</span><span>{ksh(invoice.vat_amount)}</span></div>
           )}
