@@ -40,7 +40,6 @@ docs/_build/
 target/
 profile_default/
 ipython_config.py
-.python-version
 celerybeat-schedule
 celerybeat.pid
 *.sage.py
