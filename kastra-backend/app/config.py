@@ -7,6 +7,19 @@ class Settings(BaseSettings):
     # Database
     database_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/kastra"
 
+    @property
+    def async_database_url(self) -> str:
+        """Normalise the URL for asyncpg (handles Neon/Render connection strings)."""
+        url = self.database_url
+        # Convert postgres:// or postgresql:// → postgresql+asyncpg://
+        if url.startswith("postgres://"):
+            url = url.replace("postgres://", "postgresql+asyncpg://", 1)
+        elif url.startswith("postgresql://"):
+            url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
+        # asyncpg uses ?ssl=require, not ?sslmode=require
+        url = url.replace("sslmode=require", "ssl=require")
+        return url
+
     # JWT
     secret_key: str = "change-me-in-production"
     refresh_secret_key: str = "change-me-refresh-in-production"

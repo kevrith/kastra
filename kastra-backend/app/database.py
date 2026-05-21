@@ -4,9 +4,9 @@ from sqlalchemy.orm import DeclarativeBase
 from app.config import settings
 
 engine = create_async_engine(
-    settings.database_url,
-    pool_size=10,
-    max_overflow=5,
+    settings.async_database_url,
+    pool_size=3 if settings.is_production else 10,
+    max_overflow=2 if settings.is_production else 5,
     echo=not settings.is_production,
 )
 
