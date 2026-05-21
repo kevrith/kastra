@@ -110,8 +110,8 @@ class QuotationStatusUpdate(BaseModel):
 
 class QuotationOut(BaseModel):
     id: str
-    client_id: uuid.UUID
-    client: ClientOut
+    client_id: uuid.UUID | None
+    client: ClientOut | None
     created_by: uuid.UUID
     status: str
     subtotal: Decimal
@@ -144,7 +144,7 @@ class QuotationOut(BaseModel):
 
 class QuotationListOut(BaseModel):
     id: str
-    client: ClientOut
+    client: ClientOut | None
     status: str
     grand_total: Decimal
     expires_at: datetime | None
