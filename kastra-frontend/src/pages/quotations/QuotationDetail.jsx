@@ -129,6 +129,11 @@ export default function QuotationDetail() {
                 · Expires {date(quotation.expires_at)}
               </span>
             )}
+            {quotation.accepted_at && (
+              <span className="ml-2 text-green-600">
+                · Accepted {new Date(quotation.accepted_at).toLocaleString("en-KE", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+              </span>
+            )}
           </p>
         </div>
         <div className="flex gap-2 flex-wrap justify-end">

@@ -312,6 +312,9 @@ async def update_status(
     if not qt:
         raise HTTPException(status_code=404, detail="Quotation not found")
     qt.status = payload.status
+    if payload.status == "accepted" and qt.accepted_at is None:
+        from datetime import datetime, timezone
+        qt.accepted_at = datetime.now(timezone.utc)
     await db.flush()
     await db.refresh(qt)
     return Response(data=qt)

@@ -36,6 +36,7 @@ class Quotation(Base):
     wht_amount: Mapped[Decimal] = mapped_column(Numeric(15, 2), nullable=False, default=0)
     converted_to_invoice: Mapped[bool] = mapped_column(Boolean, default=False)
     invoice_id: Mapped[str | None] = mapped_column(String(20), ForeignKey("invoices.id"), nullable=True)
+    accepted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()

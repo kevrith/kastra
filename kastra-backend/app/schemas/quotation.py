@@ -127,6 +127,7 @@ class QuotationOut(BaseModel):
     expires_at: datetime | None
     converted_to_invoice: bool
     invoice_id: str | None
+    accepted_at: datetime | None
     items: list[QuotationItemOut]
     charges: list[QuotationChargeOut]
     created_at: datetime
