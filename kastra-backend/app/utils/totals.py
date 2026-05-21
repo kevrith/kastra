@@ -25,14 +25,15 @@ def calculate_totals(items, charges=None, discount_pct=Decimal("0"), wht_pct=Dec
 
     # Gross subtotal (qty × unit_price, no discounts)
     subtotal = sum(
-        Decimal(str(i.quantity)) * Decimal(str(i.unit_price))
-        for i in items
+        (Decimal(str(i.quantity)) * Decimal(str(i.unit_price)) for i in items),
+        Decimal("0"),
     )
 
     # Per-line discounts
     line_discounts = sum(
-        Decimal(str(i.quantity)) * Decimal(str(i.unit_price)) * Decimal(str(getattr(i, "discount_pct", 0))) / 100
-        for i in items
+        (Decimal(str(i.quantity)) * Decimal(str(i.unit_price)) * Decimal(str(getattr(i, "discount_pct", 0))) / 100
+        for i in items),
+        Decimal("0"),
     ).quantize(Decimal("0.01"))
 
     # Net items after line discounts
@@ -45,21 +46,24 @@ def calculate_totals(items, charges=None, discount_pct=Decimal("0"), wht_pct=Dec
     items_net = subtotal - total_discount
 
     # Other charges
-    charges_total = sum(Decimal(str(c.amount)) for c in charges).quantize(Decimal("0.01"))
+    charges_total = sum((Decimal(str(c.amount)) for c in charges), Decimal("0")).quantize(Decimal("0.01"))
 
     # VAT — on taxable items (after all discounts) + taxable charges
     taxable_items_gross = sum(
-        Decimal(str(i.quantity)) * Decimal(str(i.unit_price))
-        for i in items if not getattr(i, "vat_exempt", False)
+        (Decimal(str(i.quantity)) * Decimal(str(i.unit_price))
+        for i in items if not getattr(i, "vat_exempt", False)),
+        Decimal("0"),
     )
     taxable_line_discounts = sum(
-        Decimal(str(i.quantity)) * Decimal(str(i.unit_price)) * Decimal(str(getattr(i, "discount_pct", 0))) / 100
-        for i in items if not getattr(i, "vat_exempt", False)
+        (Decimal(str(i.quantity)) * Decimal(str(i.unit_price)) * Decimal(str(getattr(i, "discount_pct", 0))) / 100
+        for i in items if not getattr(i, "vat_exempt", False)),
+        Decimal("0"),
     ).quantize(Decimal("0.01"))
     taxable_items_net = taxable_items_gross - taxable_line_discounts
     taxable_items_discounted = (taxable_items_net * (1 - discount_pct / 100)).quantize(Decimal("0.01"))
     taxable_charges = sum(
-        Decimal(str(c.amount)) for c in charges if not getattr(c, "vat_exempt", False)
+        (Decimal(str(c.amount)) for c in charges if not getattr(c, "vat_exempt", False)),
+        Decimal("0"),
     ).quantize(Decimal("0.01"))
 
     vat_amount = ((taxable_items_discounted + taxable_charges) * VAT_RATE).quantize(Decimal("0.01"))
