@@ -59,13 +59,21 @@ class QuotationItemOut(BaseModel):
 
 
 class QuotationCreate(BaseModel):
-    client_id: uuid.UUID
-    items: list[QuotationItemCreate]
+    client_id: uuid.UUID | None = None
+    items: list[QuotationItemCreate] = []
     charges: list[QuotationChargeCreate] = []
     notes: str | None = None
     expires_at: datetime | None = None
     discount_pct: Decimal = Decimal("0")
     wht_pct: Decimal = Decimal("0")
+    status: str = "pending"
+
+    @field_validator("status")
+    @classmethod
+    def valid_create_status(cls, v: str) -> str:
+        if v not in ("draft", "pending"):
+            raise ValueError("status must be draft or pending")
+        return v
 
 
 class QuotationUpdate(BaseModel):

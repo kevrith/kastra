@@ -26,6 +26,8 @@ export default function FinancialsForm({
   setWhtPct,
   labourPct,
   setLabourPct,
+  labourVatExempt = false,
+  setLabourVatExempt,
   depositAmount,
   setDepositAmount,
   showDeposit = false,
@@ -60,7 +62,8 @@ export default function FinancialsForm({
   }, 0);
   const taxableItemsDiscounted = taxableItems * (1 - (parseFloat(discountPct) || 0) / 100);
   const taxableCharges = charges.reduce((s, c) => c.vat_exempt ? s : s + (parseFloat(c.amount) || 0), 0);
-  const vat = (taxableItemsDiscounted + taxableCharges + labourAmount) * 0.16;
+  const taxableLabour = labourVatExempt ? 0 : labourAmount;
+  const vat = (taxableItemsDiscounted + taxableCharges + taxableLabour) * 0.16;
   const grandTotal = finalItems + chargesTotal + labourAmount + vat;
   const whtAmount = finalItems * (parseFloat(whtPct) || 0) / 100;
   const depositAmt = showDeposit ? (parseFloat(depositAmount) || 0) : 0;
@@ -84,6 +87,16 @@ export default function FinancialsForm({
             </div>
             {labourAmount > 0 && (
               <div className="pb-6 text-sm font-medium text-gray-700">= {ksh(labourAmount)}</div>
+            )}
+            {setLabourVatExempt && (
+              <div className="pb-6" title={labourVatExempt ? "VAT exempt" : "VAT applies (16%)"}>
+                <label className="flex flex-col items-center gap-0.5 cursor-pointer select-none">
+                  <input type="checkbox" checked={!labourVatExempt}
+                    onChange={(e) => setLabourVatExempt(!e.target.checked)}
+                    className="accent-green-600" />
+                  <span className="text-[10px] text-gray-400 leading-none">VAT</span>
+                </label>
+              </div>
             )}
           </div>
         </div>

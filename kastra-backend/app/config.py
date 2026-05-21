@@ -30,10 +30,14 @@ class Settings(BaseSettings):
     google_client_id: str = ""
     google_client_secret: str = ""
 
-    # App
+    # App — comma-separated list of allowed origins, e.g. "https://kastra-ten.vercel.app,https://app.kastra.co.ke"
     frontend_url: str = "http://localhost:5200"
     backend_url: str = "http://localhost:8080"
     environment: str = "development"
+
+    @property
+    def allowed_origins(self) -> list[str]:
+        return [o.strip() for o in self.frontend_url.split(",") if o.strip()]
 
     # M-Pesa
     mpesa_consumer_key: str = ""

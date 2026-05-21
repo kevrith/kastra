@@ -106,14 +106,20 @@ async def create_quotation(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    client = await db.get(Client, payload.client_id)
-    if not client or client.organization_id != current_user.organization_id:
-        raise HTTPException(status_code=404, detail="Client not found")
+    is_draft = payload.status == "draft"
 
-    # Enforce plan quotation limit
+    # Client required for non-draft quotations
+    if not is_draft:
+        if not payload.client_id:
+            raise HTTPException(status_code=422, detail="client_id is required")
+        client = await db.get(Client, payload.client_id)
+        if not client or client.organization_id != current_user.organization_id:
+            raise HTTPException(status_code=404, detail="Client not found")
+
+    # Enforce plan quotation limit (drafts don't count against the limit)
     org_result = await db.execute(select(Organization).where(Organization.id == current_user.organization_id))
     org = org_result.scalar_one_or_none()
-    if org:
+    if org and not is_draft:
         limits = get_limits(org.plan)
         _maybe_reset_counters(org)
         cap = limits["quotations_per_month"]
@@ -135,6 +141,7 @@ async def create_quotation(
         expires_at=payload.expires_at,
         discount_pct=payload.discount_pct,
         wht_pct=payload.wht_pct,
+        status=payload.status,
         **totals,
     )
     db.add(quotation)
@@ -151,7 +158,8 @@ async def create_quotation(
             vat_exempt=item.vat_exempt,
             sort_order=item.sort_order if item.sort_order else i,
         ))
-        await _upsert_client_price(db, current_user.organization_id, payload.client_id, item.description, Decimal(str(item.unit_price)))
+        if payload.client_id:
+            await _upsert_client_price(db, current_user.organization_id, payload.client_id, item.description, Decimal(str(item.unit_price)))
 
     for i, charge in enumerate(payload.charges):
         db.add(QuotationCharge(
@@ -162,7 +170,7 @@ async def create_quotation(
             sort_order=charge.sort_order if charge.sort_order else i,
         ))
 
-    if org:
+    if org and not is_draft:
         org.quotations_this_month += 1
 
     await db.flush()

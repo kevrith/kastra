@@ -51,6 +51,7 @@ export default function QuotationForm() {
   const [discountPct, setDiscountPct] = useState("0");
   const [whtPct, setWhtPct] = useState("0");
   const [labourPct, setLabourPct] = useState("0");
+  const [labourVatExempt, setLabourVatExempt] = useState(false);
   const [saving, setSaving] = useState(false);
   const [savingDraft, setSavingDraft] = useState(false);
   const [error, setError] = useState("");
@@ -83,6 +84,7 @@ export default function QuotationForm() {
         if (labourCharge) {
           const subtotal = q.items.reduce((s, i) => s + parseFloat(i.quantity) * parseFloat(i.unit_price), 0);
           setLabourPct(subtotal > 0 ? String(Math.round((parseFloat(labourCharge.amount) / subtotal) * 10000) / 100) : "0");
+          setLabourVatExempt(labourCharge.vat_exempt ?? false);
         }
         setCharges(otherCharges.map((c) => ({ description: c.description, amount: String(c.amount), vat_exempt: c.vat_exempt })));
         setDiscountPct(String(q.discount_pct ?? 0));
@@ -104,15 +106,17 @@ export default function QuotationForm() {
   const removeItem = (i) => setItems((prev) => prev.filter((_, idx) => idx !== i));
   const addItem = () => setItems((prev) => [...prev, emptyItem()]);
 
-  const buildPayload = () => {
-    const itemsGross = items.reduce((s, it) => s + (parseFloat(it.quantity) || 0) * (parseFloat(it.unit_price) || 0), 0);
+  const buildPayload = (isDraft = false) => {
+    const validItems = items.filter((it) => it.description.trim() && parseFloat(it.quantity) > 0 && parseFloat(it.unit_price) > 0);
+    const itemsGross = validItems.reduce((s, it) => s + parseFloat(it.quantity) * parseFloat(it.unit_price), 0);
     return {
-      client_id: clientId,
+      client_id: clientId || null,
       notes: notes || null,
       expires_at: expiresAt ? new Date(expiresAt).toISOString() : null,
       discount_pct: parseFloat(discountPct) || 0,
       wht_pct: parseFloat(whtPct) || 0,
-      items: items.map((item, i) => ({
+      status: isDraft ? "draft" : "pending",
+      items: validItems.map((item, i) => ({
         description: item.description,
         quantity: parseFloat(item.quantity),
         unit_price: parseFloat(item.unit_price),
@@ -124,10 +128,10 @@ export default function QuotationForm() {
         ...(parseFloat(labourPct) > 0 ? [{
           description: "Labour",
           amount: parseFloat(labourPct) / 100 * itemsGross,
-          vat_exempt: false,
+          vat_exempt: labourVatExempt,
           sort_order: 0,
         }] : []),
-        ...charges.filter((c) => c.description && c.amount).map((c, i) => ({
+        ...charges.filter((c) => c.description && parseFloat(c.amount) > 0).map((c, i) => ({
           description: c.description,
           amount: parseFloat(c.amount),
           vat_exempt: c.vat_exempt,
@@ -137,12 +141,12 @@ export default function QuotationForm() {
     };
   };
 
-  const save = async (setLoader) => {
-    if (!clientId) { setError("Please select a client"); return; }
+  const save = async (setLoader, isDraft = false) => {
+    if (!isDraft && !clientId) { setError("Please select a client"); return; }
     setLoader(true);
     setError("");
     try {
-      const payload = buildPayload();
+      const payload = buildPayload(isDraft);
       if (isEdit) {
         await updateQuotation(id, payload);
         navigate(`/quotations/${id}`);
@@ -157,8 +161,8 @@ export default function QuotationForm() {
     }
   };
 
-  const handleSubmit = (e) => { e.preventDefault(); save(setSaving); };
-  const handleSaveDraft = () => save(setSavingDraft);
+  const handleSubmit = (e) => { e.preventDefault(); save(setSaving, false); };
+  const handleSaveDraft = () => save(setSavingDraft, true);
 
   const handleFileSelect = async (e) => {
     const file = e.target.files?.[0];
@@ -377,6 +381,8 @@ export default function QuotationForm() {
           setWhtPct={setWhtPct}
           labourPct={labourPct}
           setLabourPct={setLabourPct}
+          labourVatExempt={labourVatExempt}
+          setLabourVatExempt={setLabourVatExempt}
         />
 
         <div className="card p-4">
