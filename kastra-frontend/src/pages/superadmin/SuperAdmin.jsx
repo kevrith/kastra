@@ -10,7 +10,7 @@ import {
   LayoutDashboard, Building2, LogOut, Search, ChevronLeft, ChevronRight,
   TrendingUp, Users, FileText, RefreshCw, AlertCircle, CheckCircle2,
   CreditCard, Clock, Activity, DollarSign, BarChart2, ShieldAlert,
-  PlusCircle, X, Gift,
+  PlusCircle, X, Gift, Menu,
 } from "lucide-react";
 
 // ── Colour maps ────────────────────────────────────────────────────────────────
@@ -80,8 +80,8 @@ function SectionTitle({ title, onRefresh }) {
 
 function Table({ columns, rows, onRowClick, emptyMsg = "No data" }) {
   return (
-    <div className="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden">
-      <table className="w-full text-sm">
+    <div className="bg-gray-800 rounded-xl border border-gray-700 overflow-x-auto">
+      <table className="w-full text-sm min-w-[500px]">
         <thead className="bg-gray-750 border-b border-gray-700">
           <tr>
             {columns.map((c) => (
@@ -144,6 +144,7 @@ function fmtDateTime(s) { return s ? new Date(s).toLocaleString("en-KE", { day: 
 // ── Main Component ─────────────────────────────────────────────────────────────
 export default function SuperAdmin() {
   const [token, setToken] = useState(() => sessionStorage.getItem("sa_token") || "");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [loginForm, setLoginForm] = useState({ username: "", password: "" });
   const [loginError, setLoginError] = useState("");
   const [loginLoading, setLoginLoading] = useState(false);
@@ -383,8 +384,18 @@ export default function SuperAdmin() {
 
   return (
     <div className="min-h-screen bg-gray-950 flex">
+      {/* Mobile overlay */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 z-30 bg-black/60 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
       {/* Sidebar */}
-      <aside className="w-56 bg-gray-900 border-r border-gray-800 flex flex-col shrink-0">
+      <aside className={`fixed lg:static inset-y-0 left-0 z-40 w-56 bg-gray-900 border-r border-gray-800 flex flex-col shrink-0 transition-transform duration-200 ${
+        sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+      }`}>
         <div className="p-4 border-b border-gray-800">
           <div className="flex items-center gap-2.5">
             <img src="/kastra.png" alt="" className="h-8 w-8 object-contain" />
@@ -399,7 +410,7 @@ export default function SuperAdmin() {
           {navItems.map(({ id, label, icon: Icon, badge }) => (
             <button
               key={id}
-              onClick={() => setView(id)}
+              onClick={() => { setView(id); setSidebarOpen(false); }}
               className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition ${
                 view === id || (view === "org_detail" && id === "orgs")
                   ? "bg-green-600 text-white"
@@ -426,8 +437,18 @@ export default function SuperAdmin() {
       </aside>
 
       {/* Main content */}
-      <main className="flex-1 overflow-auto bg-gray-950">
-        <div className="p-6 max-w-6xl mx-auto space-y-6">
+      <main className="flex-1 overflow-auto bg-gray-950 lg:ml-0">
+        {/* Mobile top bar */}
+        <div className="lg:hidden flex items-center gap-3 px-4 py-3 bg-gray-900 border-b border-gray-800 sticky top-0 z-20">
+          <button onClick={() => setSidebarOpen(true)} className="text-gray-400 hover:text-white p-1">
+            <Menu size={20} />
+          </button>
+          <div className="flex items-center gap-2">
+            <img src="/kastra.png" alt="" className="h-6 w-6 object-contain" />
+            <span className="text-sm font-bold text-white">Admin Console</span>
+          </div>
+        </div>
+        <div className="p-4 md:p-6 max-w-6xl mx-auto space-y-6">
 
           {/* Flash message */}
           {actionMsg.text && (
@@ -629,7 +650,7 @@ export default function SuperAdmin() {
               ) : (
                 <div className="space-y-2">
                   {trials.map((t) => (
-                    <div key={t.id} className={`bg-gray-800 border rounded-xl px-5 py-4 flex items-center justify-between gap-4 ${t.days_left <= 3 ? "border-red-700" : t.days_left <= 7 ? "border-yellow-700" : "border-gray-700"}`}>
+                    <div key={t.id} className={`bg-gray-800 border rounded-xl px-4 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${t.days_left <= 3 ? "border-red-700" : t.days_left <= 7 ? "border-yellow-700" : "border-gray-700"}`}>
                       <div>
                         <p className="font-semibold text-white">{t.name}</p>
                         <p className="text-xs text-gray-400">{t.email || "no email"} · Signed up {fmtDate(t.created_at)}</p>

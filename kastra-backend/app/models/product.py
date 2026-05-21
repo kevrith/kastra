@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Index, Numeric, String, Text, func
+from sqlalchemy import DateTime, ForeignKey, Index, Numeric, String, Text, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -11,6 +11,7 @@ from app.database import Base
 class Product(Base):
     __tablename__ = "products"
     __table_args__ = (
+        UniqueConstraint("organization_id", "name", name="uq_product_org_name"),
         Index("ix_products_organization_id", "organization_id"),
         Index("ix_products_name", "name"),
     )

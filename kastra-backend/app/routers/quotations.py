@@ -17,6 +17,7 @@ from app.models.client import Client
 from app.models.client_price import ClientPrice
 from app.models.invoice import Invoice, InvoiceCharge, InvoiceItem
 from app.models.organization import Organization
+from app.models.product import Product
 from app.models.quotation import Quotation, QuotationCharge, QuotationItem
 from app.models.user import User
 from app.schemas.common import MessageResponse, Meta, PaginatedResponse, Response
@@ -61,6 +62,19 @@ async def _upsert_client_price(db: AsyncSession, org_id, client_id, description:
         unit_price=unit_price,
     ).on_conflict_do_update(
         index_elements=["organization_id", "client_id", "description"],
+        set_={"unit_price": unit_price},
+    )
+    await db.execute(stmt)
+
+
+async def _upsert_product(db: AsyncSession, org_id, description: str, unit_price: Decimal):
+    stmt = pg_insert(Product).values(
+        id=uuid.uuid4(),
+        organization_id=org_id,
+        name=description,
+        unit_price=unit_price,
+    ).on_conflict_do_update(
+        index_elements=["organization_id", "name"],
         set_={"unit_price": unit_price},
     )
     await db.execute(stmt)
@@ -158,6 +172,7 @@ async def create_quotation(
             vat_exempt=item.vat_exempt,
             sort_order=item.sort_order if item.sort_order else i,
         ))
+        await _upsert_product(db, current_user.organization_id, item.description, Decimal(str(item.unit_price)))
         if payload.client_id:
             await _upsert_client_price(db, current_user.organization_id, payload.client_id, item.description, Decimal(str(item.unit_price)))
 
@@ -251,6 +266,9 @@ async def update_quotation(
                 vat_exempt=item.vat_exempt,
                 sort_order=item.sort_order if item.sort_order else i,
             ))
+            await _upsert_product(db, current_user.organization_id, item.description, Decimal(str(item.unit_price)))
+            if qt.client_id:
+                await _upsert_client_price(db, current_user.organization_id, qt.client_id, item.description, Decimal(str(item.unit_price)))
 
     if new_charges is not None:
         for old_charge in qt.charges:
@@ -363,6 +381,7 @@ async def convert_to_invoice(
             vat_exempt=item.vat_exempt,
             sort_order=item.sort_order,
         ))
+        await _upsert_product(db, current_user.organization_id, item.description, Decimal(str(item.unit_price)))
         await _upsert_client_price(db, current_user.organization_id, qt.client_id, item.description, Decimal(str(item.unit_price)))
 
     for charge in qt.charges:
