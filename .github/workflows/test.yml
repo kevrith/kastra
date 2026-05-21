@@ -21,7 +21,7 @@ jobs:
         image: postgres:16
         env:
           POSTGRES_USER: kastra_user
-          POSTGRES_PASSWORD: ${{ secrets.TEST_DB_PASSWORD }}
+          POSTGRES_PASSWORD: kastra_ci_password
           POSTGRES_DB: kastra_test
         ports:
           - 5432:5432
@@ -49,12 +49,12 @@ jobs:
 
       - name: Run migrations
         env:
-          DATABASE_URL: postgresql+asyncpg://kastra_user:${{ secrets.TEST_DB_PASSWORD }}@localhost:5432/kastra_test
+          DATABASE_URL: postgresql+asyncpg://kastra_user:kastra_ci_password@localhost:5432/kastra_test
         run: alembic upgrade head
 
       - name: Run tests
         env:
-          TEST_DATABASE_URL: postgresql+asyncpg://kastra_user:${{ secrets.TEST_DB_PASSWORD }}@localhost:5432/kastra_test
+          TEST_DATABASE_URL: postgresql+asyncpg://kastra_user:kastra_ci_password@localhost:5432/kastra_test
           SECRET_KEY: ci-test-secret-key-32-chars-long!!
           REFRESH_SECRET_KEY: ci-test-refresh-key-32-chars-long!
           ENVIRONMENT: testing
