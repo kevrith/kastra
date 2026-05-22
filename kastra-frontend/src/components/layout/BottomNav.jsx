@@ -1,9 +1,11 @@
 import { useState, useEffect } from "react";
-import { NavLink, useLocation } from "react-router-dom";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
   Home, FileText, Receipt, Users, Settings,
   TrendingDown, RefreshCw, BarChart2, Package, MoreHorizontal, X, Kanban,
+  FolderKanban, UserCog, LogOut,
 } from "lucide-react";
+import { useAuth } from "../../context/AuthContext";
 
 const PRIMARY = [
   { to: "/dashboard", icon: Home, label: "Home" },
@@ -14,10 +16,12 @@ const PRIMARY = [
 ];
 
 const DRAWER_LINKS = [
+  { to: "/projects", icon: FolderKanban, label: "Projects" },
   { to: "/expenses", icon: TrendingDown, label: "Expenses" },
   { to: "/recurring", icon: RefreshCw, label: "Recurring" },
   { to: "/reports", icon: BarChart2, label: "Reports" },
   { to: "/products", icon: Package, label: "Products" },
+  { to: "/team", icon: UserCog, label: "Team", adminOnly: true },
   { to: "/settings", icon: Settings, label: "Settings" },
 ];
 
@@ -26,10 +30,17 @@ const NAV_H = 56; // px — keep in sync with the nav bar height below
 export default function BottomNav() {
   const [open, setOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, logout } = useAuth();
 
   useEffect(() => { setOpen(false); }, [location.pathname]);
 
   const isMoreActive = DRAWER_LINKS.some((l) => location.pathname.startsWith(l.to));
+
+  const handleLogout = async () => {
+    await logout();
+    navigate("/login");
+  };
 
   return (
     <>
@@ -62,7 +73,9 @@ export default function BottomNav() {
 
         {/* Nav items — simple list, always readable on any screen width */}
         <div className="px-3 py-2">
-          {DRAWER_LINKS.map(({ to, icon: Icon, label }) => (
+          {DRAWER_LINKS
+            .filter(link => !link.adminOnly || user?.role === 'admin')
+            .map(({ to, icon: Icon, label }) => (
             <NavLink
               key={to}
               to={to}
@@ -79,6 +92,21 @@ export default function BottomNav() {
               {label}
             </NavLink>
           ))}
+          
+          {/* User info & logout */}
+          <div className="mt-3 pt-3 border-t border-gray-100">
+            <div className="px-4 py-2 mb-2">
+              <p className="text-xs font-medium text-gray-900 truncate">{user?.display_name}</p>
+              <p className="text-xs text-gray-500 truncate">{user?.email}</p>
+            </div>
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-3 px-4 py-3 w-full rounded-xl text-sm font-medium text-red-600 active:bg-red-50 transition-colors"
+            >
+              <LogOut size={20} />
+              Sign out
+            </button>
+          </div>
         </div>
         <div className="h-3" />
       </div>
