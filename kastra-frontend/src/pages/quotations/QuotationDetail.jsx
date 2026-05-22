@@ -50,6 +50,7 @@ export default function QuotationDetail() {
     listProjects().then((response) => {
       console.log('Full API response:', response);
       console.log('response.data:', response.data);
+      console.log('Array check:', Array.isArray(response.data));
       
       // Backend returns array directly, axios wraps it in { data: [...] }
       const projects = response.data || [];
