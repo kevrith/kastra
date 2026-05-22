@@ -48,8 +48,10 @@ export default function QuotationDetail() {
 
   useEffect(() => {
     listProjects().then(({ data }) => {
-      const proj = data.find(p => p.quotation_id === id);
-      console.log('Projects loaded:', data);
+      // Handle both direct array and wrapped response
+      const projects = Array.isArray(data) ? data : (data.data || []);
+      const proj = projects.find(p => p.quotation_id === id);
+      console.log('Projects loaded:', projects);
       console.log('Looking for quotation_id:', id);
       console.log('Found project:', proj);
       setExistingProject(proj || null);
