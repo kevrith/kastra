@@ -181,6 +181,6 @@ app.include_router(subscriptions.router)
 app.include_router(superadmin.router)
 
 
-@app.get("/health")
+@app.api_route("/health", methods=["GET", "HEAD"])
 async def health():
     return {"status": "ok", "environment": settings.environment}
