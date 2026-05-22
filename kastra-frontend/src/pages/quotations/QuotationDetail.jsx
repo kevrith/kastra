@@ -47,11 +47,24 @@ export default function QuotationDetail() {
   }, [id]);
 
   useEffect(() => {
-    listProjects().then(({ data }) => {
+    listProjects().then((response) => {
+      console.log('Full API response:', response);
+      console.log('response.data:', response.data);
+      console.log('Type of response.data:', typeof response.data);
+      console.log('Is array?', Array.isArray(response.data));
+      
       // Handle both direct array and wrapped response
-      const projects = Array.isArray(data) ? data : (data.data || []);
+      let projects = [];
+      if (Array.isArray(response.data)) {
+        projects = response.data;
+      } else if (response.data && Array.isArray(response.data.data)) {
+        projects = response.data.data;
+      } else if (response.data) {
+        projects = [response.data];
+      }
+      
       const proj = projects.find(p => p.quotation_id === id);
-      console.log('Projects loaded:', projects);
+      console.log('Projects array:', projects);
       console.log('Looking for quotation_id:', id);
       console.log('Found project:', proj);
       setExistingProject(proj || null);
