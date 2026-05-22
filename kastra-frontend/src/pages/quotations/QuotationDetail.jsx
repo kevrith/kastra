@@ -4,8 +4,9 @@ import { publicOrigin } from "../../utils/publicUrl";
 import { getQuotation, updateQuotationStatus, convertToInvoice, emailQuotation, getQuotationNotes, addQuotationNote } from "../../api/quotations";
 import { getInvoices } from "../../api/invoices";
 import { getOrganization } from "../../api/organization";
+import { createProject, listProjects } from "../../api/projects";
 import { ksh, date, phone, statusBadgeClass } from "../../utils/formatters";
-import { ArrowLeft, Edit2, RefreshCw, MessageCircle, FileDown, Copy, Mail, Receipt, StickyNote, Send } from "lucide-react";
+import { ArrowLeft, Edit2, RefreshCw, MessageCircle, FileDown, Copy, Mail, Receipt, StickyNote, Send, Briefcase } from "lucide-react";
 import Spinner from "../../components/ui/Spinner";
 import Modal from "../../components/ui/Modal";
 import PDFPreviewModal from "../../components/ui/PDFPreviewModal";
@@ -29,6 +30,10 @@ export default function QuotationDetail() {
   const [notes, setNotes] = useState([]);
   const [noteBody, setNoteBody] = useState("");
   const [addingNote, setAddingNote] = useState(false);
+  const [showProjectModal, setShowProjectModal] = useState(false);
+  const [creatingProject, setCreatingProject] = useState(false);
+  const [projectError, setProjectError] = useState("");
+  const [existingProject, setExistingProject] = useState(null);
 
   const load = (silent = false) => {
     if (!silent) setLoading(true);
@@ -39,6 +44,19 @@ export default function QuotationDetail() {
   useEffect(() => { getOrganization().then(({ data }) => setOrg(data.data)).catch(() => {}); }, []);
   useEffect(() => {
     getInvoices({ quotation_id: id, limit: 50 }).then(({ data }) => setRelatedInvoices(data.data)).catch(() => {});
+  }, [id]);
+
+  useEffect(() => {
+    listProjects().then(({ data }) => {
+      const proj = data.find(p => p.quotation_id === id);
+      console.log('Projects loaded:', data);
+      console.log('Looking for quotation_id:', id);
+      console.log('Found project:', proj);
+      setExistingProject(proj || null);
+    }).catch((err) => {
+      console.error('Failed to load projects:', err);
+      setExistingProject(null);
+    });
   }, [id]);
 
   useEffect(() => {
@@ -122,6 +140,26 @@ export default function QuotationDetail() {
     });
   };
 
+  const handleCreateProject = async () => {
+    setCreatingProject(true);
+    setProjectError("");
+    try {
+      const { data } = await createProject({
+        quotation_id: id,
+        title: quotation.project_description || `Project for ${quotation.client.name}`,
+        description: quotation.notes || null,
+        assigned_to: null,
+        target_date: null
+      });
+      setShowProjectModal(false);
+      navigate(`/projects/${data.id}`);
+    } catch (err) {
+      setProjectError(err.response?.data?.detail ?? "Failed to create project");
+    } finally {
+      setCreatingProject(false);
+    }
+  };
+
   if (loading) return <div className="flex h-96 items-center justify-center"><Spinner size="lg" /></div>;
   if (!quotation) return null;
 
@@ -176,6 +214,16 @@ export default function QuotationDetail() {
           <button className="btn-secondary" onClick={handleWhatsApp}>
             <MessageCircle size={15} /> WhatsApp
           </button>
+          {canConvert && !existingProject && (
+            <button className="btn-secondary" onClick={() => { setShowProjectModal(true); setProjectError(""); }}>
+              <Briefcase size={15} /> Convert to Project
+            </button>
+          )}
+          {existingProject && (
+            <button className="btn-secondary" onClick={() => navigate(`/projects/${existingProject.id}`)}>
+              <Briefcase size={15} /> View Project
+            </button>
+          )}
           {canConvert && (
             <button className="btn-primary" onClick={() => { setShowConvert(true); setConvertError(""); setLpoNumber(""); setLpoQtys({}); }} disabled={converting}>
               <RefreshCw size={15} /> {quotation.converted_to_invoice ? "New Invoice (LPO)" : "Convert to Invoice"}
@@ -377,6 +425,44 @@ export default function QuotationDetail() {
       >
         <QuotationDocument quotation={quotation} org={org} />
       </PDFPreviewModal>
+
+      {/* Convert to Project Modal */}
+      <Modal
+        open={showProjectModal}
+        onClose={() => setShowProjectModal(false)}
+        title="Convert to Project"
+        size="sm"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600">
+            Create a project to track work for <strong>{quotation.client.name}</strong>.
+          </p>
+          <div className="bg-gray-50 p-3 rounded-lg space-y-2 text-sm">
+            <div className="flex justify-between">
+              <span className="text-gray-500">Project Title:</span>
+              <span className="font-medium text-gray-900">{quotation.project_description || `Project for ${quotation.client.name}`}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-500">Client:</span>
+              <span className="font-medium text-gray-900">{quotation.client.name}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-500">Quotation:</span>
+              <span className="font-mono text-xs text-gray-700">{quotation.id}</span>
+            </div>
+          </div>
+          <p className="text-xs text-gray-500">
+            You can assign team members and set target dates after creating the project.
+          </p>
+          {projectError && <p className="text-xs text-red-600">{projectError}</p>}
+        </div>
+        <div className="mt-4 flex justify-end gap-2">
+          <button className="btn-secondary" onClick={() => setShowProjectModal(false)}>Cancel</button>
+          <button className="btn-primary" onClick={handleCreateProject} disabled={creatingProject}>
+            {creatingProject ? "Creating…" : "Create Project"}
+          </button>
+        </div>
+      </Modal>
 
       {/* LPO / Invoice creation modal */}
       <Modal
