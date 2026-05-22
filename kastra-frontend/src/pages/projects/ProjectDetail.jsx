@@ -39,7 +39,6 @@ export default function ProjectDetail() {
       }
     } catch (err) {
       console.error('Failed to load project:', err);
-      alert('Failed to load project');
       navigate('/projects');
     } finally {
       setLoading(false);
@@ -56,7 +55,7 @@ export default function ProjectDetail() {
       setUpdateBody('');
       loadProject();
     } catch (err) {
-      alert('Failed to post update');
+      console.error('Failed to post update:', err);
     } finally {
       setPosting(false);
     }
@@ -74,7 +73,7 @@ export default function ProjectDetail() {
       await uploadPhoto(id, formData);
       loadProject();
     } catch (err) {
-      alert('Failed to upload photo');
+      console.error('Failed to upload photo:', err);
     } finally {
       setUploading(false);
     }

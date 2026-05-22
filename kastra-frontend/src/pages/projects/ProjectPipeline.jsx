@@ -73,7 +73,7 @@ export default function ProjectPipeline() {
       await updateProject(draggedProject.id, { stage: newStage });
       loadData();
     } catch (err) {
-      alert('Failed to update project stage');
+      console.error('Failed to update project stage:', err);
     } finally {
       setDraggedProject(null);
     }
