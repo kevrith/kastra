@@ -32,11 +32,15 @@ export default function ProjectDetail() {
       
       setProject(projectRes.data);
       
-      const clientMatch = clientsRes.data.find(c => c.id === projectRes.data.client_id);
+      // Handle clients response - backend returns { data: [...] }
+      const clientsList = Array.isArray(clientsRes.data) ? clientsRes.data : (clientsRes.data?.data || []);
+      const clientMatch = clientsList.find(c => c.id === projectRes.data.client_id);
       setClient(clientMatch);
       
       if (projectRes.data.assigned_to) {
-        const userMatch = teamRes.data.find(m => m.id === projectRes.data.assigned_to);
+        // Handle team response - backend returns array or { data: [...] }
+        const teamList = Array.isArray(teamRes.data) ? teamRes.data : (teamRes.data?.data || []);
+        const userMatch = teamList.find(m => m.id === projectRes.data.assigned_to);
         setAssignedUser(userMatch);
       }
     } catch (err) {
