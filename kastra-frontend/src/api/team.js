@@ -1,13 +1,13 @@
 import api from './axios';
 
-export const listTeamMembers = () => api.get('/team');
+export const listTeamMembers = () => api.get('/api/team');
 
-export const inviteUser = (data) => api.post('/team/invite', data);
+export const inviteUser = (data) => api.post('/api/team/invite', data);
 
-export const acceptInvite = (data) => api.post('/team/accept-invite', data);
+export const acceptInvite = (data) => api.post('/api/team/accept-invite', data);
 
-export const updateTeamMember = (userId, data) => api.patch(`/team/${userId}`, data);
+export const updateTeamMember = (userId, data) => api.patch(`/api/team/${userId}`, data);
 
-export const removeTeamMember = (userId) => api.delete(`/team/${userId}`);
+export const removeTeamMember = (userId) => api.delete(`/api/team/${userId}`);
 
-export const resetTeamMemberPassword = (userId) => api.post(`/team/${userId}/reset-password`);
+export const resetTeamMemberPassword = (userId) => api.post(`/api/team/${userId}/reset-password`);

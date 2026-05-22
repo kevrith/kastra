@@ -1,19 +1,19 @@
 import api from './axios';
 
-export const listProjects = (params) => api.get('/projects', { params });
+export const listProjects = (params) => api.get('/api/projects', { params });
 
-export const createProject = (data) => api.post('/projects', data);
+export const createProject = (data) => api.post('/api/projects', data);
 
-export const getProject = (id) => api.get(`/projects/${id}`);
+export const getProject = (id) => api.get(`/api/projects/${id}`);
 
-export const updateProject = (id, data) => api.patch(`/projects/${id}`, data);
+export const updateProject = (id, data) => api.patch(`/api/projects/${id}`, data);
 
-export const deleteProject = (id) => api.delete(`/projects/${id}`);
+export const deleteProject = (id) => api.delete(`/api/projects/${id}`);
 
 export const postUpdate = (projectId, body) => 
-  api.post(`/projects/${projectId}/updates`, { body });
+  api.post(`/api/projects/${projectId}/updates`, { body });
 
 export const uploadPhoto = (projectId, formData) =>
-  api.post(`/projects/${projectId}/photos`, formData, {
+  api.post(`/api/projects/${projectId}/photos`, formData, {
     headers: { 'Content-Type': 'multipart/form-data' }
   });
