@@ -47,6 +47,10 @@ export default function QuotationDetail() {
   }, [id]);
 
   useEffect(() => {
+    // Temporarily disable project checking to show button
+    setExistingProject(null);
+    
+    /* TODO: Fix this once we understand the API response structure
     listProjects().then((response) => {
       console.log('Full API response:', response);
       console.log('response.data:', response.data);
@@ -64,6 +68,7 @@ export default function QuotationDetail() {
       console.error('Failed to load projects:', err);
       setExistingProject(null);
     });
+    */
   }, [id]);
 
   useEffect(() => {
