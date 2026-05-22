@@ -47,28 +47,25 @@ export default function QuotationDetail() {
   }, [id]);
 
   useEffect(() => {
-    // Temporarily disable project checking to show button
-    setExistingProject(null);
-    
-    /* TODO: Fix this once we understand the API response structure
-    listProjects().then((response) => {
-      console.log('Full API response:', response);
-      console.log('response.data:', response.data);
-      console.log('Array check:', Array.isArray(response.data));
-      
-      // Backend returns array directly, axios wraps it in { data: [...] }
-      const projects = response.data || [];
-      const proj = Array.isArray(projects) ? projects.find(p => p.quotation_id === id) : null;
-      
-      console.log('Projects array:', projects);
-      console.log('Looking for quotation_id:', id);
-      console.log('Found project:', proj);
-      setExistingProject(proj || null);
-    }).catch((err) => {
-      console.error('Failed to load projects:', err);
-      setExistingProject(null);
-    });
-    */
+    listProjects()
+      .then((response) => {
+        // Backend returns array directly: [{...}, {...}]
+        // Axios wraps it: { data: [{...}, {...}] }
+        const projectsList = response.data;
+        
+        if (!Array.isArray(projectsList)) {
+          console.error('Expected array but got:', typeof projectsList, projectsList);
+          setExistingProject(null);
+          return;
+        }
+        
+        const existingProj = projectsList.find(p => p.quotation_id === id);
+        setExistingProject(existingProj || null);
+      })
+      .catch((err) => {
+        console.error('Failed to load projects:', err);
+        setExistingProject(null);
+      });
   }, [id]);
 
   useEffect(() => {
