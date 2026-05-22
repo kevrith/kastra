@@ -18,8 +18,8 @@ export default function TeamOverview() {
         listTeamMembers().catch(() => ({ data: [] }))
       ]);
 
-      const projects = projectsRes.data;
-      const members = teamRes.data;
+      const projects = projectsRes.data || [];
+      const members = teamRes.data || [];
 
       const stats = members.map(member => {
         const assigned = projects.filter(p => p.assigned_to === member.id);

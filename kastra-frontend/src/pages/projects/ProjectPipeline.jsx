@@ -33,14 +33,14 @@ export default function ProjectPipeline() {
         listTeamMembers().catch(() => ({ data: [] }))
       ]);
       
-      setProjects(projectsRes.data);
+      setProjects(projectsRes.data || []);
       
       const clientsMap = {};
-      clientsRes.data.forEach(c => clientsMap[c.id] = c);
+      (clientsRes.data || []).forEach(c => clientsMap[c.id] = c);
       setClients(clientsMap);
       
       const teamMap = {};
-      teamRes.data.forEach(m => teamMap[m.id] = m);
+      (teamRes.data || []).forEach(m => teamMap[m.id] = m);
       setTeamMembers(teamMap);
     } catch (err) {
       console.error('Failed to load projects:', err);
