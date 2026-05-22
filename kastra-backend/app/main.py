@@ -49,10 +49,15 @@ class SecurityHeadersMiddleware:
             await self.app(scope, receive, send)
             return
 
+        is_health = scope.get("path") == "/health"
+
         async def send_with_headers(message: dict) -> None:
             if message["type"] == "http.response.start":
                 headers = list(message.get("headers", []))
-                headers.extend(self._extra)
+                for key, val in self._extra:
+                    if is_health and key == b"cache-control":
+                        continue
+                    headers.append((key, val))
                 message = {**message, "headers": headers}
             await send(message)
 
