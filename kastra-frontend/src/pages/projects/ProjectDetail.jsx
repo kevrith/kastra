@@ -4,6 +4,7 @@ import { ArrowLeft, User, Calendar, MessageSquare, Image, Send, Upload } from 'l
 import { getProject, postUpdate, uploadPhoto } from '../../api/projects';
 import { listClients } from '../../api/clients';
 import { listTeamMembers } from '../../api/team';
+import Toast from '../../components/ui/Toast';
 
 export default function ProjectDetail() {
   const { id } = useParams();
@@ -15,6 +16,7 @@ export default function ProjectDetail() {
   const [updateBody, setUpdateBody] = useState('');
   const [posting, setPosting] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [toast, setToast] = useState(null);
 
   useEffect(() => {
     loadProject();
@@ -39,7 +41,8 @@ export default function ProjectDetail() {
       }
     } catch (err) {
       console.error('Failed to load project:', err);
-      navigate('/projects');
+      setToast({ message: 'Failed to load project. Please try again.', type: 'error' });
+      setTimeout(() => navigate('/projects'), 2000);
     } finally {
       setLoading(false);
     }
@@ -56,6 +59,7 @@ export default function ProjectDetail() {
       loadProject();
     } catch (err) {
       console.error('Failed to post update:', err);
+      setToast({ message: 'Failed to post update. Please try again.', type: 'error' });
     } finally {
       setPosting(false);
     }
@@ -74,6 +78,7 @@ export default function ProjectDetail() {
       loadProject();
     } catch (err) {
       console.error('Failed to upload photo:', err);
+      setToast({ message: 'Failed to upload photo. Please try again.', type: 'error' });
     } finally {
       setUploading(false);
     }
@@ -89,6 +94,8 @@ export default function ProjectDetail() {
 
   return (
     <div className="p-6 max-w-5xl mx-auto">
+      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+      
       <button
         onClick={() => navigate('/projects')}
         className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4"

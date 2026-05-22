@@ -4,6 +4,7 @@ import { Kanban, Plus, User, Calendar, Clock } from 'lucide-react';
 import { listProjects, updateProject } from '../../api/projects';
 import { listClients } from '../../api/clients';
 import { listTeamMembers } from '../../api/team';
+import Toast from '../../components/ui/Toast';
 
 const STAGES = [
   { key: 'not_started', label: 'Not Started', color: 'bg-gray-100 text-gray-700' },
@@ -20,6 +21,7 @@ export default function ProjectPipeline() {
   const [teamMembers, setTeamMembers] = useState({});
   const [loading, setLoading] = useState(true);
   const [draggedProject, setDraggedProject] = useState(null);
+  const [toast, setToast] = useState(null);
 
   useEffect(() => {
     loadData();
@@ -74,6 +76,7 @@ export default function ProjectPipeline() {
       loadData();
     } catch (err) {
       console.error('Failed to update project stage:', err);
+      setToast({ message: 'Failed to update project stage. Please try again.', type: 'error' });
     } finally {
       setDraggedProject(null);
     }
@@ -102,6 +105,8 @@ export default function ProjectPipeline() {
 
   return (
     <div className="p-6">
+      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+      
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
