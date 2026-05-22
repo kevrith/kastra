@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import {
   FileText, Receipt, CreditCard, Users, BarChart2, Shield,
   CheckCircle, Smartphone, Zap, Globe, ArrowRight, Star,
-  TrendingUp, Clock, Lock,
+  TrendingUp, Clock, Lock, UserCog, FolderKanban, Camera,
 } from "lucide-react";
 
 const features = [
@@ -25,6 +25,21 @@ const features = [
     icon: CreditCard,
     title: "Card Payments",
     desc: "Accept Visa and Mastercard payments via Paystack. Give clients every payment option.",
+  },
+  {
+    icon: UserCog,
+    title: "Team Management",
+    desc: "Invite team members with role-based access. Admins, managers, field agents, and viewers — all in one platform.",
+  },
+  {
+    icon: FolderKanban,
+    title: "Project Pipeline",
+    desc: "Visual Kanban board to track projects from start to completion. Drag & drop to update status.",
+  },
+  {
+    icon: Camera,
+    title: "Field Reporting",
+    desc: "Team members post progress updates and upload photos from mobile. Real-time visibility for managers.",
   },
   {
     icon: Users,
@@ -102,8 +117,8 @@ const plans = [
     name: "Business",
     price: "KES 3,000",
     period: "/ month",
-    desc: "For established businesses that need everything.",
-    features: ["400 invoices / month", "250 quotations / month", "6 team members", "35 OCR scans / month", "100 clients", "SMS notifications", "Recurring invoices", "eTIMS / KRA compliance", "Audit logs", "Full history reports"],
+    desc: "For teams that need collaboration.",
+    features: ["400 invoices / month", "250 quotations / month", "6 team members", "35 OCR scans / month", "100 clients", "Team management", "Project pipeline", "Field reporting", "Photo uploads", "SMS notifications", "Recurring invoices", "eTIMS / KRA compliance", "Audit logs"],
     cta: "Go Business",
     highlight: true,
   },
@@ -113,7 +128,7 @@ const plans = [
     price: "KES 5,500",
     period: "/ month",
     desc: "Unlimited power for high-volume operations.",
-    features: ["Unlimited invoices", "Unlimited quotations", "15 team members", "100+ OCR scans / month", "Unlimited clients", "White-label branding", "Priority support", "All 3 templates", "Full history reports"],
+    features: ["Unlimited invoices", "Unlimited quotations", "15 team members", "100+ OCR scans / month", "Unlimited clients", "Unlimited projects", "White-label branding", "Priority support", "All 3 templates", "Full history reports"],
     cta: "Go Premium",
     highlight: false,
   },
@@ -155,12 +170,12 @@ export default function Landing() {
             Built for Kenyan businesses
           </div>
           <h1 className="text-5xl md:text-6xl font-extrabold text-gray-900 leading-tight tracking-tight mb-6">
-            Invoice, quote &amp; get{" "}
-            <span className="text-green-600">paid faster</span>
+            Invoice, quote, track &amp;{" "}
+            <span className="text-green-600">get paid faster</span>
           </h1>
           <p className="text-xl text-gray-600 max-w-2xl mx-auto mb-10 leading-relaxed">
             The all-in-one business management platform for Kenyan SMEs. Professional invoicing,
-            M-Pesa &amp; card payments, KRA eTIMS compliance, and real-time financial insights — in one place.
+            team collaboration, project tracking, M-Pesa &amp; card payments, KRA eTIMS compliance — in one place.
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <Link

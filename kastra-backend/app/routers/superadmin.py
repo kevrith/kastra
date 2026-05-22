@@ -1,5 +1,7 @@
 import json
 import math
+import secrets
+import string
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
@@ -21,6 +23,7 @@ from app.models.subscription_payment import SubscriptionPayment
 from app.models.user import User
 from app.utils.billing_events import record_audit, record_subscription_payment
 from app.utils.plan_limits import PLAN_PRICES_KES, VALID_PLANS
+from app.utils.security import hash_password
 
 router = APIRouter(prefix="/api/superadmin", tags=["superadmin"])
 _bearer = HTTPBearer()
@@ -69,6 +72,10 @@ class GrantComplimentaryRequest(BaseModel):
     plan: str
     reason: str
     days: int | None = None  # None = indefinite
+
+
+class ChangeUserRoleRequest(BaseModel):
+    role: str
 
 
 @router.post("/login")
@@ -569,6 +576,132 @@ async def revoke_complimentary(org_id: str, db: AsyncSession = Depends(get_db)):
     await record_audit(db, "revoke_complimentary", org_id, org.name)
     await db.commit()
     return {"message": "Complimentary access revoked — org moved to free plan"}
+
+
+def _generate_temp_password(length: int = 12) -> str:
+    """Generate a secure temporary password."""
+    alphabet = string.ascii_letters + string.digits + "!@#$%^&*"
+    return ''.join(secrets.choice(alphabet) for _ in range(length))
+
+
+async def _send_temp_password_email(email: str, temp_password: str) -> None:
+    """Send temporary password to user."""
+    from app.services.email_service import _send
+    html = f"""
+    <div style="font-family:sans-serif;max-width:520px">
+      <h2 style="color:#16a34a">Password Reset by Administrator</h2>
+      <p>Your Kastra password has been reset by a system administrator.</p>
+      <div style="background:#f3f4f6;border-left:4px solid #16a34a;padding:16px;margin:20px 0">
+        <p style="margin:0 0 8px;font-size:12px;color:#6b7280;text-transform:uppercase;letter-spacing:1px">Temporary Password</p>
+        <p style="margin:0;font-size:18px;font-family:monospace;font-weight:700;color:#111">{temp_password}</p>
+      </div>
+      <p style="color:#dc2626;font-weight:600">⚠️ Please change this password immediately after logging in.</p>
+      <p><a href="{settings.frontend_url}/login" style="background:#16a34a;color:#fff;padding:10px 22px;border-radius:8px;text-decoration:none;display:inline-block;font-weight:600">Login to Kastra</a></p>
+      <p style="font-size:12px;color:#6b7280;margin-top:24px">For security reasons, this temporary password should only be used once.</p>
+    </div>
+    """
+    await _send(email, "Your Kastra password has been reset", html)
+
+
+@router.post("/users/{user_id}/reset-password", dependencies=[Depends(_verify_sa_token)])
+async def reset_user_password(user_id: str, db: AsyncSession = Depends(get_db)):
+    """Generate a temporary password and email it to the user."""
+    result = await db.execute(select(User).where(User.id == user_id).options(selectinload(User.organization)))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(404, "User not found")
+    
+    if user.google_id:
+        raise HTTPException(400, "Cannot reset password for Google OAuth users")
+    
+    temp_password = _generate_temp_password()
+    user.hashed_password = hash_password(temp_password)
+    user.token_version += 1  # Invalidate all existing sessions
+    
+    await record_audit(db, "reset_user_password", user.organization_id, user.organization.name, {
+        "user_id": str(user.id),
+        "user_email": user.email,
+    })
+    await db.commit()
+    
+    await _send_temp_password_email(user.email, temp_password)
+    
+    return {"message": f"Password reset for {user.email}. Temporary password sent via email."}
+
+
+@router.post("/users/{user_id}/deactivate", dependencies=[Depends(_verify_sa_token)])
+async def deactivate_user(user_id: str, db: AsyncSession = Depends(get_db)):
+    """Deactivate a user account."""
+    result = await db.execute(select(User).where(User.id == user_id).options(selectinload(User.organization)))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(404, "User not found")
+    
+    if not user.is_active:
+        raise HTTPException(400, "User is already inactive")
+    
+    user.is_active = False
+    user.token_version += 1  # Invalidate sessions
+    
+    await record_audit(db, "deactivate_user", user.organization_id, user.organization.name, {
+        "user_id": str(user.id),
+        "user_email": user.email,
+    })
+    await db.commit()
+    
+    return {"message": f"User {user.email} deactivated"}
+
+
+@router.post("/users/{user_id}/reactivate", dependencies=[Depends(_verify_sa_token)])
+async def reactivate_user(user_id: str, db: AsyncSession = Depends(get_db)):
+    """Reactivate a user account."""
+    result = await db.execute(select(User).where(User.id == user_id).options(selectinload(User.organization)))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(404, "User not found")
+    
+    if user.is_active:
+        raise HTTPException(400, "User is already active")
+    
+    user.is_active = True
+    
+    await record_audit(db, "reactivate_user", user.organization_id, user.organization.name, {
+        "user_id": str(user.id),
+        "user_email": user.email,
+    })
+    await db.commit()
+    
+    return {"message": f"User {user.email} reactivated"}
+
+
+@router.patch("/users/{user_id}/role", dependencies=[Depends(_verify_sa_token)])
+async def change_user_role(
+    user_id: str,
+    payload: ChangeUserRoleRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    """Change a user's role."""
+    valid_roles = ["admin", "manager", "field_agent", "viewer"]
+    if payload.role not in valid_roles:
+        raise HTTPException(400, f"Invalid role. Must be one of: {', '.join(valid_roles)}")
+    
+    result = await db.execute(select(User).where(User.id == user_id).options(selectinload(User.organization)))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(404, "User not found")
+    
+    old_role = user.role
+    user.role = payload.role
+    
+    await record_audit(db, "change_user_role", user.organization_id, user.organization.name, {
+        "user_id": str(user.id),
+        "user_email": user.email,
+        "old_role": old_role,
+        "new_role": payload.role,
+    })
+    await db.commit()
+    
+    return {"message": f"User {user.email} role changed from {old_role} to {payload.role}"}
 
 
 @router.get("/organizations/{org_id}", dependencies=[Depends(_verify_sa_token)])

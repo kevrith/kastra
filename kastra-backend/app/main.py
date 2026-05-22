@@ -15,7 +15,7 @@ from app.config import settings
 from app.routers import auth, clients, dashboard, invoices, mpesa, organization, quotations, reports
 from app.routers import pay, portal, paystack
 from app.routers import expenses, products, notifications, search, invoice_payments, recurring_invoices
-from app.routers import ocr, subscriptions, superadmin
+from app.routers import ocr, subscriptions, superadmin, team, projects
 from app.services.scheduler import start_scheduler, stop_scheduler
 from app.utils.rate_limit import limiter
 
@@ -160,6 +160,8 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 
 app.include_router(auth.router)
+app.include_router(team.router)
+app.include_router(projects.router)
 app.include_router(organization.router)
 app.include_router(clients.router)
 app.include_router(quotations.router)

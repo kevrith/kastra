@@ -1,8 +1,8 @@
 # Kastra — Business Operations Platform
 
-A full-stack, multi-tenant SaaS platform built for Kenyan SMEs. Manage quotations, invoices, clients, and payments — with KRA eTIMS compliance and M-Pesa built in from day one.
+A full-stack, multi-tenant SaaS platform built for Kenyan SMEs. Manage quotations, invoices, clients, payments, **team collaboration, and project tracking** — with KRA eTIMS compliance and M-Pesa built in from day one.
 
-**Stack:** React 18 + FastAPI + PostgreSQL  
+**Stack:** React 18 + FastAPI + PostgreSQL + Cloudinary  
 **Payments:** M-Pesa STK Push + Paystack (Visa/Mastercard)  
 **Compliance:** KRA eTIMS, Kenya DPA 2019  
 **Status:** Feature-complete. Production-ready. 77 tests passing.
@@ -11,6 +11,7 @@ A full-stack, multi-tenant SaaS platform built for Kenyan SMEs. Manage quotation
 
 ## What It Does
 
+### Core Features
 - **Quotations** — Create, send, and get client approval via a shareable link. Clients can Accept or Decline without logging in.
 - **Invoices** — Convert accepted quotations to invoices in one click. Clients pay via M-Pesa STK Push or Visa/Mastercard.
 - **Client Portal** — Every client gets a permanent shareable link showing all their invoices, quotations, and payment options.
@@ -19,6 +20,13 @@ A full-stack, multi-tenant SaaS platform built for Kenyan SMEs. Manage quotation
 - **PDF Documents** — Three branded templates (Classic, Executive, Vivid). Print-to-PDF via browser.
 - **Reports & Dashboard** — Monthly income charts, client rankings, quotation conversion rates, CSV export.
 - **PWA** — Installable on Android/iOS. Works offline with a branded fallback page.
+
+### NEW: Team & Project Management
+- **Team Management** — Invite team members with role-based access (Admin, Manager, Field Agent, Viewer)
+- **Project Pipeline** — Visual Kanban board to track projects from start to completion
+- **Field Reporting** — Team members post progress updates and upload photos from mobile
+- **Photo Storage** — Cloudinary integration for fast, scalable photo uploads
+- **Team Dashboard** — See who's working on what, track activity, identify stalled projects
 - **Multi-Tenant** — One deployment serves unlimited independent businesses, each fully isolated.
 
 ---
@@ -83,6 +91,9 @@ npm run dev                    # Runs on http://localhost:5200
 - [Backend README](kastra-backend/README.md) — API, environment variables, running tests
 - [Frontend README](kastra-frontend/README.md) — Pages, routes, environment variables
 - [masterplan.md](masterplan.md) — Full product spec, data model, all features
+- **[IMPLEMENTATION.md](IMPLEMENTATION.md)** — Team & project management technical details
+- **[SETUP.md](SETUP.md)** — Quick setup guide for new features
+- **[MIGRATION.md](MIGRATION.md)** — Migration guide for existing users
 
 ---
 

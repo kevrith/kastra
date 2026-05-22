@@ -58,6 +58,11 @@ class Settings(BaseSettings):
     # Anthropic (Claude Vision for OCR scanning)
     anthropic_api_key: str = ""
 
+    # Cloudinary (photo storage)
+    cloudinary_cloud_name: str = ""
+    cloudinary_api_key: str = ""
+    cloudinary_api_secret: str = ""
+
     # Error tracking (optional — set SENTRY_DSN in production)
     sentry_dsn: str = ""
 

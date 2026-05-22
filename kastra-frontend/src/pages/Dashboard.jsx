@@ -5,6 +5,7 @@ import { statusBadgeClass } from "../utils/formatters";
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { FileText, Receipt, TrendingUp, TrendingDown, Users, DollarSign } from "lucide-react";
 import Spinner from "../components/ui/Spinner";
+import TeamOverview from "../components/dashboard/TeamOverview";
 
 function KpiCard({ label, value, icon: Icon, color }) {
   return (
@@ -143,6 +144,9 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+
+      {/* Team Overview */}
+      <TeamOverview />
     </div>
   );
 }

@@ -7,6 +7,7 @@ import Register from "./pages/auth/Register";
 import AuthCallback from "./pages/auth/AuthCallback";
 import ForgotPassword from "./pages/auth/ForgotPassword";
 import ResetPassword from "./pages/auth/ResetPassword";
+import AcceptInvite from "./pages/auth/AcceptInvite";
 import Dashboard from "./pages/Dashboard";
 import ClientList from "./pages/clients/ClientList";
 import ClientDetail from "./pages/clients/ClientDetail";
@@ -19,9 +20,12 @@ import InvoiceDetail from "./pages/invoices/InvoiceDetail";
 import InvoiceCreate from "./pages/invoices/InvoiceCreate";
 import Reports from "./pages/Reports";
 import Settings from "./pages/Settings";
+import TeamManagement from "./pages/TeamManagement";
 import Expenses from "./pages/expenses/Expenses";
 import Products from "./pages/products/Products";
 import RecurringInvoices from "./pages/recurring/RecurringInvoices";
+import ProjectPipeline from "./pages/projects/ProjectPipeline";
+import ProjectDetail from "./pages/projects/ProjectDetail";
 import PublicPayment from "./pages/pay/PublicPayment";
 import PublicQuotation from "./pages/portal/PublicQuotation";
 import ClientPortal from "./pages/portal/ClientPortal";
@@ -54,6 +58,7 @@ export default function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/auth/callback" element={<AuthCallback />} />
+          <Route path="/auth/accept-invite" element={<AcceptInvite />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/pay/:invoiceId" element={<PublicPayment />} />
@@ -78,9 +83,12 @@ export default function App() {
             <Route path="/invoices/:id" element={<InvoiceDetail />} />
             <Route path="/reports" element={<Reports />} />
             <Route path="/settings" element={<Settings />} />
+            <Route path="/team" element={<TeamManagement />} />
             <Route path="/expenses" element={<Expenses />} />
             <Route path="/products" element={<Products />} />
             <Route path="/recurring" element={<RecurringInvoices />} />
+            <Route path="/projects" element={<ProjectPipeline />} />
+            <Route path="/projects/:id" element={<ProjectDetail />} />
           </Route>
 
           <Route path="*" element={<Navigate to="/" replace />} />

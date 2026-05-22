@@ -5,12 +5,14 @@ import {
   superadminChangePlan, superadminSuspendOrg, superadminUnsuspendOrg,
   superadminExtendTrial, superadminRecordPayment,
   superadminGrantComplimentary, superadminRevokeComplimentary,
+  superadminResetUserPassword, superadminDeactivateUser, superadminReactivateUser,
+  superadminChangeUserRole,
 } from "../../api/subscriptions";
 import {
   LayoutDashboard, Building2, LogOut, Search, ChevronLeft, ChevronRight,
   TrendingUp, Users, FileText, RefreshCw, AlertCircle, CheckCircle2,
   CreditCard, Clock, Activity, DollarSign, BarChart2, ShieldAlert,
-  PlusCircle, X, Gift, Menu,
+  PlusCircle, X, Gift, Menu, Key, UserX, UserCheck, Shield,
 } from "lucide-react";
 
 // ── Colour maps ────────────────────────────────────────────────────────────────
@@ -47,6 +49,10 @@ const ACTION_ICONS = {
   paystack_payment:     <CreditCard size={13} />,
   grant_complimentary:  <Gift size={13} />,
   revoke_complimentary: <X size={13} />,
+  reset_user_password:  <Key size={13} />,
+  deactivate_user:      <UserX size={13} />,
+  reactivate_user:      <UserCheck size={13} />,
+  change_user_role:     <Shield size={13} />,
 };
 
 // ── Reusable components ────────────────────────────────────────────────────────
@@ -176,6 +182,8 @@ export default function SuperAdmin() {
   const [paymentForm, setPaymentForm] = useState({ plan: "starter", amount_kes: 1500, payment_method: "manual", reference: "", note: "" });
   const [compModal, setCompModal] = useState(false);
   const [compForm, setCompForm] = useState({ plan: "starter", reason: "", days: "" });
+  const [userActionModal, setUserActionModal] = useState(null); // { type, user }
+  const [roleChangeForm, setRoleChangeForm] = useState("");
 
   const isAuthed = Boolean(token);
 
@@ -333,6 +341,44 @@ export default function SuperAdmin() {
       setPaymentModal(false);
       await loadOrgDetail(selectedOrg.id);
     } catch (e) { flash(e.response?.data?.detail ?? "Error recording payment", "error"); }
+  };
+
+  const doResetUserPassword = async (userId) => {
+    if (!window.confirm("Reset this user's password? A temporary password will be emailed to them.")) return;
+    try {
+      await superadminResetUserPassword(token, userId);
+      flash("Password reset. Temporary password sent via email.");
+      setUserActionModal(null);
+    } catch (e) { flash(e.response?.data?.detail ?? "Error resetting password", "error"); }
+  };
+
+  const doDeactivateUser = async (userId) => {
+    if (!window.confirm("Deactivate this user? They will be logged out immediately.")) return;
+    try {
+      await superadminDeactivateUser(token, userId);
+      flash("User deactivated");
+      setUserActionModal(null);
+      await loadOrgDetail(selectedOrg.id);
+    } catch (e) { flash(e.response?.data?.detail ?? "Error deactivating user", "error"); }
+  };
+
+  const doReactivateUser = async (userId) => {
+    try {
+      await superadminReactivateUser(token, userId);
+      flash("User reactivated");
+      setUserActionModal(null);
+      await loadOrgDetail(selectedOrg.id);
+    } catch (e) { flash(e.response?.data?.detail ?? "Error reactivating user", "error"); }
+  };
+
+  const doChangeUserRole = async (userId) => {
+    if (!roleChangeForm) { flash("Please select a role", "error"); return; }
+    try {
+      await superadminChangeUserRole(token, userId, roleChangeForm);
+      flash(`User role changed to ${roleChangeForm}`);
+      setUserActionModal(null);
+      await loadOrgDetail(selectedOrg.id);
+    } catch (e) { flash(e.response?.data?.detail ?? "Error changing role", "error"); }
   };
 
   // ── Login screen ──────────────────────────────────────────────────────────────
@@ -872,14 +918,21 @@ export default function SuperAdmin() {
                   <SectionTitle title={`Users (${selectedOrg.users?.length})`} />
                   <div className="space-y-2 max-h-72 overflow-y-auto">
                     {selectedOrg.users?.map((u) => (
-                      <div key={u.id} className="flex items-center justify-between py-1.5 border-b border-gray-700/50 last:border-0">
-                        <div>
-                          <p className="text-sm font-medium text-gray-200">{u.display_name}</p>
-                          <p className="text-xs text-gray-500">{u.email}</p>
+                      <div key={u.id} className="flex items-center justify-between py-2 px-2 border-b border-gray-700/50 last:border-0 hover:bg-gray-750 rounded">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-200 truncate">{u.display_name}</p>
+                          <p className="text-xs text-gray-500 truncate">{u.email}</p>
                         </div>
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex items-center gap-2 shrink-0">
                           <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${u.role === "admin" ? "bg-green-900 text-green-400" : "bg-gray-700 text-gray-400"}`}>{u.role}</span>
                           {!u.is_active && <span className="text-[10px] text-red-400">inactive</span>}
+                          <button
+                            onClick={() => { setUserActionModal({ type: "menu", user: u }); setRoleChangeForm(u.role); }}
+                            className="text-gray-400 hover:text-white p-1 rounded hover:bg-gray-700"
+                            title="Manage user"
+                          >
+                            <Shield size={14} />
+                          </button>
                         </div>
                       </div>
                     ))}
@@ -1033,6 +1086,95 @@ export default function SuperAdmin() {
               <button onClick={() => setPaymentModal(false)} className="flex-1 py-2 rounded-lg border border-gray-700 text-gray-400 hover:bg-gray-700 text-sm transition">Cancel</button>
               <button onClick={doRecordPayment} className="flex-1 py-2 rounded-lg bg-green-600 hover:bg-green-500 text-white text-sm font-semibold transition">Record & Activate</button>
             </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* ─── USER ACTION MODAL ─── */}
+      {userActionModal && (
+        <Modal title={`Manage User: ${userActionModal.user.display_name}`} onClose={() => setUserActionModal(null)}>
+          <div className="space-y-3">
+            <div className="bg-gray-900 rounded-lg p-3 text-xs">
+              <p className="text-gray-400">Email</p>
+              <p className="text-white font-mono">{userActionModal.user.email}</p>
+              <p className="text-gray-400 mt-2">Current Role</p>
+              <p className="text-white capitalize">{userActionModal.user.role}</p>
+              <p className="text-gray-400 mt-2">Status</p>
+              <p className={userActionModal.user.is_active ? "text-green-400" : "text-red-400"}>
+                {userActionModal.user.is_active ? "Active" : "Inactive"}
+              </p>
+            </div>
+
+            {userActionModal.type === "menu" && (
+              <div className="space-y-2">
+                {!userActionModal.user.google_id && (
+                  <button
+                    onClick={() => doResetUserPassword(userActionModal.user.id)}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-yellow-400 border border-yellow-800 rounded-lg hover:bg-yellow-900/30 transition"
+                  >
+                    <Key size={14} /> Reset Password
+                  </button>
+                )}
+                {userActionModal.user.google_id && (
+                  <div className="text-xs text-gray-500 px-3 py-2 bg-gray-900 rounded-lg border border-gray-700">
+                    <Shield size={12} className="inline mr-1" /> Google OAuth user — password reset not available
+                  </div>
+                )}
+                <button
+                  onClick={() => setUserActionModal({ type: "change_role", user: userActionModal.user })}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-blue-400 border border-blue-800 rounded-lg hover:bg-blue-900/30 transition"
+                >
+                  <Shield size={14} /> Change Role
+                </button>
+                {userActionModal.user.is_active ? (
+                  <button
+                    onClick={() => doDeactivateUser(userActionModal.user.id)}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-400 border border-red-800 rounded-lg hover:bg-red-900/30 transition"
+                  >
+                    <UserX size={14} /> Deactivate User
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => doReactivateUser(userActionModal.user.id)}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-green-400 border border-green-800 rounded-lg hover:bg-green-900/30 transition"
+                  >
+                    <UserCheck size={14} /> Reactivate User
+                  </button>
+                )}
+              </div>
+            )}
+
+            {userActionModal.type === "change_role" && (
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs text-gray-400 mb-1 uppercase tracking-wide">New Role</label>
+                  <select
+                    className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500"
+                    value={roleChangeForm}
+                    onChange={(e) => setRoleChangeForm(e.target.value)}
+                  >
+                    <option value="admin">Admin</option>
+                    <option value="manager">Manager</option>
+                    <option value="field_agent">Field Agent</option>
+                    <option value="viewer">Viewer</option>
+                  </select>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setUserActionModal({ type: "menu", user: userActionModal.user })}
+                    className="flex-1 py-2 rounded-lg border border-gray-700 text-gray-400 hover:bg-gray-700 text-sm transition"
+                  >
+                    Back
+                  </button>
+                  <button
+                    onClick={() => doChangeUserRole(userActionModal.user.id)}
+                    className="flex-1 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold transition"
+                  >
+                    Change Role
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </Modal>
       )}

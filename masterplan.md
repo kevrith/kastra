@@ -685,13 +685,203 @@ VITE_SENTRY_DSN=
 
 ## 13. HOSTING & INFRASTRUCTURE
 
-### Render Services
-| Service | Plan | Est. Cost |
-|---|---|---|
-| FastAPI Web Service | Starter ($7/month) | $7/month |
-| PostgreSQL Database | Starter ($7/month) | $7/month |
-| React Static Site | Free | $0/month |
-| **Total** | | **~$14/month** |
+### Current Deployment (Free Tier)
+| Service | Provider | Plan | Cost |
+|---|---|---|---|
+| Backend | Render | Free | $0 |
+| Frontend | Vercel | Free | $0 |
+| Database | Supabase | Free | $0 |
+| **Total** | | | **$0/month** |
+
+**Limitations:**
+- Backend sleeps after 15min inactivity (30-60s wake-up time)
+- Database limited to 500MB storage
+- No automated backups
+
+---
+
+### Recommended Upgrade Path
+
+#### **Phase 1: First 5 Paying Customers (KSh 15,000/month revenue)**
+**Action: Upgrade Backend + Switch to Render PostgreSQL**
+
+| Service | Provider | Plan | Cost | Why |
+|---|---|---|---|---|
+| Backend | Render | Starter | $7 | No sleep time, always-on |
+| Database | Render PostgreSQL | Starter | $7 | 10GB storage, daily backups |
+| Frontend | Vercel | Free | $0 | Still plenty of bandwidth |
+| **Total** | | | **$14/month** | |
+
+**Benefits:**
+- ✅ Instant response (no 30s wake-up)
+- ✅ Daily backups (7-day retention)
+- ✅ 10GB storage (supports ~10,000 invoices)
+- ✅ Everything on one platform (Render)
+- ✅ Lower latency (backend + DB in same data center)
+- ✅ Free bandwidth between services
+
+**Migration Steps:**
+1. Create Render PostgreSQL Starter database
+2. Backup Supabase: `pg_dump [supabase_url] > backup.sql`
+3. Restore to Render: `psql [render_url] < backup.sql`
+4. Update `DATABASE_URL` in backend to Render Internal URL
+5. Test thoroughly for 1 week
+6. Cancel Supabase
+
+**Savings vs Supabase Pro:** $18/month (Render $14 vs Supabase $25 + Render $7)
+
+---
+
+#### **Phase 2: 10-30 Customers (KSh 30-90k/month revenue)**
+**Action: Stay on current setup**
+
+| Service | Provider | Plan | Cost |
+|---|---|---|---|
+| Backend | Render | Starter | $7 |
+| Database | Render PostgreSQL | Starter | $7 |
+| Frontend | Vercel | Free | $0 |
+| Cloudinary | Free | $0 |
+| **Total** | | | **$14/month** |
+
+**No upgrade needed** — Render Starter handles 50+ concurrent users easily.
+
+---
+
+#### **Phase 3: 30-50 Customers (KSh 90-150k/month revenue)**
+**Action: Upgrade Backend to Standard**
+
+| Service | Provider | Plan | Cost | Why |
+|---|---|---|---|---|
+| Backend | Render | Standard | $25 | 2GB RAM, faster response |
+| Database | Render PostgreSQL | Starter | $7 | Still enough storage |
+| Frontend | Vercel | Free | $0 | |
+| Cloudinary | Free | $0 | |
+| **Total** | | | **$32/month** | |
+
+**Upgrade when:**
+- Backend is slow during peak hours
+- Memory errors in logs
+- Response times > 2 seconds
+
+---
+
+#### **Phase 4: 50-100 Customers (KSh 150-300k/month revenue)**
+**Action: Upgrade Database to Standard**
+
+| Service | Provider | Plan | Cost | Why |
+|---|---|---|---|---|
+| Backend | Render | Standard | $25 | |
+| Database | Render PostgreSQL | Standard | $20 | 100GB storage, 30-day backups |
+| Frontend | Vercel | Free | $0 | |
+| Cloudinary | Free | $0 | |
+| **Total** | | | **$45/month** | |
+
+**Upgrade when:**
+- Database size > 8GB
+- Slow queries
+- Need longer backup retention
+
+---
+
+#### **Phase 5: 100+ Customers (KSh 300k+/month revenue)**
+**Action: Upgrade Cloudinary (if needed)**
+
+| Service | Provider | Plan | Cost | Why |
+|---|---|---|---|---|
+| Backend | Render | Standard | $25 | |
+| Database | Render PostgreSQL | Standard | $20 | |
+| Frontend | Vercel | Free | $0 | |
+| Cloudinary | Plus | $89 | 225GB storage for photos |
+| **Total** | | | **$134/month** | |
+
+**Upgrade when:**
+- Cloudinary storage > 20GB
+- "Quota exceeded" errors
+- 50+ organizations uploading photos
+
+---
+
+### Cost vs Revenue Analysis
+
+| Customers | Revenue (KSh 3k/customer) | Hosting Cost | Profit | Margin |
+|---|---|---|---|---|
+| 0-5 | KSh 0-15k | $0 (free tier) | KSh 0-15k | 100% |
+| 5-10 | KSh 15-30k | $14 (~KSh 1,820) | KSh 13-28k | 88-94% |
+| 10-30 | KSh 30-90k | $14 (~KSh 1,820) | KSh 28-88k | 94-98% |
+| 30-50 | KSh 90-150k | $32 (~KSh 4,160) | KSh 86-146k | 95-97% |
+| 50-100 | KSh 150-300k | $45 (~KSh 5,850) | KSh 144-294k | 96-98% |
+| 100+ | KSh 300k+ | $134 (~KSh 17,420) | KSh 283k+ | 94%+ |
+
+**Break-even: 2 customers at KSh 3,000/month covers $14 hosting**
+
+---
+
+### Warning Signs to Upgrade
+
+#### Backend (Render)
+- ⚠️ Customers complain about slow first load
+- ⚠️ M-Pesa callbacks fail (Safaricom timeout)
+- ⚠️ Memory errors in logs
+- ⚠️ Response times > 2 seconds during peak hours
+
+#### Database (Render PostgreSQL)
+- ⚠️ Storage > 8GB (check dashboard)
+- ⚠️ "Database full" errors
+- ⚠️ Slow queries (> 1 second)
+- ⚠️ 50+ active organizations
+
+#### Cloudinary
+- ⚠️ Storage > 20GB (check dashboard)
+- ⚠️ "Quota exceeded" errors
+- ⚠️ Photos not uploading
+
+---
+
+### Migration: Supabase → Render PostgreSQL
+
+**Why migrate:**
+- Save $18/month (Render $7 vs Supabase $25)
+- Better performance (same data center as backend)
+- Simpler management (one platform)
+- Daily backups included
+
+**When to migrate:**
+- As soon as you have 5 paying customers
+- Before Supabase free tier runs out (500MB)
+
+**How to migrate:**
+
+```bash
+# Step 1: Create Render PostgreSQL database (Starter plan)
+# Via Render dashboard: New + → PostgreSQL → Starter ($7)
+
+# Step 2: Backup Supabase data
+pg_dump "postgresql://postgres:[password]@db.[project].supabase.co:5432/postgres" > kastra_backup.sql
+
+# Step 3: Restore to Render (use External URL for this step)
+psql "postgresql://user:pass@dpg-xxx.oregon-postgres.render.com/kastra_db" < kastra_backup.sql
+
+# Step 4: Update backend environment variable
+# In Render backend service, change:
+# DATABASE_URL=postgresql://user:pass@dpg-xxx-a/kastra_db  (Internal URL)
+
+# Step 5: Restart backend service
+
+# Step 6: Test thoroughly
+# - Log in
+# - Create quotation
+# - Create invoice
+# - Check all data is present
+
+# Step 7: Monitor for 1 week, then cancel Supabase
+```
+
+**Rollback plan:**
+- Keep Supabase running for 1 week as backup
+- If issues, revert `DATABASE_URL` to Supabase
+- Have backup SQL file ready
+
+---
 
 ### Deployment Checklist
 - [ ] Set all environment variables on Render dashboard

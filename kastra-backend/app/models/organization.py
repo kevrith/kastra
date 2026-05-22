@@ -65,3 +65,4 @@ class Organization(Base):
     products: Mapped[list["Product"]] = relationship(back_populates="organization")  # noqa: F821
     notifications: Mapped[list["Notification"]] = relationship(back_populates="organization")  # noqa: F821
     recurring_invoices: Mapped[list["RecurringInvoice"]] = relationship(back_populates="organization")  # noqa: F821
+    projects: Mapped[list["Project"]] = relationship(back_populates="organization")  # noqa: F821

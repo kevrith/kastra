@@ -51,3 +51,15 @@ export const superadminGrantComplimentary = (token, orgId, payload) =>
 
 export const superadminRevokeComplimentary = (token, orgId) =>
   api.post(`/api/superadmin/organizations/${orgId}/revoke-complimentary`, {}, saHeaders(token));
+
+export const superadminResetUserPassword = (token, userId) =>
+  api.post(`/api/superadmin/users/${userId}/reset-password`, {}, saHeaders(token));
+
+export const superadminDeactivateUser = (token, userId) =>
+  api.post(`/api/superadmin/users/${userId}/deactivate`, {}, saHeaders(token));
+
+export const superadminReactivateUser = (token, userId) =>
+  api.post(`/api/superadmin/users/${userId}/reactivate`, {}, saHeaders(token));
+
+export const superadminChangeUserRole = (token, userId, role) =>
+  api.patch(`/api/superadmin/users/${userId}/role`, { role }, saHeaders(token));

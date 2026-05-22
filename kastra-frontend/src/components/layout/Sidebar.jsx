@@ -1,7 +1,7 @@
 import { NavLink, useNavigate } from "react-router-dom";
 import {
   BarChart2, FileText, Home, LogOut, Settings, Users, Receipt,
-  TrendingDown, RefreshCw, Package, Kanban,
+  TrendingDown, RefreshCw, Package, Kanban, UserCog, FolderKanban,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import GlobalSearch from "../ui/GlobalSearch";
@@ -11,12 +11,14 @@ const links = [
   { to: "/dashboard", icon: Home, label: "Dashboard" },
   { to: "/quotations", icon: FileText, label: "Quotations" },
   { to: "/quotations/pipeline", icon: Kanban, label: "Pipeline" },
+  { to: "/projects", icon: FolderKanban, label: "Projects" },
   { to: "/invoices", icon: Receipt, label: "Invoices" },
   { to: "/clients", icon: Users, label: "Clients" },
   { to: "/products", icon: Package, label: "Products" },
   { to: "/expenses", icon: TrendingDown, label: "Expenses" },
   { to: "/recurring", icon: RefreshCw, label: "Recurring" },
   { to: "/reports", icon: BarChart2, label: "Reports" },
+  { to: "/team", icon: UserCog, label: "Team", adminOnly: true },
   { to: "/settings", icon: Settings, label: "Settings" },
 ];
 
@@ -46,7 +48,9 @@ export default function Sidebar() {
       </div>
 
       <nav className="flex-1 py-4 px-3 space-y-0.5">
-        {links.map(({ to, icon: Icon, label }) => (
+        {links
+          .filter(link => !link.adminOnly || user?.role === 'admin')
+          .map(({ to, icon: Icon, label }) => (
           <NavLink
             key={to}
             to={to}
