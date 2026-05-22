@@ -10,6 +10,7 @@ from app.models.notification import Notification
 from app.models.recurring_invoice import RecurringInvoice
 from app.models.invoice_payment import InvoicePayment
 from app.models.client_price import ClientPrice
+from app.models.project import Project
 
 __all__ = [
     "Organization",
@@ -30,4 +31,5 @@ __all__ = [
     "RecurringInvoice",
     "InvoicePayment",
     "ClientPrice",
+    "Project",
 ]
