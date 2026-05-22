@@ -1,6 +1,7 @@
 import api from "./axios";
 
 export const getClients = (params) => api.get("/api/clients", { params });
+export const listClients = (params) => api.get("/api/clients", { params }); // Alias for compatibility
 export const getClient = (id) => api.get(`/api/clients/${id}`);
 export const createClient = (data) => api.post("/api/clients", data);
 export const updateClient = (id, data) => api.put(`/api/clients/${id}`, data);
