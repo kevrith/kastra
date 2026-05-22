@@ -26,6 +26,8 @@ class Quotation(Base):
     subtotal: Mapped[Decimal] = mapped_column(Numeric(15, 2), nullable=False, default=0)
     vat_amount: Mapped[Decimal] = mapped_column(Numeric(15, 2), nullable=False, default=0)
     grand_total: Mapped[Decimal] = mapped_column(Numeric(15, 2), nullable=False, default=0)
+    project_description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    project_description: Mapped[str | None] = mapped_column(Text, nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     decline_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

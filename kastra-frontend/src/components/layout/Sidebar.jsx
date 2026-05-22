@@ -1,7 +1,7 @@
 import { NavLink, useNavigate } from "react-router-dom";
 import {
   BarChart2, FileText, Home, LogOut, Settings, Users, Receipt,
-  TrendingDown, RefreshCw, Package,
+  TrendingDown, RefreshCw, Package, Kanban,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import GlobalSearch from "../ui/GlobalSearch";
@@ -10,6 +10,7 @@ import NotificationBell from "../ui/NotificationBell";
 const links = [
   { to: "/dashboard", icon: Home, label: "Dashboard" },
   { to: "/quotations", icon: FileText, label: "Quotations" },
+  { to: "/quotations/pipeline", icon: Kanban, label: "Pipeline" },
   { to: "/invoices", icon: Receipt, label: "Invoices" },
   { to: "/clients", icon: Users, label: "Clients" },
   { to: "/products", icon: Package, label: "Products" },

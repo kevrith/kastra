@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { publicOrigin } from "../../utils/publicUrl";
-import { getQuotation, updateQuotationStatus, convertToInvoice, emailQuotation } from "../../api/quotations";
+import { getQuotation, updateQuotationStatus, convertToInvoice, emailQuotation, getQuotationNotes, addQuotationNote } from "../../api/quotations";
 import { getInvoices } from "../../api/invoices";
 import { getOrganization } from "../../api/organization";
 import { ksh, date, phone, statusBadgeClass } from "../../utils/formatters";
-import { ArrowLeft, Edit2, RefreshCw, MessageCircle, FileDown, Copy, Mail, Receipt } from "lucide-react";
+import { ArrowLeft, Edit2, RefreshCw, MessageCircle, FileDown, Copy, Mail, Receipt, StickyNote, Send } from "lucide-react";
 import Spinner from "../../components/ui/Spinner";
 import Modal from "../../components/ui/Modal";
 import PDFPreviewModal from "../../components/ui/PDFPreviewModal";
@@ -26,6 +26,9 @@ export default function QuotationDetail() {
   const [relatedInvoices, setRelatedInvoices] = useState([]);
   const [linkCopied, setLinkCopied] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
+  const [notes, setNotes] = useState([]);
+  const [noteBody, setNoteBody] = useState("");
+  const [addingNote, setAddingNote] = useState(false);
 
   const load = (silent = false) => {
     if (!silent) setLoading(true);
@@ -37,6 +40,22 @@ export default function QuotationDetail() {
   useEffect(() => {
     getInvoices({ quotation_id: id, limit: 50 }).then(({ data }) => setRelatedInvoices(data.data)).catch(() => {});
   }, [id]);
+
+  useEffect(() => {
+    getQuotationNotes(id).then(({ data }) => setNotes(data)).catch(() => {});
+  }, [id]);
+
+  const handleAddNote = async () => {
+    if (!noteBody.trim()) return;
+    setAddingNote(true);
+    try {
+      const { data } = await addQuotationNote(id, noteBody.trim());
+      setNotes((prev) => [...prev, data]);
+      setNoteBody("");
+    } finally {
+      setAddingNote(false);
+    }
+  };
 
   // Poll every 15s while quotation is pending — auto-update when client accepts/declines
   useEffect(() => {
@@ -84,6 +103,7 @@ export default function QuotationDetail() {
     const msg = [
       `Hello ${quotation.client.name},`,
       ``,
+      ...(quotation.project_description ? [`Project: *${quotation.project_description}*`, ``] : []),
       `Please find quotation *${quotation.id}* for *${ksh(quotation.grand_total)}*.`,
       ``,
       `View and respond here: ${portalLink}`,
@@ -184,6 +204,14 @@ export default function QuotationDetail() {
         <p className="text-sm text-gray-500">{quotation.client.email}</p>
         <p className="text-sm text-gray-500">{phone(quotation.client.phone)}</p>
       </div>
+
+      {/* Project description */}
+      {quotation.project_description && (
+        <div className="card p-4">
+          <h2 className="text-xs text-gray-500 uppercase tracking-wide mb-1">Project</h2>
+          <p className="text-sm text-gray-800 whitespace-pre-line">{quotation.project_description}</p>
+        </div>
+      )}
 
       {/* Decline reason */}
       {quotation.status === "declined" && quotation.decline_reason && (
@@ -303,6 +331,43 @@ export default function QuotationDetail() {
           </div>
         </div>
       )}
+
+      {/* Internal Notes */}
+      <div className="card p-4 space-y-3">
+        <h2 className="text-xs text-gray-500 uppercase tracking-wide flex items-center gap-1.5">
+          <StickyNote size={13} /> Internal Notes
+          <span className="text-gray-300 font-normal normal-case">— private, not visible to client</span>
+        </h2>
+        {notes.length > 0 && (
+          <div className="space-y-2">
+            {notes.map((n) => (
+              <div key={n.id} className="bg-amber-50 border border-amber-100 rounded-lg px-3 py-2.5">
+                <p className="text-sm text-gray-800 whitespace-pre-line">{n.body}</p>
+                <p className="text-[10px] text-gray-400 mt-1">
+                  {n.author_name} · {new Date(n.created_at).toLocaleString("en-KE", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
+        <div className="flex gap-2">
+          <textarea
+            className="input flex-1 resize-none"
+            rows={2}
+            placeholder="Add a note… e.g. Called Kevin, said he'll decide by Friday"
+            value={noteBody}
+            onChange={(e) => setNoteBody(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) handleAddNote(); }}
+          />
+          <button
+            className="btn-primary self-end"
+            onClick={handleAddNote}
+            disabled={addingNote || !noteBody.trim()}
+          >
+            <Send size={14} />
+          </button>
+        </div>
+      </div>
 
       {/* PDF Preview Modal */}
       <PDFPreviewModal

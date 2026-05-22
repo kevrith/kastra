@@ -2,12 +2,13 @@ import { useState, useEffect } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import {
   Home, FileText, Receipt, Users, Settings,
-  TrendingDown, RefreshCw, BarChart2, Package, MoreHorizontal, X,
+  TrendingDown, RefreshCw, BarChart2, Package, MoreHorizontal, X, Kanban,
 } from "lucide-react";
 
 const PRIMARY = [
   { to: "/dashboard", icon: Home, label: "Home" },
   { to: "/quotations", icon: FileText, label: "Quotes" },
+  { to: "/quotations/pipeline", icon: Kanban, label: "Pipeline" },
   { to: "/invoices", icon: Receipt, label: "Invoices" },
   { to: "/clients", icon: Users, label: "Clients" },
 ];

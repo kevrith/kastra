@@ -7,6 +7,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import Response as RawResponse
+from pydantic import BaseModel
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -19,10 +20,11 @@ from app.models.invoice import Invoice, InvoiceCharge, InvoiceItem
 from app.models.organization import Organization
 from app.models.product import Product
 from app.models.quotation import Quotation, QuotationCharge, QuotationItem
+from app.models.quotation_note import QuotationNote
 from app.models.user import User
 from app.schemas.common import MessageResponse, Meta, PaginatedResponse, Response
 from app.schemas.organization import OrganizationOut
-from app.schemas.quotation import ConvertRequest, QuotationCreate, QuotationListOut, QuotationOut, QuotationStatusUpdate, QuotationUpdate
+from app.schemas.quotation import ConvertRequest, QuotationCreate, QuotationListOut, QuotationNoteOut, QuotationOut, QuotationStatusUpdate, QuotationUpdate
 from app.services.email_service import send_quotation_email
 from app.services.pdf_service import generate_pdf
 from app.utils.id_generator import next_id
@@ -151,6 +153,7 @@ async def create_quotation(
         organization_id=current_user.organization_id,
         client_id=payload.client_id,
         created_by=current_user.id,
+        project_description=payload.project_description,
         notes=payload.notes,
         expires_at=payload.expires_at,
         discount_pct=payload.discount_pct,
@@ -234,6 +237,8 @@ async def update_quotation(
 
     if payload.client_id:
         qt.client_id = payload.client_id
+    if payload.project_description is not None:
+        qt.project_description = payload.project_description
     if payload.notes is not None:
         qt.notes = payload.notes
     if payload.expires_at is not None:
@@ -476,6 +481,61 @@ async def download_quotation_pdf(
         content=pdf_bytes,
         media_type="application/pdf",
         headers={"Content-Disposition": f'attachment; filename="{quotation_id}.pdf"'},
+    )
+
+
+@router.get("/{quotation_id}/notes", response_model=list[QuotationNoteOut])
+async def list_notes(
+    quotation_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    qt = await db.get(Quotation, quotation_id)
+    if not qt or qt.organization_id != current_user.organization_id:
+        raise HTTPException(status_code=404, detail="Quotation not found")
+    result = await db.execute(
+        select(QuotationNote)
+        .where(QuotationNote.quotation_id == quotation_id)
+        .options(selectinload(QuotationNote.author))
+        .order_by(QuotationNote.created_at.asc())
+    )
+    notes = result.scalars().all()
+    return [
+        QuotationNoteOut(
+            id=n.id, body=n.body, created_at=n.created_at,
+            author_name=n.author.display_name if n.author else "",
+        )
+        for n in notes
+    ]
+
+
+class _NoteCreate(BaseModel):
+    body: str
+
+
+@router.post("/{quotation_id}/notes", response_model=QuotationNoteOut, status_code=201)
+async def add_note(
+    quotation_id: str,
+    payload: _NoteCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    qt = await db.get(Quotation, quotation_id)
+    if not qt or qt.organization_id != current_user.organization_id:
+        raise HTTPException(status_code=404, detail="Quotation not found")
+    note = QuotationNote(
+        id=uuid.uuid4(),
+        quotation_id=quotation_id,
+        organization_id=current_user.organization_id,
+        created_by=current_user.id,
+        body=payload.body.strip(),
+    )
+    db.add(note)
+    await db.flush()
+    await db.refresh(note, ["author"])
+    return QuotationNoteOut(
+        id=note.id, body=note.body, created_at=note.created_at,
+        author_name=note.author.display_name if note.author else "",
     )
 
 

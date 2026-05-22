@@ -45,6 +45,7 @@ export default function QuotationForm() {
   const [clients, setClients] = useState([]);
   const [clientId, setClientId] = useState("");
   const [notes, setNotes] = useState("");
+  const [projectDescription, setProjectDescription] = useState("");
   const [expiresAt, setExpiresAt] = useState("");
   const [items, setItems] = useState([emptyItem()]);
   const [charges, setCharges] = useState([]);
@@ -69,6 +70,7 @@ export default function QuotationForm() {
       getQuotation(id).then(({ data }) => {
         const q = data.data;
         setClientId(q.client_id);
+        setProjectDescription(q.project_description ?? "");
         setNotes(q.notes ?? "");
         setExpiresAt(q.expires_at ? q.expires_at.slice(0, 10) : "");
         setItems(q.items.map((i) => ({
@@ -111,6 +113,7 @@ export default function QuotationForm() {
     const itemsGross = validItems.reduce((s, it) => s + parseFloat(it.quantity) * parseFloat(it.unit_price), 0);
     return {
       client_id: clientId || null,
+      project_description: projectDescription || null,
       notes: notes || null,
       expires_at: expiresAt ? new Date(expiresAt).toISOString() : null,
       discount_pct: parseFloat(discountPct) || 0,
@@ -281,6 +284,15 @@ export default function QuotationForm() {
 
       <form onSubmit={handleSubmit} className="space-y-5">
         <div className="card p-4 space-y-4">
+          <div>
+            <label className="label">Project Description <span className="text-gray-400 font-normal">(optional)</span></label>
+            <textarea className="input" rows={2}
+              placeholder="e.g. Kevin's 5-bedroom house — Kiambu Road, Phase 1 supply"
+              value={projectDescription}
+              onChange={(e) => setProjectDescription(e.target.value)}
+            />
+            <p className="text-xs text-gray-400 mt-1">Appears in WhatsApp messages and helps you track the project</p>
+          </div>
           <div>
             <label className="label">Client *</label>
             <select className="input" value={clientId} onChange={(e) => { setClientId(e.target.value); setScanClientHint(null); }} required>

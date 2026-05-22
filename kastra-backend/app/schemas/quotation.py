@@ -58,10 +58,20 @@ class QuotationItemOut(BaseModel):
         return (self.quantity * self.unit_price * self.discount_pct / 100).quantize(Decimal("0.01"))
 
 
+class QuotationNoteOut(BaseModel):
+    id: uuid.UUID
+    body: str
+    created_at: datetime
+    author_name: str = ""
+
+    model_config = {"from_attributes": True}
+
+
 class QuotationCreate(BaseModel):
     client_id: uuid.UUID | None = None
     items: list[QuotationItemCreate] = []
     charges: list[QuotationChargeCreate] = []
+    project_description: str | None = None
     notes: str | None = None
     expires_at: datetime | None = None
     discount_pct: Decimal = Decimal("0")
@@ -80,6 +90,7 @@ class QuotationUpdate(BaseModel):
     client_id: uuid.UUID | None = None
     items: list[QuotationItemCreate] | None = None
     charges: list[QuotationChargeCreate] | None = None
+    project_description: str | None = None
     notes: str | None = None
     expires_at: datetime | None = None
     discount_pct: Decimal | None = None
@@ -123,6 +134,7 @@ class QuotationOut(BaseModel):
     vat_amount: Decimal
     grand_total: Decimal
     notes: str | None
+    project_description: str | None
     decline_reason: str | None
     expires_at: datetime | None
     converted_to_invoice: bool
@@ -148,6 +160,7 @@ class QuotationListOut(BaseModel):
     client: ClientOut | None
     status: str
     grand_total: Decimal
+    project_description: str | None
     expires_at: datetime | None
     converted_to_invoice: bool
     created_at: datetime

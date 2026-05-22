@@ -10,3 +10,5 @@ export const convertToInvoice = (id, data = {}) =>
   api.post(`/api/quotations/${id}/convert`, data);
 export const deleteQuotation = (id) => api.delete(`/api/quotations/${id}`);
 export const emailQuotation = (id) => api.post(`/api/quotations/${id}/email`);
+export const getQuotationNotes = (id) => api.get(`/api/quotations/${id}/notes`);
+export const addQuotationNote = (id, body) => api.post(`/api/quotations/${id}/notes`, { body });

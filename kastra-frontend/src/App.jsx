@@ -13,6 +13,7 @@ import ClientDetail from "./pages/clients/ClientDetail";
 import QuotationList from "./pages/quotations/QuotationList";
 import QuotationForm from "./pages/quotations/QuotationForm";
 import QuotationDetail from "./pages/quotations/QuotationDetail";
+import Pipeline from "./pages/quotations/Pipeline";
 import InvoiceList from "./pages/invoices/InvoiceList";
 import InvoiceDetail from "./pages/invoices/InvoiceDetail";
 import InvoiceCreate from "./pages/invoices/InvoiceCreate";
@@ -68,6 +69,7 @@ export default function App() {
             <Route path="/clients" element={<ClientList />} />
             <Route path="/clients/:id" element={<ClientDetail />} />
             <Route path="/quotations" element={<QuotationList />} />
+            <Route path="/quotations/pipeline" element={<Pipeline />} />
             <Route path="/quotations/new" element={<QuotationForm />} />
             <Route path="/quotations/:id" element={<QuotationDetail />} />
             <Route path="/quotations/:id/edit" element={<QuotationForm />} />
