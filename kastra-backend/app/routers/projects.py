@@ -12,6 +12,7 @@ from app.models.client import Client
 from app.models.project import Project, ProjectPhoto, ProjectUpdate
 from app.models.quotation import Quotation
 from app.models.user import User
+from app.models.expense import Expense
 from app.schemas.project import (
     ProjectCreate,
     ProjectListItem,
@@ -321,3 +322,47 @@ async def delete_project(
     await db.delete(project)
     await db.commit()
     return {"message": "Project deleted"}
+
+
+@router.get("/{project_id}/financials")
+async def get_project_financials(
+    project_id: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Get project financial summary: revenue, expenses, profit"""
+    result = await db.execute(
+        select(Project).where(
+            Project.id == uuid.UUID(project_id),
+            Project.organization_id == current_user.organization_id
+        ).options(selectinload(Project.quotation))
+    )
+    project = result.scalar_one_or_none()
+    
+    if not project:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
+    
+    # Get revenue from quotation
+    quotation_result = await db.execute(
+        select(Quotation).where(Quotation.id == project.quotation_id)
+    )
+    quotation = quotation_result.scalar_one_or_none()
+    revenue = float(quotation.grand_total) if quotation else 0.0
+    
+    # Get total expenses for this project
+    expenses_result = await db.execute(
+        select(func.sum(Expense.amount))
+        .where(Expense.project_id == uuid.UUID(project_id))
+    )
+    total_expenses = expenses_result.scalar_one_or_none() or 0.0
+    total_expenses = float(total_expenses)
+    
+    profit = revenue - total_expenses
+    margin = (profit / revenue * 100) if revenue > 0 else 0.0
+    
+    return {
+        "revenue": revenue,
+        "expenses": total_expenses,
+        "profit": profit,
+        "margin": round(margin, 2)
+    }

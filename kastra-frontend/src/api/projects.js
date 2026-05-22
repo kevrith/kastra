@@ -17,3 +17,5 @@ export const uploadPhoto = (projectId, formData) =>
   api.post(`/api/projects/${projectId}/photos`, formData, {
     headers: { 'Content-Type': 'multipart/form-data' }
   });
+
+export const getProjectFinancials = (projectId) => api.get(`/api/projects/${projectId}/financials`);

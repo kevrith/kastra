@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, User, Calendar, MessageSquare, Image, Send, Upload } from 'lucide-react';
-import { getProject, postUpdate, uploadPhoto } from '../../api/projects';
+import { ArrowLeft, User, Calendar, MessageSquare, Image, Send, Upload, DollarSign, TrendingUp, TrendingDown } from 'lucide-react';
+import { getProject, postUpdate, uploadPhoto, getProjectFinancials } from '../../api/projects';
+import { getExpenses, createExpense } from '../../api/expenses';
 import { listClients } from '../../api/clients';
 import { listTeamMembers } from '../../api/team';
 import Toast from '../../components/ui/Toast';
+import Modal from '../../components/ui/Modal';
+import { ksh } from '../../utils/formatters';
 
 export default function ProjectDetail() {
   const { id } = useParams();
@@ -17,9 +20,22 @@ export default function ProjectDetail() {
   const [posting, setPosting] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [toast, setToast] = useState(null);
+  const [financials, setFinancials] = useState(null);
+  const [expenses, setExpenses] = useState([]);
+  const [showExpenseModal, setShowExpenseModal] = useState(false);
+  const [expenseForm, setExpenseForm] = useState({
+    category: 'materials',
+    description: '',
+    vendor: '',
+    amount: '',
+    date: new Date().toISOString().split('T')[0]
+  });
+  const [savingExpense, setSavingExpense] = useState(false);
 
   useEffect(() => {
     loadProject();
+    loadFinancials();
+    loadExpenses();
   }, [id]);
 
   const loadProject = async () => {
@@ -49,6 +65,56 @@ export default function ProjectDetail() {
       setTimeout(() => navigate('/projects'), 2000);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadFinancials = async () => {
+    try {
+      const { data } = await getProjectFinancials(id);
+      setFinancials(data);
+    } catch (err) {
+      console.error('Failed to load financials:', err);
+    }
+  };
+
+  const loadExpenses = async () => {
+    try {
+      const { data } = await getExpenses({ project_id: id, limit: 100 });
+      setExpenses(data.data || []);
+    } catch (err) {
+      console.error('Failed to load expenses:', err);
+    }
+  };
+
+  const handleSaveExpense = async () => {
+    if (!expenseForm.description || !expenseForm.amount) {
+      setToast({ message: 'Please fill in all required fields', type: 'error' });
+      return;
+    }
+
+    setSavingExpense(true);
+    try {
+      await createExpense({
+        ...expenseForm,
+        amount: parseFloat(expenseForm.amount),
+        project_id: id
+      });
+      setShowExpenseModal(false);
+      setExpenseForm({
+        category: 'materials',
+        description: '',
+        vendor: '',
+        amount: '',
+        date: new Date().toISOString().split('T')[0]
+      });
+      loadFinancials();
+      loadExpenses();
+      setToast({ message: 'Expense added successfully', type: 'success' });
+    } catch (err) {
+      console.error('Failed to save expense:', err);
+      setToast({ message: 'Failed to save expense', type: 'error' });
+    } finally {
+      setSavingExpense(false);
     }
   };
 
@@ -158,6 +224,76 @@ export default function ProjectDetail() {
         </div>
       </div>
 
+      {/* Financials Card */}
+      {financials && (
+        <div className="bg-white rounded-lg shadow p-6 mb-6">
+          <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+            <DollarSign className="w-5 h-5" />
+            Project Financials
+          </h2>
+          
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div>
+              <div className="text-sm text-gray-500">Revenue</div>
+              <div className="text-xl font-bold text-gray-900">{ksh(financials.revenue)}</div>
+            </div>
+            <div>
+              <div className="text-sm text-gray-500">Expenses</div>
+              <div className="text-xl font-bold text-red-600">{ksh(financials.expenses)}</div>
+            </div>
+            <div>
+              <div className="text-sm text-gray-500">Profit</div>
+              <div className={`text-xl font-bold flex items-center gap-1 ${
+                financials.profit >= 0 ? 'text-green-600' : 'text-red-600'
+              }`}>
+                {financials.profit >= 0 ? <TrendingUp className="w-5 h-5" /> : <TrendingDown className="w-5 h-5" />}
+                {ksh(financials.profit)}
+              </div>
+            </div>
+            <div>
+              <div className="text-sm text-gray-500">Margin</div>
+              <div className={`text-xl font-bold ${
+                financials.margin >= 0 ? 'text-green-600' : 'text-red-600'
+              }`}>
+                {financials.margin}%
+              </div>
+            </div>
+          </div>
+
+          {/* Expenses List */}
+          <div className="mt-6">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold text-gray-700">Project Expenses</h3>
+              <button
+                onClick={() => setShowExpenseModal(true)}
+                className="text-sm text-green-600 hover:text-green-700 font-medium"
+              >
+                + Add Expense
+              </button>
+            </div>
+            
+            {expenses.length === 0 ? (
+              <p className="text-sm text-gray-500">No expenses recorded yet</p>
+            ) : (
+              <div className="space-y-2">
+                {expenses.map(exp => (
+                  <div key={exp.id} className="flex items-center justify-between py-2 border-b border-gray-100">
+                    <div>
+                      <div className="text-sm font-medium text-gray-900">{exp.description}</div>
+                      <div className="text-xs text-gray-500">
+                        {new Date(exp.date).toLocaleDateString()} · {exp.category}
+                        {exp.vendor && ` · ${exp.vendor}`}
+                      </div>
+                    </div>
+                    <div className="text-sm font-semibold text-gray-900">{ksh(exp.amount)}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white rounded-lg shadow p-6">
           <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
@@ -238,6 +374,82 @@ export default function ProjectDetail() {
           </div>
         </div>
       </div>
+
+      {/* Add Expense Modal */}
+      <Modal
+        open={showExpenseModal}
+        onClose={() => setShowExpenseModal(false)}
+        title="Add Project Expense"
+        size="md"
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="label">Category</label>
+            <select
+              className="input"
+              value={expenseForm.category}
+              onChange={(e) => setExpenseForm({ ...expenseForm, category: e.target.value })}
+            >
+              <option value="materials">Materials</option>
+              <option value="labor">Labor</option>
+              <option value="transport">Transport</option>
+              <option value="equipment">Equipment</option>
+              <option value="supplies">Supplies</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="label">Description *</label>
+            <input
+              type="text"
+              className="input"
+              placeholder="e.g. Cement and sand"
+              value={expenseForm.description}
+              onChange={(e) => setExpenseForm({ ...expenseForm, description: e.target.value })}
+            />
+          </div>
+
+          <div>
+            <label className="label">Vendor</label>
+            <input
+              type="text"
+              className="input"
+              placeholder="e.g. ABC Hardware"
+              value={expenseForm.vendor}
+              onChange={(e) => setExpenseForm({ ...expenseForm, vendor: e.target.value })}
+            />
+          </div>
+
+          <div>
+            <label className="label">Amount (KSh) *</label>
+            <input
+              type="number"
+              className="input"
+              placeholder="0.00"
+              value={expenseForm.amount}
+              onChange={(e) => setExpenseForm({ ...expenseForm, amount: e.target.value })}
+            />
+          </div>
+
+          <div>
+            <label className="label">Date</label>
+            <input
+              type="date"
+              className="input"
+              value={expenseForm.date}
+              onChange={(e) => setExpenseForm({ ...expenseForm, date: e.target.value })}
+            />
+          </div>
+        </div>
+
+        <div className="mt-6 flex justify-end gap-2">
+          <button className="btn-secondary" onClick={() => setShowExpenseModal(false)}>Cancel</button>
+          <button className="btn-primary" onClick={handleSaveExpense} disabled={savingExpense}>
+            {savingExpense ? 'Saving...' : 'Save Expense'}
+          </button>
+        </div>
+      </Modal>
     </div>
   );
 }
