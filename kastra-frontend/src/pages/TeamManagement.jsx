@@ -242,7 +242,7 @@ export default function TeamManagement() {
       </div>
 
       {showInviteModal && (
-        <Modal onClose={() => setShowInviteModal(false)} title="Invite Team Member">
+        <Modal open={showInviteModal} onClose={() => setShowInviteModal(false)} title="Invite Team Member">
           <form onSubmit={handleInvite} className="space-y-4">
             {error && (
               <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded text-sm">
