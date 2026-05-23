@@ -1,5 +1,6 @@
 from app.models.organization import Organization
 from app.models.user import User
+from app.models.user_permission import UserPermission
 from app.models.client import Client
 from app.models.invoice import Invoice, InvoiceCharge, InvoiceItem, PaymentDetail, SequenceCounter
 from app.models.quotation import Quotation, QuotationCharge, QuotationItem
@@ -32,4 +33,5 @@ __all__ = [
     "InvoicePayment",
     "ClientPrice",
     "Project",
+    "UserPermission",
 ]
