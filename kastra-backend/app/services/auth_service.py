@@ -13,6 +13,28 @@ from app.utils.plan_limits import VALID_PLANS
 from app.utils.security import hash_password, verify_password
 
 
+async def generate_org_prefix(db: AsyncSession, business_name: str) -> str:
+    """Generate a unique prefix from business name."""
+    words = business_name.upper().split()
+    if len(words) >= 2:
+        base_prefix = ''.join(word[0] for word in words[:3])
+    else:
+        base_prefix = business_name[:3].upper().replace(' ', '')
+    
+    prefix = base_prefix
+    counter = 1
+    while True:
+        result = await db.execute(
+            select(Organization).where(Organization.id_prefix == prefix)
+        )
+        if result.scalar_one_or_none() is None:
+            break
+        prefix = f"{base_prefix}{counter}"
+        counter += 1
+    
+    return prefix
+
+
 async def get_user_by_email(db: AsyncSession, email: str) -> User | None:
     result = await db.execute(select(User).where(User.email == email))
     return result.scalar_one_or_none()
@@ -31,8 +53,13 @@ async def create_user_with_org(
     chosen_plan = plan if plan in VALID_PLANS else "free"
     is_trial = chosen_plan != "free"
     trial_ends_at = now + timedelta(days=14) if is_trial else None
+    
+    # Generate unique prefix from business name
+    prefix = await generate_org_prefix(db, business_name)
+    
     org = Organization(
         name=business_name,
+        id_prefix=prefix,
         plan=chosen_plan,
         plan_status="active",
         billing_cycle_start=now,
@@ -113,8 +140,12 @@ async def get_or_create_google_user(db: AsyncSession, google_info: dict, plan: s
 
     chosen_plan = plan if plan in VALID_PLANS else "free"
     now = datetime.now(timezone.utc)
+    
+    prefix = await generate_org_prefix(db, display_name)
+    
     org = Organization(
         name=display_name,
+        id_prefix=prefix,
         plan=chosen_plan,
         plan_status="active",
         billing_cycle_start=now,
