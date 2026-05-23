@@ -8,15 +8,26 @@ from app.models.invoice import SequenceCounter
 
 
 async def next_id(db: AsyncSession, entity_type: str, organization_id: uuid.UUID) -> str:
-    """Generate next sequential ID per org like QT-2026-001 or INV-2026-001."""
+    """Generate next sequential ID per org like KE-QT-2026-001 or ABC-INV-2026-001."""
     from sqlalchemy.exc import IntegrityError
     import logging
     
     logger = logging.getLogger(__name__)
     year = datetime.now(timezone.utc).year
-    prefix = "QT" if entity_type == "quotation" else "INV"
+    prefix_type = "QT" if entity_type == "quotation" else "INV"
 
-    logger.info(f"Generating {entity_type} ID for org {organization_id}, year {year}")
+    # Get organization prefix
+    from app.models.organization import Organization
+    org_result = await db.execute(
+        select(Organization.id_prefix).where(Organization.id == organization_id)
+    )
+    org_prefix = org_result.scalar_one_or_none()
+    
+    if not org_prefix:
+        logger.error(f"Organization {organization_id} has no prefix!")
+        org_prefix = "ORG"  # Fallback
+
+    logger.info(f"Generating {entity_type} ID for org {organization_id} (prefix: {org_prefix}), year {year}")
 
     # Try to fetch and lock counter
     result = await db.execute(
@@ -71,6 +82,6 @@ async def next_id(db: AsyncSession, entity_type: str, organization_id: uuid.UUID
     # Increment counter
     counter.last_sequence_number += 1
     seq = counter.last_sequence_number
-    logger.info(f"Generated ID: {prefix}-{year}-{seq:03d} for org {organization_id}")
+    logger.info(f"Generated ID: {org_prefix}-{prefix_type}-{year}-{seq:03d} for org {organization_id}")
 
-    return f"{prefix}-{year}-{seq:03d}"
+    return f"{org_prefix}-{prefix_type}-{year}-{seq:03d}"
