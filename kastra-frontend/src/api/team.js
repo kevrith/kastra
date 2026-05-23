@@ -11,3 +11,6 @@ export const updateTeamMember = (userId, data) => api.patch(`/api/team/${userId}
 export const removeTeamMember = (userId) => api.delete(`/api/team/${userId}`);
 
 export const resetTeamMemberPassword = (userId) => api.post(`/api/team/${userId}/reset-password`);
+
+export const getMemberPermissions = (userId) => api.get(`/api/team/${userId}/permissions`);
+export const setMemberPermissions = (userId, data) => api.put(`/api/team/${userId}/permissions`, data);

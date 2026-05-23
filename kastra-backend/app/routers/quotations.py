@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.database import get_db
-from app.dependencies import get_current_user
+from app.dependencies import get_current_user, require_permission
 from app.models.client import Client
 from app.models.client_price import ClientPrice
 from app.models.invoice import Invoice, InvoiceCharge, InvoiceItem
@@ -93,7 +93,7 @@ async def list_quotations(
     from_date: str | None = Query(None),
     to_date: str | None = Query(None),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("can_view_quotations")),
 ):
     q = select(Quotation).options(selectinload(Quotation.client)).where(
         Quotation.organization_id == current_user.organization_id
@@ -120,7 +120,7 @@ async def list_quotations(
 async def create_quotation(
     payload: QuotationCreate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("can_create_quotations")),
 ):
     is_draft = payload.status == "draft"
 
@@ -202,7 +202,7 @@ async def create_quotation(
 async def get_quotation(
     quotation_id: str,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("can_view_quotations")),
 ):
     result = await db.execute(
         select(Quotation).where(
@@ -221,7 +221,7 @@ async def update_quotation(
     quotation_id: str,
     payload: QuotationUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("can_edit_quotations")),
 ):
     result = await db.execute(
         select(Quotation).where(
@@ -305,7 +305,7 @@ async def update_status(
     quotation_id: str,
     payload: QuotationStatusUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("can_edit_quotations")),
 ):
     result = await db.execute(
         select(Quotation).where(
@@ -330,7 +330,7 @@ async def convert_to_invoice(
     quotation_id: str,
     payload: ConvertRequest = ConvertRequest(),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("can_create_invoices")),
 ):
     result = await db.execute(
         select(Quotation).where(
@@ -415,7 +415,7 @@ async def convert_to_invoice(
 async def email_quotation(
     quotation_id: str,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("can_edit_quotations")),
 ):
     """Send the quotation to the client by email with a PDF attachment."""
     result = await db.execute(
@@ -457,7 +457,7 @@ async def email_quotation(
 async def download_quotation_pdf(
     quotation_id: str,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("can_view_quotations")),
 ):
     """Generate and return quotation as a PDF file."""
     result = await db.execute(
@@ -488,7 +488,7 @@ async def download_quotation_pdf(
 async def list_notes(
     quotation_id: str,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("can_view_quotations")),
 ):
     qt = await db.get(Quotation, quotation_id)
     if not qt or qt.organization_id != current_user.organization_id:
@@ -518,7 +518,7 @@ async def add_note(
     quotation_id: str,
     payload: _NoteCreate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("can_edit_quotations")),
 ):
     qt = await db.get(Quotation, quotation_id)
     if not qt or qt.organization_id != current_user.organization_id:
@@ -543,7 +543,7 @@ async def add_note(
 async def delete_quotation(
     quotation_id: str,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("can_delete_quotations")),
 ):
     result = await db.execute(
         select(Quotation).where(

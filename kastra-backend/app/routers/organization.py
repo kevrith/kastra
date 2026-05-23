@@ -3,7 +3,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
-from app.dependencies import get_current_user
+from app.dependencies import get_current_user, require_admin, require_permission
 from app.models.organization import Organization
 from app.models.user import User
 from app.schemas.common import Response
@@ -16,7 +16,7 @@ router = APIRouter(prefix="/api/organization", tags=["organization"])
 @router.get("", response_model=Response[OrganizationOut])
 async def get_organization(
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_admin),
 ):
     result = await db.execute(
         select(Organization).where(Organization.id == current_user.organization_id)
@@ -31,7 +31,7 @@ async def get_organization(
 async def update_organization(
     payload: OrganizationUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_admin),
 ):
     result = await db.execute(
         select(Organization).where(Organization.id == current_user.organization_id)
@@ -51,7 +51,7 @@ async def update_organization(
 @router.post("/etims-test")
 async def etims_test_connection(
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_admin),
 ):
     """Test KRA eTIMS credentials without submitting an invoice."""
     result = await db.execute(select(Organization).where(Organization.id == current_user.organization_id))

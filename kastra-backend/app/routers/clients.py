@@ -8,7 +8,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
-from app.dependencies import get_current_user
+from app.dependencies import get_current_user, require_permission
 from app.models.client import Client
 from app.models.invoice import Invoice
 from app.models.user import User
@@ -26,7 +26,7 @@ async def list_clients(
     search: str | None = Query(None),
     status: str | None = Query(None),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("can_view_clients")),
 ):
     q = select(Client).where(Client.organization_id == current_user.organization_id)
     if search:
@@ -51,7 +51,7 @@ async def list_clients(
 async def create_client(
     payload: ClientCreate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("can_create_clients")),
 ):
     client = Client(**payload.model_dump(), organization_id=current_user.organization_id)
     db.add(client)
@@ -64,7 +64,7 @@ async def create_client(
 async def get_client(
     client_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("can_view_clients")),
 ):
     result = await db.execute(
         select(Client).where(Client.id == client_id, Client.organization_id == current_user.organization_id)
@@ -80,7 +80,7 @@ async def update_client(
     client_id: uuid.UUID,
     payload: ClientUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("can_edit_clients")),
 ):
     result = await db.execute(
         select(Client).where(Client.id == client_id, Client.organization_id == current_user.organization_id)
@@ -101,7 +101,7 @@ async def update_client(
 async def delete_client(
     client_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("can_delete_clients")),
 ):
     result = await db.execute(
         select(Client).where(Client.id == client_id, Client.organization_id == current_user.organization_id)

@@ -6,8 +6,50 @@ from pydantic import BaseModel, EmailStr
 
 class InviteUserRequest(BaseModel):
     email: EmailStr
-    role: str  # admin | manager | field_agent | viewer
+    role: str
     display_name: str
+
+
+class PermissionsOut(BaseModel):
+    can_view_invoices: bool = False
+    can_create_invoices: bool = False
+    can_edit_invoices: bool = False
+    can_delete_invoices: bool = False
+    can_view_quotations: bool = False
+    can_create_quotations: bool = False
+    can_edit_quotations: bool = False
+    can_delete_quotations: bool = False
+    can_view_clients: bool = False
+    can_create_clients: bool = False
+    can_edit_clients: bool = False
+    can_delete_clients: bool = False
+    can_view_reports: bool = False
+    can_view_expenses: bool = False
+    can_create_expenses: bool = False
+    can_view_projects: bool = False
+    can_manage_projects: bool = False
+
+    model_config = {"from_attributes": True}
+
+
+class UpdatePermissionsRequest(BaseModel):
+    can_view_invoices: bool = False
+    can_create_invoices: bool = False
+    can_edit_invoices: bool = False
+    can_delete_invoices: bool = False
+    can_view_quotations: bool = False
+    can_create_quotations: bool = False
+    can_edit_quotations: bool = False
+    can_delete_quotations: bool = False
+    can_view_clients: bool = False
+    can_create_clients: bool = False
+    can_edit_clients: bool = False
+    can_delete_clients: bool = False
+    can_view_reports: bool = False
+    can_view_expenses: bool = False
+    can_create_expenses: bool = False
+    can_view_projects: bool = False
+    can_manage_projects: bool = False
 
 
 class TeamMemberOut(BaseModel):
@@ -20,6 +62,7 @@ class TeamMemberOut(BaseModel):
     invited_at: datetime | None
     invited_by: UUID | None
     created_at: datetime
+    invite_token: str | None = None
     invite_link: str | None = None
 
     class Config:

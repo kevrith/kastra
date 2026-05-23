@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Users, UserPlus, Shield, Eye, Briefcase, HardHat, Trash2, Power, KeyRound, Copy, Check } from 'lucide-react';
-import { listTeamMembers, inviteUser, updateTeamMember, removeTeamMember, resetTeamMemberPassword } from '../api/team';
+import { Users, UserPlus, Shield, Eye, Briefcase, HardHat, Trash2, Power, KeyRound, Copy, Check, Settings2 } from 'lucide-react';
+import { listTeamMembers, inviteUser, updateTeamMember, removeTeamMember, resetTeamMemberPassword, getMemberPermissions, setMemberPermissions } from '../api/team';
 import Modal from '../components/ui/Modal';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
 
@@ -35,6 +35,27 @@ export default function TeamManagement() {
   const [inviteLink, setInviteLink] = useState('');
   const [copied, setCopied] = useState(false);
   const [confirmDialog, setConfirmDialog] = useState(null);
+  const [permMember, setPermMember] = useState(null); // member being edited
+  const [perms, setPerms] = useState(null);
+  const [permSaving, setPermSaving] = useState(false);
+
+  const PERM_GROUPS = [
+    { label: 'Invoices', keys: ['can_view_invoices','can_create_invoices','can_edit_invoices','can_delete_invoices'] },
+    { label: 'Quotations', keys: ['can_view_quotations','can_create_quotations','can_edit_quotations','can_delete_quotations'] },
+    { label: 'Clients', keys: ['can_view_clients','can_create_clients','can_edit_clients','can_delete_clients'] },
+    { label: 'Reports', keys: ['can_view_reports'] },
+    { label: 'Expenses', keys: ['can_view_expenses','can_create_expenses'] },
+    { label: 'Projects', keys: ['can_view_projects','can_manage_projects'] },
+  ];
+
+  const PERM_LABELS = {
+    can_view_invoices: 'View', can_create_invoices: 'Create', can_edit_invoices: 'Edit', can_delete_invoices: 'Delete',
+    can_view_quotations: 'View', can_create_quotations: 'Create', can_edit_quotations: 'Edit', can_delete_quotations: 'Delete',
+    can_view_clients: 'View', can_create_clients: 'Create', can_edit_clients: 'Edit', can_delete_clients: 'Delete',
+    can_view_reports: 'View Reports',
+    can_view_expenses: 'View', can_create_expenses: 'Create/Edit',
+    can_view_projects: 'View', can_manage_projects: 'Manage',
+  };
 
   useEffect(() => {
     loadMembers();
@@ -80,6 +101,25 @@ export default function TeamManagement() {
     window.open(`https://wa.me/?text=${text}`, '_blank');
   };
 
+  const openPerms = async (member) => {
+    setPermMember(member);
+    const res = await getMemberPermissions(member.id);
+    setPerms(res.data);
+  };
+
+  const handleSavePerms = async () => {
+    setPermSaving(true);
+    try {
+      await setMemberPermissions(permMember.id, perms);
+      setPermMember(null);
+      setPerms(null);
+    } catch (err) {
+      alert(err.response?.data?.detail || 'Failed to save permissions');
+    } finally {
+      setPermSaving(false);
+    }
+  };
+
   const handleToggleActive = async (member) => {
     try {
       await updateTeamMember(member.id, { is_active: !member.is_active });
@@ -89,16 +129,7 @@ export default function TeamManagement() {
     }
   };
 
-  const handleChangeRole = async (member, newRole) => {
-    try {
-      await updateTeamMember(member.id, { role: newRole });
-      loadMembers();
-    } catch (err) {
-      alert('Failed to update member role');
-    }
-  };
-
-  const handleRemove = async (member) => {
+const handleRemove = async (member) => {
     setConfirmDialog({
       title: 'Remove Team Member',
       message: `Are you sure you want to remove ${member.display_name}? This action cannot be undone.`,
@@ -187,26 +218,27 @@ export default function TeamManagement() {
                       <div className="font-medium text-gray-900">{member.display_name}</div>
                       <div className="text-sm text-gray-500">{member.email}</div>
                       {member.invited_at && !member.last_login_at && (
-                        <div className="text-xs text-amber-600 mt-1">Pending invite</div>
+                        <div className="flex items-center gap-1 text-xs text-amber-600 mt-1">
+                          <span>Pending invite</span>
+                          {member.invite_link && (
+                            <button
+                              onClick={() => setInviteLink(member.invite_link)}
+                              className="underline hover:text-amber-800"
+                              title="View invite link"
+                            >
+                              (copy link)
+                            </button>
+                          )}
+                        </div>
                       )}
                     </div>
                   </td>
                   <td className="px-6 py-4">
-                    <select
-                      value={member.role}
-                      onChange={(e) => handleChangeRole(member, e.target.value)}
-                      className="text-sm border border-gray-300 rounded px-2 py-1"
-                    >
-                      {Object.entries(ROLE_LABELS).map(([value, label]) => (
-                        <option key={value} value={value}>
-                          {label}
-                        </option>
-                      ))}
-                    </select>
-                    <div className="flex items-center gap-1 text-xs text-gray-500 mt-1">
-                      <RoleIcon className="w-3 h-3" />
-                      {ROLE_DESCRIPTIONS[member.role]}
+                    <div className="flex items-center gap-1.5">
+                      <RoleIcon className="w-4 h-4 text-gray-400" />
+                      <span className="text-sm font-medium text-gray-700 capitalize">{ROLE_LABELS[member.role]}</span>
                     </div>
+                    <p className="text-xs text-gray-400 mt-0.5">{ROLE_DESCRIPTIONS[member.role]}</p>
                   </td>
                   <td className="px-6 py-4">
                     <span
@@ -224,6 +256,13 @@ export default function TeamManagement() {
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => openPerms(member)}
+                        className="text-purple-600 hover:text-purple-900"
+                        title="Manage Permissions"
+                      >
+                        <Settings2 className="w-4 h-4" />
+                      </button>
                       <button
                         onClick={() => handleResetPassword(member)}
                         className="text-blue-600 hover:text-blue-900"
@@ -345,6 +384,50 @@ export default function TeamManagement() {
                 className="flex-1 flex items-center justify-center gap-2 bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600"
               >
                 Share via WhatsApp
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {permMember && perms && (
+        <Modal open={true} onClose={() => { setPermMember(null); setPerms(null); }} title={`Permissions — ${permMember.display_name}`} size="lg">
+          <div className="space-y-4">
+            <div className="p-3 bg-amber-50 border border-amber-200 rounded text-xs text-amber-800">
+              These are <strong>extra permissions</strong> on top of the <strong>{ROLE_LABELS[permMember.role]}</strong> role defaults.
+              Toggle on to grant access the role doesn't normally have.
+            </div>
+            {PERM_GROUPS.map(group => (
+              <div key={group.label}>
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">{group.label}</p>
+                <div className="flex flex-wrap gap-2">
+                  {group.keys.map(key => (
+                    <label key={key} className="flex items-center gap-1.5 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={perms[key] || false}
+                        onChange={e => setPerms({ ...perms, [key]: e.target.checked })}
+                        className="accent-green-600 w-4 h-4"
+                      />
+                      <span className="text-sm text-gray-700">{PERM_LABELS[key]}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            ))}
+            <div className="flex gap-3 pt-2">
+              <button
+                onClick={() => { setPermMember(null); setPerms(null); }}
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSavePerms}
+                disabled={permSaving}
+                className="flex-1 bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 disabled:opacity-50"
+              >
+                {permSaving ? 'Saving...' : 'Save Permissions'}
               </button>
             </div>
           </div>

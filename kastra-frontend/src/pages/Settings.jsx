@@ -162,6 +162,7 @@ function Section({ title, icon: Icon, children }) {
 
 export default function Settings() {
   const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
   const fileInputRef = useRef(null);
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -400,7 +401,7 @@ export default function Settings() {
       <h1 className="text-xl font-bold text-gray-900">Settings</h1>
 
       {/* Plan & Billing */}
-      <Section title="Plan &amp; Billing" icon={Zap}>
+      {isAdmin && <Section title="Plan &amp; Billing" icon={Zap}>
         {planInfo ? (
           <div className="space-y-4">
             {upgradeMsg.text && (
@@ -522,7 +523,7 @@ export default function Settings() {
         ) : (
           <div className="text-sm text-gray-400">Loading plan info…</div>
         )}
-      </Section>
+      </Section>}
 
       {/* Upgrade payment modal */}
       {upgradeModal && (
@@ -615,7 +616,7 @@ export default function Settings() {
       )}
 
       {/* Business Profile */}
-      <form onSubmit={handleOrgSave}>
+      {isAdmin && <form onSubmit={handleOrgSave}>
         <Section title="Business Profile" icon={Building2}>
           {orgError && <div className="bg-red-50 text-red-700 text-sm px-3 py-2 rounded-lg">{orgError}</div>}
           {orgSaved && <div className="bg-green-50 text-green-700 text-sm px-3 py-2 rounded-lg">Business profile saved.</div>}
@@ -702,10 +703,10 @@ export default function Settings() {
             </button>
           </div>
         </Section>
-      </form>
+      </form>}
 
       {/* Document Template */}
-      <Section title="Document Template" icon={Palette}>
+      {isAdmin && <Section title="Document Template" icon={Palette}>
         <p className="text-xs text-gray-500">Choose the design for your quotations and invoices. Your selection is saved automatically when you click a template.</p>
         <div className="grid grid-cols-3 gap-3">
           {TEMPLATES.map((t) => (
@@ -733,10 +734,10 @@ export default function Settings() {
           ))}
         </div>
         <p className="text-xs text-gray-400">Selection is saved immediately — no need to click Save.</p>
-      </Section>
+      </Section>}
 
       {/* eTIMS / KRA */}
-      <Section title="KRA eTIMS Integration" icon={ShieldCheck}>
+      {isAdmin && <Section title="KRA eTIMS Integration" icon={ShieldCheck}>
         <div className="space-y-1">
           <p className="text-xs text-gray-500">
             eTIMS (Electronic Tax Invoice Management System) lets you issue KRA-verified receipts with a
@@ -825,10 +826,10 @@ export default function Settings() {
             </div>
           </div>
         )}
-      </Section>
+      </Section>}
 
       {/* Payment Integrations */}
-      <form onSubmit={handlePaymentsSave}>
+      {isAdmin && <form onSubmit={handlePaymentsSave}>
         <Section title="Payment Integrations" icon={CreditCard}>
           <p className="text-xs text-gray-500">
             Connect your own Paystack and M-Pesa accounts so your clients can pay invoices directly into your account.
@@ -983,7 +984,7 @@ export default function Settings() {
             </button>
           </div>
         </Section>
-      </form>
+      </form>}
 
       {/* Account Info */}
       <Section title="Account" icon={User}>

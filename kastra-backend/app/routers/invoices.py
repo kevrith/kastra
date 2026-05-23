@@ -15,7 +15,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from app.config import settings
 from app.database import get_db
-from app.dependencies import get_current_user
+from app.dependencies import get_current_user, require_permission
 from app.models.client import Client
 from app.models.client_price import ClientPrice
 from app.models.invoice import Invoice, InvoiceCharge, InvoiceItem, PaymentDetail
@@ -95,7 +95,7 @@ async def list_invoices(
     quotation_id: str | None = Query(None),
     overdue: bool | None = Query(None),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("can_view_invoices")),
 ):
     q = select(Invoice).options(selectinload(Invoice.client)).where(
         Invoice.organization_id == current_user.organization_id
@@ -130,7 +130,7 @@ async def list_invoices(
 async def create_invoice(
     payload: InvoiceCreate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("can_create_invoices")),
 ):
     client = await db.get(Client, payload.client_id)
     if not client or client.organization_id != current_user.organization_id:
@@ -209,7 +209,7 @@ async def create_invoice(
 async def get_invoice(
     invoice_id: str,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("can_view_invoices")),
 ):
     result = await db.execute(
         select(Invoice).where(
@@ -228,7 +228,7 @@ async def mark_paid(
     invoice_id: str,
     payload: MarkPaidRequest,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("can_edit_invoices")),
 ):
     result = await db.execute(
         select(Invoice).where(
@@ -268,7 +268,7 @@ async def mpesa_pay(
     invoice_id: str,
     payload: MpesaPayRequest,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("can_view_invoices")),
 ):
     result = await db.execute(
         select(Invoice).where(
@@ -297,7 +297,7 @@ async def etims_submit(
     invoice_id: str,
     _: EtimsSubmitRequest = EtimsSubmitRequest(),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("can_edit_invoices")),
 ):
     """Submit invoice to KRA eTIMS and get back a Control Unit Invoice Number."""
     org_result = await db.execute(select(Organization).where(Organization.id == current_user.organization_id))
@@ -324,7 +324,7 @@ async def etims_submit(
 async def email_invoice(
     invoice_id: str,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("can_edit_invoices")),
 ):
     """Send the invoice to the client by email with a PDF attachment."""
     result = await db.execute(
@@ -374,7 +374,7 @@ async def email_invoice(
 async def send_reminder(
     invoice_id: str,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("can_view_invoices")),
 ):
     result = await db.execute(
         select(Invoice).where(
@@ -403,7 +403,7 @@ async def send_reminder(
 async def download_invoice_pdf(
     invoice_id: str,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("can_view_invoices")),
 ):
     """Generate and return invoice as a PDF file."""
     result = await db.execute(

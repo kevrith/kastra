@@ -30,3 +30,4 @@ class User(Base):
 
     organization: Mapped["Organization"] = relationship(back_populates="users")  # noqa: F821
     quotations: Mapped[list["Quotation"]] = relationship(back_populates="created_by_user")  # noqa: F821
+    permissions: Mapped["UserPermission | None"] = relationship(back_populates="user", uselist=False, cascade="all, delete-orphan")  # noqa: F821

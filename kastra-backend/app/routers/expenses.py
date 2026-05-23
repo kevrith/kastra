@@ -8,7 +8,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
-from app.dependencies import get_current_user
+from app.dependencies import get_current_user, require_permission
 from app.models.expense import Expense
 from app.models.user import User
 from app.schemas.common import Meta, PaginatedResponse, Response, MessageResponse
@@ -48,7 +48,7 @@ async def list_expenses(
     to_date: date | None = Query(None),
     project_id: str | None = Query(None),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("can_view_expenses")),
 ):
     q = select(Expense).where(Expense.organization_id == current_user.organization_id)
     if category:
@@ -73,7 +73,7 @@ async def list_expenses(
 async def create_expense(
     payload: ExpenseIn,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("can_create_expenses")),
 ):
     exp = Expense(
         organization_id=current_user.organization_id,
@@ -95,7 +95,7 @@ async def update_expense(
     expense_id: uuid.UUID,
     payload: ExpenseIn,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("can_create_expenses")),
 ):
     exp = await db.get(Expense, expense_id)
     if not exp or exp.organization_id != current_user.organization_id:
@@ -115,7 +115,7 @@ async def update_expense(
 async def delete_expense(
     expense_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("can_create_expenses")),
 ):
     exp = await db.get(Expense, expense_id)
     if not exp or exp.organization_id != current_user.organization_id:
@@ -127,7 +127,7 @@ async def delete_expense(
 @router.get("/summary/monthly", response_model=dict)
 async def monthly_expense_summary(
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("can_view_expenses")),
 ):
     """Returns total expenses grouped by category for the current month."""
     from sqlalchemy import extract

@@ -11,9 +11,12 @@ from app.models.user import User
 from app.schemas.team import (
     AcceptInviteRequest,
     InviteUserRequest,
+    PermissionsOut,
     TeamMemberOut,
+    UpdatePermissionsRequest,
     UpdateTeamMemberRequest,
 )
+from app.models.user_permission import UserPermission
 from app.services.team_service import (
     create_invited_user,
     get_user_by_email,
@@ -32,12 +35,20 @@ async def list_team_members(
     db: AsyncSession = Depends(get_db)
 ):
     """List all team members in the organization (admin only)"""
+    from app.config import settings
     result = await db.execute(
         select(User)
         .where(User.organization_id == current_user.organization_id)
         .order_by(User.created_at.desc())
     )
-    return result.scalars().all()
+    members = result.scalars().all()
+    out = []
+    for m in members:
+        item = TeamMemberOut.model_validate(m)
+        if m.invite_token:
+            item.invite_link = f"{settings.frontend_url}/auth/accept-invite?token={m.invite_token}"
+        out.append(item)
+    return out
 
 
 @router.post("/invite", response_model=TeamMemberOut, status_code=status.HTTP_201_CREATED)
@@ -153,13 +164,11 @@ async def update_team_member(
         )
     
     if payload.role is not None:
-        if payload.role not in VALID_ROLES:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail=f"Invalid role. Must be one of: {', '.join(VALID_ROLES)}"
-            )
-        user.role = payload.role
-    
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Role changes must be requested through the platform administrator"
+        )
+
     if payload.is_active is not None:
         user.is_active = payload.is_active
         if not payload.is_active:
@@ -230,3 +239,68 @@ async def reset_team_member_password(
     await send_password_reset_email(user.email, token)
     
     return {"message": "Password reset link sent"}
+
+
+@router.get("/{user_id}/permissions", response_model=PermissionsOut)
+async def get_member_permissions(
+    user_id: str,
+    current_user: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get effective permission overrides for a team member (admin only)"""
+    from app.dependencies import ROLE_DEFAULTS
+    result = await db.execute(
+        select(User).where(
+            User.id == user_id,
+            User.organization_id == current_user.organization_id,
+        )
+    )
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    perm_result = await db.execute(
+        select(UserPermission).where(UserPermission.user_id == user.id)
+    )
+    perm = perm_result.scalar_one_or_none()
+    if not perm:
+        return PermissionsOut()
+    return PermissionsOut.model_validate(perm)
+
+
+@router.put("/{user_id}/permissions", response_model=PermissionsOut)
+async def set_member_permissions(
+    user_id: str,
+    payload: UpdatePermissionsRequest,
+    current_user: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Set permission overrides for a team member (admin only). Admins cannot have overrides."""
+    result = await db.execute(
+        select(User).where(
+            User.id == user_id,
+            User.organization_id == current_user.organization_id,
+        )
+    )
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    if user.role == "admin":
+        raise HTTPException(status_code=400, detail="Admins already have full access")
+
+    perm_result = await db.execute(
+        select(UserPermission).where(UserPermission.user_id == user.id)
+    )
+    perm = perm_result.scalar_one_or_none()
+
+    if not perm:
+        import uuid as _uuid
+        perm = UserPermission(id=_uuid.uuid4(), user_id=user.id)
+        db.add(perm)
+
+    for field, value in payload.model_dump().items():
+        setattr(perm, field, value)
+
+    await db.commit()
+    await db.refresh(perm)
+    return PermissionsOut.model_validate(perm)

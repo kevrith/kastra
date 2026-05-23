@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.database import get_db
-from app.dependencies import get_current_user
+from app.dependencies import get_current_user, require_permission
 from app.models.client import Client
 from app.models.invoice import Invoice
 from app.models.user import User
@@ -23,7 +23,7 @@ async def income_report(
     month: int | None = Query(None, ge=1, le=12),
     client_id: uuid.UUID | None = Query(None),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("can_view_reports")),
 ):
     q = select(
         extract("month", Invoice.created_at).label("month"),
@@ -48,7 +48,7 @@ async def income_report(
 @router.get("/clients")
 async def client_revenue_report(
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("can_view_reports")),
 ):
     result = await db.execute(
         select(
@@ -82,7 +82,7 @@ async def client_revenue_report(
 async def export_csv(
     year: int = Query(...),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("can_view_reports")),
 ):
     result = await db.execute(
         select(Invoice, Client.name.label("client_name"))

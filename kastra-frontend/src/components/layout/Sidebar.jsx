@@ -71,8 +71,17 @@ export default function Sidebar() {
 
       <div className="px-3 py-4 border-t border-gray-200">
         <div className="px-3 py-2 mb-1">
-          <p className="text-xs font-medium text-gray-900 truncate">{user?.display_name}</p>
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-semibold text-gray-900 truncate">{user?.display_name}</p>
+            <span className={`text-xs font-medium px-1.5 py-0.5 rounded capitalize ${
+              user?.role === 'admin' ? 'bg-green-100 text-green-700' :
+              user?.role === 'manager' ? 'bg-blue-100 text-blue-700' :
+              user?.role === 'field_agent' ? 'bg-orange-100 text-orange-700' :
+              'bg-gray-100 text-gray-600'
+            }`}>{user?.role?.replace('_', ' ')}</span>
+          </div>
           <p className="text-xs text-gray-400 truncate">{user?.email}</p>
+          <p className="text-xs text-gray-300 truncate mt-0.5">{user?.organization?.name}</p>
         </div>
         <button
           onClick={handleLogout}
