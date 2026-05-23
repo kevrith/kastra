@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Users, UserPlus, Shield, Eye, Briefcase, HardHat, Trash2, Power, KeyRound } from 'lucide-react';
+import { Users, UserPlus, Shield, Eye, Briefcase, HardHat, Trash2, Power, KeyRound, Copy, Check } from 'lucide-react';
 import { listTeamMembers, inviteUser, updateTeamMember, removeTeamMember, resetTeamMemberPassword } from '../api/team';
 import Modal from '../components/ui/Modal';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
@@ -32,6 +32,8 @@ export default function TeamManagement() {
   const [inviteForm, setInviteForm] = useState({ email: '', display_name: '', role: 'manager' });
   const [inviting, setInviting] = useState(false);
   const [error, setError] = useState('');
+  const [inviteLink, setInviteLink] = useState('');
+  const [copied, setCopied] = useState(false);
   const [confirmDialog, setConfirmDialog] = useState(null);
 
   useEffect(() => {
@@ -55,16 +57,27 @@ export default function TeamManagement() {
     setInviting(true);
 
     try {
-      await inviteUser(inviteForm);
+      const res = await inviteUser(inviteForm);
       setShowInviteModal(false);
       setInviteForm({ email: '', display_name: '', role: 'manager' });
+      setInviteLink(res.data.invite_link);
       loadMembers();
-      alert('Invitation sent successfully!');
     } catch (err) {
-      setError(err.response?.data?.detail || 'Failed to send invitation');
+      setError(err.response?.data?.detail || 'Failed to create invite');
     } finally {
       setInviting(false);
     }
+  };
+
+  const handleCopyLink = () => {
+    navigator.clipboard.writeText(inviteLink);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleWhatsApp = () => {
+    const text = encodeURIComponent(`You've been invited to join our team on Kastra. Click the link to set up your account:\n${inviteLink}`);
+    window.open(`https://wa.me/?text=${text}`, '_blank');
   };
 
   const handleToggleActive = async (member) => {
@@ -307,6 +320,34 @@ export default function TeamManagement() {
               </button>
             </div>
           </form>
+        </Modal>
+      )}
+
+      {inviteLink && (
+        <Modal open={true} onClose={() => setInviteLink('')} title="Share Invite Link">
+          <div className="space-y-4">
+            <p className="text-sm text-gray-600">
+              Share this link with your team member. It expires in <strong>48 hours</strong>.
+            </p>
+            <div className="flex items-center gap-2 p-3 bg-gray-50 border border-gray-200 rounded-md">
+              <span className="text-xs text-gray-700 break-all flex-1">{inviteLink}</span>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={handleCopyLink}
+                className="flex-1 flex items-center justify-center gap-2 border border-gray-300 px-4 py-2 rounded-md hover:bg-gray-50"
+              >
+                {copied ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
+                {copied ? 'Copied!' : 'Copy Link'}
+              </button>
+              <button
+                onClick={handleWhatsApp}
+                className="flex-1 flex items-center justify-center gap-2 bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600"
+              >
+                Share via WhatsApp
+              </button>
+            </div>
+          </div>
         </Modal>
       )}
 

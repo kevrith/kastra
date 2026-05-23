@@ -20,6 +20,7 @@ class TeamMemberOut(BaseModel):
     invited_at: datetime | None
     invited_by: UUID | None
     created_at: datetime
+    invite_link: str | None = None
 
     class Config:
         from_attributes = True

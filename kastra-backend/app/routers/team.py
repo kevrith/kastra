@@ -14,7 +14,6 @@ from app.schemas.team import (
     TeamMemberOut,
     UpdateTeamMemberRequest,
 )
-from app.services.email_service import _send as send_email
 from app.services.team_service import (
     create_invited_user,
     get_user_by_email,
@@ -77,24 +76,14 @@ async def invite_user(
         organization_id=current_user.organization_id,
         invited_by_id=current_user.id
     )
-    
-    # Send invite email
+
     from app.config import settings
     invite_link = f"{settings.frontend_url}/auth/accept-invite?token={user.invite_token}"
-    
-    await send_email(
-        to_email=user.email,
-        subject=f"You've been invited to join {current_user.organization.name} on Kastra",
-        html_content=f"""
-        <h2>You've been invited!</h2>
-        <p>{current_user.display_name} has invited you to join <strong>{current_user.organization.name}</strong> on Kastra.</p>
-        <p>Your role: <strong>{user.role}</strong></p>
-        <p><a href="{invite_link}">Click here to accept the invitation and set your password</a></p>
-        <p>This link expires in 48 hours.</p>
-        """
-    )
-    
-    return user
+
+    # Return the invite link directly — admin shares it via WhatsApp/SMS
+    result = TeamMemberOut.model_validate(user)
+    result.invite_link = invite_link
+    return result
 
 
 @router.post("/accept-invite")
