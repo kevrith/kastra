@@ -18,12 +18,13 @@ from app.database import get_db
 from app.dependencies import get_current_user, require_permission
 from app.models.client import Client
 from app.models.client_price import ClientPrice
+from app.models.expense import Expense
 from app.models.invoice import Invoice, InvoiceCharge, InvoiceItem, PaymentDetail
 from app.models.organization import Organization
 from app.models.product import Product
 from app.models.user import User
 from app.schemas.common import MessageResponse, Meta, PaginatedResponse, Response
-from app.schemas.invoice import EtimsSubmitRequest, InvoiceCreate, InvoiceListOut, InvoiceOut, MarkPaidRequest, MpesaPayRequest
+from app.schemas.invoice import EtimsSubmitRequest, InvoiceCreate, InvoiceExpenseOut, InvoiceListOut, InvoiceOut, MarkPaidRequest, MpesaPayRequest
 from app.schemas.organization import OrganizationOut
 from app.services.email_service import send_invoice_email
 from app.services.etims_service import submit_to_kra, verification_url
@@ -65,15 +66,15 @@ async def _upsert_client_price(db: AsyncSession, org_id, client_id, description:
     await db.execute(stmt)
 
 
-async def _upsert_product(db: AsyncSession, org_id, description: str, unit_price: Decimal):
-    stmt = pg_insert(Product).values(
-        id=uuid.uuid4(),
-        organization_id=org_id,
-        name=description,
-        unit_price=unit_price,
-    ).on_conflict_do_update(
+async def _upsert_product(db: AsyncSession, org_id, description: str, unit_price: Decimal, cost_price: Decimal | None = None):
+    values = dict(id=uuid.uuid4(), organization_id=org_id, name=description, unit_price=unit_price)
+    update_set: dict = {"unit_price": unit_price}
+    if cost_price is not None and cost_price > 0:
+        values["cost_price"] = cost_price
+        update_set["cost_price"] = cost_price
+    stmt = pg_insert(Product).values(**values).on_conflict_do_update(
         index_elements=["organization_id", "name"],
-        set_={"unit_price": unit_price},
+        set_=update_set,
     )
     await db.execute(stmt)
 
@@ -83,6 +84,7 @@ _load_full = (
     selectinload(Invoice.items),
     selectinload(Invoice.charges),
     selectinload(Invoice.payment_detail),
+    selectinload(Invoice.expenses),
 )
 
 
@@ -178,12 +180,13 @@ async def create_invoice(
             description=item.description,
             quantity=item.quantity,
             unit_price=item.unit_price,
+            cost_price=item.cost_price,
             line_total=line_total,
             discount_pct=item.discount_pct,
             vat_exempt=item.vat_exempt,
             sort_order=item.sort_order if item.sort_order else i,
         ))
-        await _upsert_product(db, current_user.organization_id, item.description, Decimal(str(item.unit_price)))
+        await _upsert_product(db, current_user.organization_id, item.description, Decimal(str(item.unit_price)), item.cost_price)
         await _upsert_client_price(db, current_user.organization_id, payload.client_id, item.description, Decimal(str(item.unit_price)))
 
     for i, charge in enumerate(payload.charges):
@@ -428,3 +431,97 @@ async def download_invoice_pdf(
         media_type="application/pdf",
         headers={"Content-Disposition": f'attachment; filename="{invoice_id}.pdf"'},
     )
+
+
+# ── Invoice-scoped Job Expenses ──────────────────────────────────────────────
+
+from datetime import date as _date
+from pydantic import BaseModel as _BaseModel
+
+JOB_EXPENSE_CATEGORIES = [
+    "materials", "labour", "lunch", "transport", "fuel",
+    "rent", "salaries", "utilities", "supplies", "marketing", "other",
+]
+
+
+class JobExpenseIn(_BaseModel):
+    category: str
+    description: str
+    vendor: str | None = None
+    amount: float
+    date: _date
+
+
+@router.get("/{invoice_id}/expenses", response_model=list[InvoiceExpenseOut])
+async def list_invoice_expenses(
+    invoice_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission("can_view_invoices")),
+):
+    inv = await db.get(Invoice, invoice_id)
+    if not inv or inv.organization_id != current_user.organization_id:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    rows = (await db.execute(
+        select(Expense).where(Expense.invoice_id == invoice_id).order_by(Expense.date)
+    )).scalars().all()
+    return rows
+
+
+@router.post("/{invoice_id}/expenses", response_model=InvoiceExpenseOut, status_code=status.HTTP_201_CREATED)
+async def create_invoice_expense(
+    invoice_id: str,
+    payload: JobExpenseIn,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission("can_create_expenses")),
+):
+    inv = await db.get(Invoice, invoice_id)
+    if not inv or inv.organization_id != current_user.organization_id:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    exp = Expense(
+        organization_id=current_user.organization_id,
+        invoice_id=invoice_id,
+        category=payload.category,
+        description=payload.description,
+        vendor=payload.vendor,
+        amount=payload.amount,
+        date=payload.date,
+    )
+    db.add(exp)
+    await db.flush()
+    await db.refresh(exp)
+    return exp
+
+
+@router.put("/{invoice_id}/expenses/{expense_id}", response_model=InvoiceExpenseOut)
+async def update_invoice_expense(
+    invoice_id: str,
+    expense_id: uuid.UUID,
+    payload: JobExpenseIn,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission("can_create_expenses")),
+):
+    exp = await db.get(Expense, expense_id)
+    if not exp or exp.invoice_id != invoice_id or exp.organization_id != current_user.organization_id:
+        raise HTTPException(status_code=404, detail="Expense not found")
+    exp.category = payload.category
+    exp.description = payload.description
+    exp.vendor = payload.vendor
+    exp.amount = payload.amount
+    exp.date = payload.date
+    await db.flush()
+    await db.refresh(exp)
+    return exp
+
+
+@router.delete("/{invoice_id}/expenses/{expense_id}", response_model=MessageResponse)
+async def delete_invoice_expense(
+    invoice_id: str,
+    expense_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission("can_create_expenses")),
+):
+    exp = await db.get(Expense, expense_id)
+    if not exp or exp.invoice_id != invoice_id or exp.organization_id != current_user.organization_id:
+        raise HTTPException(status_code=404, detail="Expense not found")
+    await db.delete(exp)
+    return MessageResponse(message="Expense deleted")

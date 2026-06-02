@@ -33,7 +33,7 @@ export default function ProductAutocomplete({ value, onChange, onSelect, placeho
   const pick = (product) => {
     // Use client-specific price if available, otherwise fall back to default
     const price = product.client_price ?? product.unit_price;
-    onSelect({ description: product.name, unit_price: price });
+    onSelect({ description: product.name, unit_price: price, cost_price: product.cost_price ?? 0 });
     setOpen(false);
     setSuggestions([]);
   };

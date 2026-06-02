@@ -1,10 +1,22 @@
 import uuid
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from decimal import Decimal
 
 from pydantic import BaseModel, computed_field
 
 from app.schemas.client import ClientOut
+
+
+class InvoiceExpenseOut(BaseModel):
+    id: uuid.UUID
+    category: str
+    description: str
+    vendor: str | None
+    amount: float
+    date: date
+    invoice_id: str | None = None
+
+    model_config = {"from_attributes": True}
 
 
 class InvoiceChargeCreate(BaseModel):
@@ -28,6 +40,7 @@ class InvoiceItemCreate(BaseModel):
     description: str
     quantity: Decimal
     unit_price: Decimal
+    cost_price: Decimal = Decimal("0")
     discount_pct: Decimal = Decimal("0")
     vat_exempt: bool = False
     sort_order: int = 0
@@ -51,6 +64,7 @@ class InvoiceItemOut(BaseModel):
     description: str
     quantity: Decimal
     unit_price: Decimal
+    cost_price: Decimal = Decimal("0")
     line_total: Decimal
     discount_pct: Decimal
     vat_exempt: bool
@@ -116,6 +130,7 @@ class InvoiceOut(BaseModel):
     last_reminded_at: datetime | None
     items: list[InvoiceItemOut]
     charges: list[InvoiceChargeOut]
+    expenses: list[InvoiceExpenseOut] = []
     payment_detail: PaymentDetailOut | None
     etims_cu_invoice_no: str | None
     etims_rcpt_sign: str | None
@@ -142,6 +157,32 @@ class InvoiceOut(BaseModel):
         if self.payment_status not in ("unpaid", "partial") or self.due_date is None:
             return False
         return self.due_date < datetime.now(timezone.utc)
+
+    @computed_field
+    @property
+    def total_cogs(self) -> Decimal:
+        """Cost of goods sold: sum of cost_price × quantity for all line items."""
+        return sum(
+            (item.cost_price * item.quantity).quantize(Decimal("0.01"))
+            for item in self.items
+        )
+
+    @computed_field
+    @property
+    def total_job_expenses(self) -> Decimal:
+        """Sum of all expenses attached to this invoice."""
+        return Decimal(str(sum(e.amount for e in self.expenses))).quantize(Decimal("0.01"))
+
+    @computed_field
+    @property
+    def gross_profit(self) -> Decimal:
+        """Revenue minus COGS and job expenses."""
+        return (self.grand_total - self.total_cogs - self.total_job_expenses).quantize(Decimal("0.01"))
+
+    @computed_field
+    @property
+    def is_profitable(self) -> bool:
+        return self.gross_profit >= Decimal("0")
 
 
 class InvoiceListOut(BaseModel):

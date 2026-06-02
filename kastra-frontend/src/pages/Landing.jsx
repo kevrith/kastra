@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import {
   FileText, Receipt, CreditCard, Users, BarChart2, Shield,
   CheckCircle, Smartphone, Zap, Globe, ArrowRight, Star,
-  TrendingUp, Clock, Lock, UserCog, FolderKanban, Camera,
+  TrendingUp, Clock, Lock, UserCog, FolderKanban, Camera, DollarSign, Truck,
 } from "lucide-react";
 
 const features = [
@@ -15,6 +15,16 @@ const features = [
     icon: FileText,
     title: "Quotations & Proposals",
     desc: "Send branded quotations clients can approve online. Convert to invoice with one click.",
+  },
+  {
+    icon: DollarSign,
+    title: "Job Profitability Tracking",
+    desc: "Attach expenses (materials, labour, lunch, transport) to any invoice. See instant profit or loss per job — green for profit, red for loss.",
+  },
+  {
+    icon: Truck,
+    title: "Supplier Price Comparison",
+    desc: "Send price requests to multiple suppliers via a shareable link. They submit their prices online — you compare them side by side and pick the best deal.",
   },
   {
     icon: Smartphone,

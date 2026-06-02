@@ -68,6 +68,10 @@ class Invoice(Base):
     payments: Mapped[list["InvoicePayment"]] = relationship(  # noqa: F821
         back_populates="invoice", cascade="all, delete-orphan", order_by="InvoicePayment.paid_at"
     )
+    expenses: Mapped[list["Expense"]] = relationship(  # noqa: F821
+        "Expense", foreign_keys="Expense.invoice_id", primaryjoin="Invoice.id == Expense.invoice_id",
+        order_by="Expense.date",
+    )
 
 
 class InvoiceItem(Base):
@@ -81,6 +85,7 @@ class InvoiceItem(Base):
     description: Mapped[str] = mapped_column(String(500), nullable=False)
     quantity: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
     unit_price: Mapped[Decimal] = mapped_column(Numeric(15, 2), nullable=False)
+    cost_price: Mapped[Decimal] = mapped_column(Numeric(15, 2), nullable=True, default=0)
     line_total: Mapped[Decimal] = mapped_column(Numeric(15, 2), nullable=False)
     discount_pct: Mapped[Decimal] = mapped_column(Numeric(5, 2), nullable=False, default=0)
     vat_exempt: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)

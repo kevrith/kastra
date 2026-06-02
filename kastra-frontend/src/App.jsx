@@ -30,6 +30,10 @@ import PublicPayment from "./pages/pay/PublicPayment";
 import PublicQuotation from "./pages/portal/PublicQuotation";
 import ClientPortal from "./pages/portal/ClientPortal";
 import PaystackVerify from "./pages/portal/PaystackVerify";
+import SupplierPortal from "./pages/portal/SupplierPortal";
+import Suppliers from "./pages/suppliers/Suppliers";
+import NewSupplierRequest from "./pages/suppliers/NewSupplierRequest";
+import SupplierRequestDetail from "./pages/suppliers/SupplierRequestDetail";
 import PrivacyPolicy from "./pages/legal/PrivacyPolicy";
 import TermsOfService from "./pages/legal/TermsOfService";
 import Landing from "./pages/Landing";
@@ -65,6 +69,7 @@ export default function App() {
           <Route path="/portal/q/:quotationId" element={<PublicQuotation />} />
           <Route path="/portal/c/:token" element={<ClientPortal />} />
           <Route path="/portal/paystack/verify" element={<PaystackVerify />} />
+          <Route path="/supplier-portal/:token" element={<SupplierPortal />} />
           <Route path="/privacy" element={<PrivacyPolicy />} />
           <Route path="/terms" element={<TermsOfService />} />
 
@@ -89,6 +94,9 @@ export default function App() {
             <Route path="/recurring" element={<RecurringInvoices />} />
             <Route path="/projects" element={<ProjectPipeline />} />
             <Route path="/projects/:id" element={<ProjectDetail />} />
+            <Route path="/suppliers" element={<Suppliers />} />
+            <Route path="/suppliers/requests/new" element={<NewSupplierRequest />} />
+            <Route path="/suppliers/requests/:id" element={<SupplierRequestDetail />} />
           </Route>
 
           <Route path="*" element={<Navigate to="/" replace />} />

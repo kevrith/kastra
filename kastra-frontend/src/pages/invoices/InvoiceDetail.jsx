@@ -3,17 +3,223 @@ import { useNavigate, useParams } from "react-router-dom";
 import { getInvoice, markPaid, mpesaPay, sendReminder, submitEtims, sendInvoiceEmail } from "../../api/invoices";
 import { getOrganization } from "../../api/organization";
 import { getInvoicePayments, recordPayment, deletePayment } from "../../api/invoice_payments";
+import { createInvoiceExpense, updateInvoiceExpense, deleteInvoiceExpense } from "../../api/expenses";
 import { ksh, date, phone, statusBadgeClass } from "../../utils/formatters";
 import { publicOrigin } from "../../utils/publicUrl";
 import {
   ArrowLeft, MessageCircle, Smartphone, CheckCircle, FileDown, ShieldCheck,
-  Loader, Copy, Plus, Trash2, Mail, CreditCard, Link2, Bell,
+  Loader, Copy, Plus, Trash2, Mail, CreditCard, Link2, Bell, TrendingUp, TrendingDown, Receipt,
 } from "lucide-react";
 import Spinner from "../../components/ui/Spinner";
 import Modal from "../../components/ui/Modal";
 import ConfirmDialog from "../../components/ui/ConfirmDialog";
 import PDFPreviewModal from "../../components/ui/PDFPreviewModal";
 import InvoiceDocument from "../../components/documents/InvoiceDocument";
+
+const JOB_EXPENSE_CATEGORIES = [
+  { value: "materials", label: "Materials / Buying Price" },
+  { value: "labour", label: "Labour" },
+  { value: "lunch", label: "Lunch / Meals" },
+  { value: "transport", label: "Transport" },
+  { value: "fuel", label: "Fuel" },
+  { value: "rent", label: "Rent" },
+  { value: "utilities", label: "Utilities" },
+  { value: "supplies", label: "Supplies" },
+  { value: "other", label: "Other" },
+];
+
+const EMPTY_EXPENSE = { category: "materials", description: "", vendor: "", amount: "", date: new Date().toISOString().slice(0, 10) };
+
+function JobExpensesSection({ invoiceId, expenses, onRefresh }) {
+  const [showForm, setShowForm] = useState(false);
+  const [editTarget, setEditTarget] = useState(null);
+  const [form, setForm] = useState(EMPTY_EXPENSE);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  const openAdd = () => { setForm(EMPTY_EXPENSE); setEditTarget(null); setShowForm(true); setError(""); };
+  const openEdit = (e) => {
+    setForm({ category: e.category, description: e.description, vendor: e.vendor || "", amount: String(e.amount), date: e.date });
+    setEditTarget(e);
+    setShowForm(true);
+    setError("");
+  };
+
+  const handleSave = async () => {
+    if (!form.description || !form.amount) { setError("Description and amount are required"); return; }
+    setSaving(true);
+    setError("");
+    try {
+      const payload = { ...form, amount: parseFloat(form.amount), vendor: form.vendor || null };
+      if (editTarget) await updateInvoiceExpense(invoiceId, editTarget.id, payload);
+      else await createInvoiceExpense(invoiceId, payload);
+      setShowForm(false);
+      onRefresh();
+    } catch (err) {
+      setError(err.response?.data?.detail ?? "Failed to save expense");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async (e) => {
+    await deleteInvoiceExpense(invoiceId, e.id);
+    onRefresh();
+  };
+
+  const total = expenses.reduce((s, e) => s + Number(e.amount), 0);
+
+  return (
+    <div className="card overflow-hidden">
+      <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Receipt size={15} className="text-gray-500" />
+          <h2 className="text-sm font-semibold text-gray-800">Job Expenses</h2>
+          {total > 0 && <span className="text-xs text-gray-400">({ksh(total)})</span>}
+        </div>
+        <button className="btn-secondary text-xs py-1.5 px-3" onClick={openAdd}>
+          <Plus size={13} /> Add Expense
+        </button>
+      </div>
+
+      {expenses.length === 0 && !showForm && (
+        <div className="px-4 py-6 text-center text-sm text-gray-400">
+          No job expenses yet. Add materials, labour, lunch, transport and more.
+        </div>
+      )}
+
+      {expenses.length > 0 && (
+        <table className="w-full text-sm">
+          <thead className="bg-gray-50 text-left text-xs text-gray-500 uppercase tracking-wide">
+            <tr>
+              <th className="px-4 py-2">Category</th>
+              <th className="px-4 py-2">Description</th>
+              <th className="px-4 py-2 hidden sm:table-cell">Vendor</th>
+              <th className="px-4 py-2 text-right">Amount</th>
+              <th className="px-4 py-2" />
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {expenses.map((e) => (
+              <tr key={e.id}>
+                <td className="px-4 py-2.5">
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-gray-100 text-gray-600 capitalize">
+                    {JOB_EXPENSE_CATEGORIES.find((c) => c.value === e.category)?.label ?? e.category}
+                  </span>
+                </td>
+                <td className="px-4 py-2.5 text-gray-700">{e.description}</td>
+                <td className="px-4 py-2.5 text-gray-400 hidden sm:table-cell">{e.vendor || "—"}</td>
+                <td className="px-4 py-2.5 text-right font-medium text-red-600">{ksh(e.amount)}</td>
+                <td className="px-4 py-2.5">
+                  <div className="flex gap-1 justify-end">
+                    <button onClick={() => openEdit(e)} className="p-1 text-gray-300 hover:text-gray-600"><Receipt size={12} /></button>
+                    <button onClick={() => handleDelete(e)} className="p-1 text-gray-300 hover:text-red-500"><Trash2 size={12} /></button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+          <tfoot>
+            <tr className="border-t border-gray-200 bg-gray-50">
+              <td colSpan={3} className="px-4 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wide">Total Job Expenses</td>
+              <td className="px-4 py-2 text-right font-bold text-red-600">{ksh(total)}</td>
+              <td />
+            </tr>
+          </tfoot>
+        </table>
+      )}
+
+      {showForm && (
+        <div className="px-4 py-4 border-t border-gray-100 bg-gray-50 space-y-3">
+          {error && <div className="bg-red-50 text-red-700 text-xs px-3 py-2 rounded-lg">{error}</div>}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="label">Category</label>
+              <select className="input" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>
+                {JOB_EXPENSE_CATEGORIES.map((c) => (
+                  <option key={c.value} value={c.value}>{c.label}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="label">Date</label>
+              <input className="input" type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
+            </div>
+          </div>
+          <div>
+            <label className="label">Description *</label>
+            <input className="input" placeholder="e.g. 50 bags of cement, 3 workers × 2 days" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="label">Amount (KSh) *</label>
+              <input className="input" type="number" min="0.01" step="0.01" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} />
+            </div>
+            <div>
+              <label className="label">Vendor <span className="text-gray-400 font-normal">(optional)</span></label>
+              <input className="input" placeholder="Who was paid?" value={form.vendor} onChange={(e) => setForm({ ...form, vendor: e.target.value })} />
+            </div>
+          </div>
+          <div className="flex gap-2 justify-end">
+            <button className="btn-secondary text-sm" onClick={() => setShowForm(false)}>Cancel</button>
+            <button className="btn-primary text-sm" onClick={handleSave} disabled={saving}>
+              {saving ? "Saving…" : editTarget ? "Update" : "Add Expense"}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ProfitabilityCard({ invoice }) {
+  const revenue = Number(invoice.grand_total);
+  const cogs = Number(invoice.total_cogs ?? 0);
+  const jobExpenses = Number(invoice.total_job_expenses ?? 0);
+  const profit = Number(invoice.gross_profit ?? revenue - cogs - jobExpenses);
+  const isProfitable = profit >= 0;
+  const hasData = cogs > 0 || jobExpenses > 0;
+
+  if (!hasData) return null;
+
+  const margin = revenue > 0 ? ((profit / revenue) * 100).toFixed(1) : "0.0";
+
+  return (
+    <div className={`card p-4 border-2 ${isProfitable ? "border-emerald-200 bg-emerald-50" : "border-red-200 bg-red-50"}`}>
+      <div className="flex items-center gap-2 mb-3">
+        {isProfitable
+          ? <TrendingUp size={16} className="text-emerald-600" />
+          : <TrendingDown size={16} className="text-red-600" />}
+        <h2 className="text-sm font-semibold text-gray-800">Job Profitability</h2>
+        <span className={`ml-auto text-xs font-semibold px-2 py-0.5 rounded-full ${isProfitable ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"}`}>
+          {isProfitable ? "Profit" : "Loss"} · {Math.abs(Number(margin))}% margin
+        </span>
+      </div>
+      <div className="space-y-1.5 text-sm">
+        <div className="flex justify-between text-gray-600">
+          <span>Revenue (invoice total)</span>
+          <span className="font-medium">{ksh(revenue)}</span>
+        </div>
+        {cogs > 0 && (
+          <div className="flex justify-between text-gray-500">
+            <span>Cost of goods (COGS)</span>
+            <span className="text-red-500">− {ksh(cogs)}</span>
+          </div>
+        )}
+        {jobExpenses > 0 && (
+          <div className="flex justify-between text-gray-500">
+            <span>Job expenses</span>
+            <span className="text-red-500">− {ksh(jobExpenses)}</span>
+          </div>
+        )}
+        <div className={`flex justify-between font-bold text-base border-t pt-2 mt-1 ${isProfitable ? "border-emerald-200 text-emerald-700" : "border-red-200 text-red-600"}`}>
+          <span>{isProfitable ? "Gross Profit" : "Net Loss"}</span>
+          <span>{isProfitable ? "" : "− "}{ksh(Math.abs(profit))}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 const PAYMENT_STATUS_COLORS = {
   paid: "bg-green-100 text-green-700",
@@ -635,6 +841,16 @@ export default function InvoiceDetail() {
           </table>
         </div>
       )}
+
+      {/* Job Expenses */}
+      <JobExpensesSection
+        invoiceId={invoice.id}
+        expenses={invoice.expenses ?? []}
+        onRefresh={load}
+      />
+
+      {/* Profitability */}
+      <ProfitabilityCard invoice={invoice} />
 
       {/* PDF Preview */}
       <PDFPreviewModal open={showPDF} onClose={() => setShowPDF(false)} title={`${invoice.id} — Tax Invoice`} >

@@ -19,6 +19,7 @@ class ProductIn(BaseModel):
     name: str
     description: str | None = None
     unit_price: float
+    cost_price: float = 0.0
 
 
 class ProductOut(BaseModel):
@@ -26,6 +27,7 @@ class ProductOut(BaseModel):
     name: str
     description: str | None
     unit_price: float
+    cost_price: float = 0.0
     client_price: float | None = None  # client-specific agreed price, if known
 
     model_config = {"from_attributes": True}
@@ -77,6 +79,7 @@ async def create_product(
         name=payload.name,
         description=payload.description,
         unit_price=payload.unit_price,
+        cost_price=payload.cost_price,
     )
     db.add(prod)
     await db.flush()
@@ -97,6 +100,7 @@ async def update_product(
     prod.name = payload.name
     prod.description = payload.description
     prod.unit_price = payload.unit_price
+    prod.cost_price = payload.cost_price
     await db.flush()
     await db.refresh(prod)
     return Response(data=prod)

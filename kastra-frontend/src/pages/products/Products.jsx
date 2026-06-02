@@ -9,7 +9,7 @@ function ksh(val) {
   return `KSh ${Number(val).toLocaleString("en-KE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-const EMPTY = { name: "", description: "", unit_price: "" };
+const EMPTY = { name: "", description: "", unit_price: "", cost_price: "" };
 
 export default function Products() {
   const [products, setProducts] = useState([]);
@@ -30,12 +30,17 @@ export default function Products() {
   useEffect(() => { load(); }, []);
 
   const openAdd = () => { setForm(EMPTY); setEditId(null); setShowModal(true); };
-  const openEdit = (p) => { setForm({ name: p.name, description: p.description ?? "", unit_price: String(p.unit_price) }); setEditId(p.id); setShowModal(true); };
+  const openEdit = (p) => { setForm({ name: p.name, description: p.description ?? "", unit_price: String(p.unit_price), cost_price: String(p.cost_price ?? "") }); setEditId(p.id); setShowModal(true); };
 
   const handleSave = async () => {
     if (!form.name || !form.unit_price) return;
     setSaving(true);
-    const payload = { name: form.name, description: form.description || null, unit_price: parseFloat(form.unit_price) };
+    const payload = {
+      name: form.name,
+      description: form.description || null,
+      unit_price: parseFloat(form.unit_price),
+      cost_price: parseFloat(form.cost_price) || 0,
+    };
     try {
       if (editId) await updateProduct(editId, payload);
       else await createProduct(payload);
@@ -70,7 +75,12 @@ export default function Products() {
                 <p className="font-medium text-gray-900">{p.name}</p>
                 {p.description && <p className="text-xs text-gray-400 truncate">{p.description}</p>}
               </div>
-              <span className="font-semibold text-gray-700 shrink-0">{ksh(p.unit_price)}</span>
+              <div className="text-right shrink-0">
+                <p className="font-semibold text-gray-700">{ksh(p.unit_price)}</p>
+                {Number(p.cost_price) > 0 && (
+                  <p className="text-xs text-gray-400">Cost: {ksh(p.cost_price)}</p>
+                )}
+              </div>
               <div className="flex gap-1">
                 <button onClick={() => openEdit(p)} className="p-1 text-gray-400 hover:text-gray-700"><Edit2 size={14} /></button>
                 <button onClick={() => setDeleteTarget(p)} className="p-1 text-gray-400 hover:text-red-500"><Trash2 size={14} /></button>
@@ -91,8 +101,13 @@ export default function Products() {
             <input className="input" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Optional details" />
           </div>
           <div>
-            <label className="label">Unit Price (KSh) *</label>
+            <label className="label">Selling Price (KSh) *</label>
             <input className="input" type="number" min="0" step="0.01" value={form.unit_price} onChange={(e) => setForm({ ...form, unit_price: e.target.value })} />
+          </div>
+          <div>
+            <label className="label">Cost / Buying Price (KSh) <span className="text-gray-400 font-normal">(optional)</span></label>
+            <input className="input" type="number" min="0" step="0.01" placeholder="0.00" value={form.cost_price} onChange={(e) => setForm({ ...form, cost_price: e.target.value })} />
+            <p className="text-xs text-gray-400 mt-1">Used to calculate profit per invoice.</p>
           </div>
           <div className="flex gap-2 justify-end pt-1">
             <button className="btn-secondary" onClick={() => setShowModal(false)}>Cancel</button>

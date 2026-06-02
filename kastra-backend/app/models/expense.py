@@ -15,12 +15,14 @@ class Expense(Base):
         Index("ix_expenses_date", "date"),
         Index("ix_expenses_category", "category"),
         Index("ix_expenses_project_id", "project_id"),
+        Index("ix_expenses_invoice_id", "invoice_id"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     organization_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False)
     project_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("projects.id", ondelete="SET NULL"), nullable=True)
-    category: Mapped[str] = mapped_column(String(100), nullable=False)  # rent|salaries|utilities|supplies|other
+    invoice_id: Mapped[str | None] = mapped_column(String(20), ForeignKey("invoices.id", ondelete="SET NULL"), nullable=True)
+    category: Mapped[str] = mapped_column(String(100), nullable=False)  # rent|salaries|utilities|supplies|materials|labour|lunch|transport|fuel|other
     description: Mapped[str] = mapped_column(String(500), nullable=False)
     vendor: Mapped[str | None] = mapped_column(String(200), nullable=True)
     amount: Mapped[float] = mapped_column(Numeric(15, 2), nullable=False)

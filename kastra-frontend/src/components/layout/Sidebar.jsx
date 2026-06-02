@@ -1,7 +1,7 @@
 import { NavLink, useNavigate } from "react-router-dom";
 import {
   BarChart2, FileText, Home, LogOut, Settings, Users, Receipt,
-  TrendingDown, RefreshCw, Package, Kanban, UserCog, FolderKanban,
+  TrendingDown, RefreshCw, Package, Kanban, UserCog, FolderKanban, Truck,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import GlobalSearch from "../ui/GlobalSearch";
@@ -15,6 +15,7 @@ const links = [
   { to: "/invoices", icon: Receipt, label: "Invoices" },
   { to: "/clients", icon: Users, label: "Clients" },
   { to: "/products", icon: Package, label: "Products" },
+  { to: "/suppliers", icon: Truck, label: "Suppliers" },
   { to: "/expenses", icon: TrendingDown, label: "Expenses" },
   { to: "/recurring", icon: RefreshCw, label: "Recurring" },
   { to: "/reports", icon: BarChart2, label: "Reports" },

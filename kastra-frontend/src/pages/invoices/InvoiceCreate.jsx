@@ -7,7 +7,7 @@ import { Plus, Trash2, ArrowLeft } from "lucide-react";
 import ProductAutocomplete from "../../components/ui/ProductAutocomplete";
 import FinancialsForm from "../../components/ui/FinancialsForm";
 
-const emptyItem = () => ({ description: "", quantity: "1", unit_price: "", discount_pct: "0", vat_exempt: false });
+const emptyItem = () => ({ description: "", quantity: "1", unit_price: "", cost_price: "", discount_pct: "0", vat_exempt: false });
 
 export default function InvoiceCreate() {
   const navigate = useNavigate();
@@ -60,6 +60,7 @@ export default function InvoiceCreate() {
           description: item.description,
           quantity: parseFloat(item.quantity),
           unit_price: parseFloat(item.unit_price),
+          cost_price: parseFloat(item.cost_price) || 0,
           discount_pct: parseFloat(item.discount_pct) || 0,
           vat_exempt: item.vat_exempt,
           sort_order: i,
@@ -120,35 +121,49 @@ export default function InvoiceCreate() {
 
         <div className="card p-4 space-y-3">
           <h2 className="text-sm font-semibold text-gray-700">Line Items</h2>
+          <div className="hidden sm:grid grid-cols-12 gap-2 text-[10px] text-gray-400 uppercase tracking-wide px-1">
+            <div className="col-span-4">Description</div>
+            <div className="col-span-1">Qty</div>
+            <div className="col-span-2">Sell Price</div>
+            <div className="col-span-2">Cost Price</div>
+            <div className="col-span-1">Disc%</div>
+            <div className="col-span-1 text-center">VAT</div>
+            <div className="col-span-1" />
+          </div>
           {items.map((item, i) => (
             <div key={i} className="grid grid-cols-12 gap-2 items-center">
               <div className="col-span-12 sm:col-span-4">
                 <ProductAutocomplete
                   value={item.description}
                   onChange={(v) => setItem(i, "description", v)}
-                  onSelect={({ description, unit_price }) => setItems((prev) =>
-                    prev.map((it, idx) => idx === i ? { ...it, description, unit_price: String(unit_price) } : it)
+                  onSelect={({ description, unit_price, cost_price }) => setItems((prev) =>
+                    prev.map((it, idx) => idx === i ? { ...it, description, unit_price: String(unit_price), cost_price: String(cost_price ?? "") } : it)
                   )}
                   placeholder="Description (type to search products)"
                   clientId={clientId || undefined}
                 />
               </div>
-              <div className="col-span-3 sm:col-span-2">
+              <div className="col-span-3 sm:col-span-1">
                 <input className="input" type="number" placeholder="Qty" min="0.01" step="any"
                   value={item.quantity} onChange={(e) => setItem(i, "quantity", e.target.value)} required />
               </div>
               <div className="col-span-4 sm:col-span-2">
-                <input className="input" type="number" placeholder="Unit Price" min="0" step="any"
+                <input className="input" type="number" placeholder="Sell Price" min="0" step="any"
                   value={item.unit_price} onChange={(e) => setItem(i, "unit_price", e.target.value)} required />
               </div>
-              <div className="col-span-3 sm:col-span-2">
+              <div className="col-span-4 sm:col-span-2">
+                <input className="input" type="number" placeholder="Cost Price" min="0" step="any"
+                  title="What you paid to buy/make this item"
+                  value={item.cost_price} onChange={(e) => setItem(i, "cost_price", e.target.value)} />
+              </div>
+              <div className="col-span-3 sm:col-span-1">
                 <div className="relative">
                   <input className="input pr-5" type="number" placeholder="Disc" min="0" max="100" step="0.01"
                     value={item.discount_pct} onChange={(e) => setItem(i, "discount_pct", e.target.value)} />
                   <span className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 text-xs">%</span>
                 </div>
               </div>
-              <div className="col-span-1 sm:col-span-1 flex items-center justify-center" title={item.vat_exempt ? "VAT exempt" : "VAT applies (16%)"}>
+              <div className="col-span-1 flex items-center justify-center" title={item.vat_exempt ? "VAT exempt" : "VAT applies (16%)"}>
                 <label className="flex flex-col items-center gap-0.5 cursor-pointer select-none">
                   <input
                     type="checkbox"

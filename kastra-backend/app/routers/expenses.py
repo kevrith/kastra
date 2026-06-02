@@ -15,7 +15,10 @@ from app.schemas.common import Meta, PaginatedResponse, Response, MessageRespons
 
 router = APIRouter(prefix="/api/expenses", tags=["expenses"])
 
-CATEGORIES = ["rent", "salaries", "utilities", "supplies", "transport", "marketing", "other"]
+CATEGORIES = [
+    "rent", "salaries", "utilities", "supplies", "transport", "marketing",
+    "materials", "labour", "lunch", "fuel", "other",
+]
 
 
 class ExpenseIn(BaseModel):
@@ -25,6 +28,7 @@ class ExpenseIn(BaseModel):
     amount: float
     date: date
     project_id: uuid.UUID | None = None
+    invoice_id: str | None = None
 
 
 class ExpenseOut(BaseModel):
@@ -35,6 +39,7 @@ class ExpenseOut(BaseModel):
     amount: float
     date: date
     project_id: uuid.UUID | None = None
+    invoice_id: str | None = None
 
     model_config = {"from_attributes": True}
 
@@ -47,6 +52,7 @@ async def list_expenses(
     from_date: date | None = Query(None),
     to_date: date | None = Query(None),
     project_id: str | None = Query(None),
+    invoice_id: str | None = Query(None),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_permission("can_view_expenses")),
 ):
@@ -59,6 +65,8 @@ async def list_expenses(
         q = q.where(Expense.date <= to_date)
     if project_id:
         q = q.where(Expense.project_id == uuid.UUID(project_id))
+    if invoice_id:
+        q = q.where(Expense.invoice_id == invoice_id)
 
     total = (await db.execute(select(func.count()).select_from(q.subquery()))).scalar_one()
     rows = (await db.execute(q.order_by(Expense.date.desc()).offset((page - 1) * limit).limit(limit))).scalars().all()
@@ -78,6 +86,7 @@ async def create_expense(
     exp = Expense(
         organization_id=current_user.organization_id,
         project_id=payload.project_id,
+        invoice_id=payload.invoice_id,
         category=payload.category,
         description=payload.description,
         vendor=payload.vendor,
@@ -106,6 +115,7 @@ async def update_expense(
     exp.amount = payload.amount
     exp.date = payload.date
     exp.project_id = payload.project_id
+    exp.invoice_id = payload.invoice_id
     await db.flush()
     await db.refresh(exp)
     return Response(data=exp)

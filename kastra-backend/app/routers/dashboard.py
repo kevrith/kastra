@@ -9,7 +9,7 @@ from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.client import Client
 from app.models.expense import Expense
-from app.models.invoice import Invoice
+from app.models.invoice import Invoice, InvoiceItem
 from app.models.quotation import Quotation
 from app.models.user import User
 from app.schemas.dashboard import (
@@ -69,7 +69,23 @@ async def dashboard_stats(
             extract("month", Expense.date) == now.month,
         )
     )
-    monthly_net_profit = (monthly_rev or Decimal(0)) - (monthly_expenses or Decimal(0))
+    # COGS: sum of cost_price × quantity for all paid invoices this month
+    monthly_cogs = await db.scalar(
+        select(func.coalesce(func.sum(InvoiceItem.cost_price * InvoiceItem.quantity), 0))
+        .join(Invoice, InvoiceItem.invoice_id == Invoice.id)
+        .where(
+            Invoice.organization_id == org_id,
+            Invoice.payment_status == "paid",
+            extract("year", Invoice.created_at) == now.year,
+            extract("month", Invoice.created_at) == now.month,
+            InvoiceItem.cost_price.isnot(None),
+        )
+    )
+    monthly_net_profit = (
+        (monthly_rev or Decimal(0))
+        - (monthly_expenses or Decimal(0))
+        - (monthly_cogs or Decimal(0))
+    )
 
     # Monthly bars — last 6 months
     monthly_bars = []
