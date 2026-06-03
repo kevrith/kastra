@@ -521,17 +521,35 @@ export default function SuperAdmin() {
                 <>
                   {/* Top KPIs */}
                   <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                    <StatCard label="Monthly Recurring Revenue" value={fmtKES(stats.mrr_kes)} icon={DollarSign} color="text-green-400" />
-                    <StatCard label="Annual Run Rate" value={fmtKES(stats.arr_kes)} sub="MRR × 12" icon={TrendingUp} color="text-emerald-400" />
-                    <StatCard label="Revenue This Month" value={fmtKES(stats.revenue_this_month_kes)} icon={CreditCard} color="text-blue-400" />
-                    <StatCard label="Total Revenue" value={fmtKES(stats.total_revenue_kes)} sub="All payments" icon={BarChart2} color="text-purple-400" />
+                    <StatCard
+                      label="Monthly Recurring Revenue"
+                      value={fmtKES(stats.mrr_kes)}
+                      sub={stats.mrr_kes === 0 ? `Potential: ${fmtKES(stats.potential_mrr ?? 0)} if trials convert` : `Potential: ${fmtKES(stats.potential_mrr ?? 0)}`}
+                      icon={DollarSign}
+                      color={stats.mrr_kes > 0 ? "text-green-400" : "text-gray-500"}
+                    />
+                    <StatCard label="Annual Run Rate" value={fmtKES(stats.arr_kes)} sub="MRR × 12" icon={TrendingUp} color={stats.arr_kes > 0 ? "text-emerald-400" : "text-gray-500"} />
+                    <StatCard label="Revenue This Month" value={fmtKES(stats.revenue_this_month_kes)} sub="Actual payments received" icon={CreditCard} color={stats.revenue_this_month_kes > 0 ? "text-blue-400" : "text-gray-500"} />
+                    <StatCard label="Total Revenue" value={fmtKES(stats.total_revenue_kes)} sub="All payments all-time" icon={BarChart2} color={stats.total_revenue_kes > 0 ? "text-purple-400" : "text-gray-500"} />
                   </div>
 
                   {/* Org & user stats */}
                   <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                     <StatCard label="Total Organisations" value={stats.total_orgs?.toLocaleString()} icon={Building2} color="text-gray-300" />
-                    <StatCard label="New This Month" value={stats.new_orgs_this_month} icon={PlusCircle} color="text-cyan-400" />
-                    <StatCard label="Active Orgs" value={stats.active_orgs} sub="Invoiced this month" icon={Activity} color="text-yellow-400" />
+                    <StatCard
+                      label="New (Last 30 days)"
+                      value={stats.new_orgs_last_30_days ?? stats.new_orgs_this_month}
+                      sub={`This calendar month: ${stats.new_orgs_this_month}`}
+                      icon={PlusCircle}
+                      color="text-cyan-400"
+                    />
+                    <StatCard
+                      label="Active Orgs (30d)"
+                      value={stats.active_orgs_30d ?? stats.active_orgs}
+                      sub="Invoiced or quoted in 30 days"
+                      icon={Activity}
+                      color={(stats.active_orgs_30d ?? stats.active_orgs) > 0 ? "text-yellow-400" : "text-gray-500"}
+                    />
                     <StatCard label="Total Users" value={stats.total_users?.toLocaleString()} icon={Users} color="text-gray-300" />
                   </div>
 

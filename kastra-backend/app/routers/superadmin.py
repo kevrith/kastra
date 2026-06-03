@@ -98,15 +98,30 @@ async def superadmin_stats(db: AsyncSession = Depends(get_db)):
     total_users = (await db.execute(select(func.count()).select_from(User))).scalar_one()
     total_invoices = (await db.execute(select(func.count()).select_from(Invoice))).scalar_one()
 
+    thirty_days_ago = now - timedelta(days=30)
+
     new_orgs_this_month = (await db.execute(
         select(func.count()).select_from(Organization).where(Organization.created_at >= start_of_month)
+    )).scalar_one()
+
+    new_orgs_last_30_days = (await db.execute(
+        select(func.count()).select_from(Organization).where(Organization.created_at >= thirty_days_ago)
     )).scalar_one()
 
     invoices_this_month = (await db.execute(
         select(func.count()).select_from(Invoice).where(Invoice.created_at >= start_of_month)
     )).scalar_one()
 
-    # Orgs that created at least one invoice this month (engaged)
+    # Orgs active in last 30 days (any invoice OR quotation created)
+    orgs_with_invoice_30d = (await db.execute(
+        select(func.distinct(Invoice.organization_id)).where(Invoice.created_at >= thirty_days_ago)
+    )).scalars().all()
+    orgs_with_quote_30d = (await db.execute(
+        select(func.distinct(Quotation.organization_id)).where(Quotation.created_at >= thirty_days_ago)
+    )).scalars().all()
+    active_orgs_30d = len(set(orgs_with_invoice_30d) | set(orgs_with_quote_30d))
+
+    # Legacy: invoices this month (for backward compat)
     active_orgs = (await db.execute(
         select(func.count()).select_from(Organization).where(Organization.invoices_this_month > 0)
     )).scalar_one()
@@ -163,6 +178,11 @@ async def superadmin_stats(db: AsyncSession = Depends(get_db)):
     mrr = sum(count * PLAN_PRICES_KES.get(plan, 0) for plan, count in plan_counts.items())
     arr = mrr * 12
 
+    # Potential MRR if all trial + complimentary orgs converted to their current plan
+    potential_mrr = mrr + sum(
+        count * PLAN_PRICES_KES.get(plan, 0) for plan, count in trial_counts.items()
+    )
+
     # Revenue this month from actual payments
     revenue_this_month = (await db.execute(
         select(func.coalesce(func.sum(SubscriptionPayment.amount_kes), 0))
@@ -205,8 +225,11 @@ async def superadmin_stats(db: AsyncSession = Depends(get_db)):
         "total_invoices": total_invoices,
         "total_quotations": total_quotations,
         "new_orgs_this_month": new_orgs_this_month,
+        "new_orgs_last_30_days": new_orgs_last_30_days,
         "invoices_this_month": invoices_this_month,
         "active_orgs": active_orgs,
+        "active_orgs_30d": active_orgs_30d,
+        "potential_mrr": potential_mrr,
         "trials_active": trials_active,
         "trials_expiring_7d": trials_expiring_7d,
         "suspended_orgs": suspended_orgs,
