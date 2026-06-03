@@ -169,9 +169,7 @@ export default function SupplierPortal() {
                   <li key={item.id} className="flex items-start justify-between gap-3 text-sm">
                     <span className="text-gray-700">{item.description}</span>
                     {item.quantity != null && (
-                      <span className="text-gray-400 shrink-0">
-                        {Number(item.quantity).toLocaleString()} {item.unit || ""}
-                      </span>
+                      <span className="text-gray-400 shrink-0">× {Number(item.quantity).toLocaleString()}</span>
                     )}
                   </li>
                 ))}
@@ -202,10 +200,9 @@ export default function SupplierPortal() {
                 <table className="w-full">
                   <thead>
                     <tr className="bg-gray-50 text-left">
-                      <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide min-w-[200px]">Item Description</th>
-                      <th className="px-3 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide w-24">Qty</th>
-                      <th className="px-3 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide w-24">Unit</th>
-                      <th className="px-3 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide w-40">Unit Price (KSh) *</th>
+                      <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Item Description</th>
+                      <th className="px-3 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide w-28 text-center">Qty</th>
+                      <th className="px-3 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide w-44">Unit Price (KSh) *</th>
                       <th className="px-3 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide w-36 text-right">Line Total</th>
                       <th className="px-3 py-3 w-10" />
                     </tr>
@@ -232,14 +229,6 @@ export default function SupplierPortal() {
                               step="any"
                               value={item.quantity}
                               onChange={(e) => setItem(i, "quantity", e.target.value)}
-                            />
-                          </td>
-                          <td className="px-3 py-3">
-                            <input
-                              className="input text-sm bg-gray-50"
-                              placeholder="pcs"
-                              value={item.unit}
-                              onChange={(e) => setItem(i, "unit", e.target.value)}
                             />
                           </td>
                           <td className="px-3 py-3">
