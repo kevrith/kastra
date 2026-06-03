@@ -3,7 +3,7 @@ services:
     name: kastra-api
     runtime: python
     rootDir: kastra-backend
-    buildCommand: pip install -r requirements.txt && playwright install --with-deps chromium && alembic upgrade head
+    buildCommand: pip install -r requirements.txt && playwright install chromium && alembic upgrade head
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /health
     envVars:
