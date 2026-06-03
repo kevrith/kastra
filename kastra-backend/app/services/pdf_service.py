@@ -3,6 +3,7 @@ Server-side PDF generation using Playwright + Jinja2.
 Renders invoice/quotation data into a self-contained HTML document,
 then prints it to PDF via headless Chromium.
 """
+import asyncio
 import io
 import math
 from pathlib import Path
@@ -10,7 +11,7 @@ from pathlib import Path
 import qrcode
 import qrcode.image.svg
 from jinja2 import Environment, FileSystemLoader, select_autoescape
-from playwright.async_api import async_playwright
+from weasyprint import HTML
 
 _TEMPLATES_DIR = Path(__file__).parent.parent / "templates"
 _KRA_VERIFY_URL = "https://etims.kra.go.ke/etims-portal/searchDetails/"
@@ -117,19 +118,9 @@ def render_html(doc_type: str, doc: dict, org: dict) -> str:
 
 
 async def html_to_pdf(html: str) -> bytes:
-    async with async_playwright() as pw:
-        browser = await pw.chromium.launch(
-            args=["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"]
-        )
-        page = await browser.new_page()
-        await page.set_content(html, wait_until="networkidle")
-        pdf_bytes = await page.pdf(
-            format="A4",
-            print_background=True,
-            margin={"top": "10mm", "bottom": "12mm", "left": "0", "right": "0"},
-        )
-        await browser.close()
-    return pdf_bytes
+    return await asyncio.to_thread(
+        lambda: HTML(string=html).write_pdf()
+    )
 
 
 async def generate_pdf(doc_type: str, doc: dict, org: dict) -> bytes:
