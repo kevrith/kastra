@@ -474,6 +474,12 @@ async def create_invoice_expense(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_permission("can_create_expenses")),
 ):
+    from app.models.organization import Organization as _Org
+    from app.utils.plan_limits import get_limits as _get_limits
+    _org = await db.get(_Org, current_user.organization_id)
+    if not _get_limits(_org.plan if _org else "free")["job_profitability"]:
+        raise HTTPException(status_code=402, detail="Job profitability tracking is not available on your current plan. Upgrade to Starter or above.")
+
     inv = await db.get(Invoice, invoice_id)
     if not inv or inv.organization_id != current_user.organization_id:
         raise HTTPException(status_code=404, detail="Invoice not found")

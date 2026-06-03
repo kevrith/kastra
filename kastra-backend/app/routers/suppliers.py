@@ -12,12 +12,14 @@ from sqlalchemy.orm import selectinload
 from app.config import settings
 from app.database import get_db
 from app.dependencies import get_current_user
+from app.models.organization import Organization
 from app.models.supplier import (
     Supplier, SupplierRequest, SupplierRequestInvite,
     SupplierRequestItem, SupplierResponseItem,
 )
 from app.models.user import User
 from app.schemas.common import MessageResponse, Meta, PaginatedResponse, Response
+from app.utils.plan_limits import get_limits
 
 router = APIRouter(prefix="/api/suppliers", tags=["suppliers"])
 
@@ -177,6 +179,10 @@ async def create_supplier(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    org = await db.get(Organization, current_user.organization_id)
+    if not get_limits(org.plan if org else "free")["suppliers"]:
+        raise HTTPException(status_code=402, detail="Supplier management is not available on your current plan. Upgrade to Starter or above.")
+
     sup = Supplier(
         organization_id=current_user.organization_id,
         name=payload.name,
@@ -285,6 +291,10 @@ async def create_request(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    org = await db.get(Organization, current_user.organization_id)
+    if not get_limits(org.plan if org else "free")["suppliers"]:
+        raise HTTPException(status_code=402, detail="Supplier price requests are not available on your current plan. Upgrade to Starter or above.")
+
     req = SupplierRequest(
         organization_id=current_user.organization_id,
         title=payload.title,

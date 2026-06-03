@@ -24,6 +24,8 @@ class PlanLimits(TypedDict):
     global_search: bool
     priority_support: bool
     white_label: bool
+    suppliers: bool           # supplier management + price comparison portal
+    job_profitability: bool   # cost price on items + invoice expense tracking
 
 
 PLANS: dict[str, PlanLimits] = {
@@ -50,6 +52,8 @@ PLANS: dict[str, PlanLimits] = {
         "global_search": False,
         "priority_support": False,
         "white_label": False,
+        "suppliers": False,
+        "job_profitability": False,
     },
     "starter": {
         "invoices_per_month": 200,
@@ -74,6 +78,8 @@ PLANS: dict[str, PlanLimits] = {
         "global_search": True,
         "priority_support": False,
         "white_label": False,
+        "suppliers": True,
+        "job_profitability": True,
     },
     "business": {
         "invoices_per_month": 400,
@@ -98,6 +104,8 @@ PLANS: dict[str, PlanLimits] = {
         "global_search": True,
         "priority_support": False,
         "white_label": False,
+        "suppliers": True,
+        "job_profitability": True,
     },
     "premium": {
         "invoices_per_month": -1,
@@ -122,6 +130,8 @@ PLANS: dict[str, PlanLimits] = {
         "global_search": True,
         "priority_support": True,
         "white_label": True,
+        "suppliers": True,
+        "job_profitability": True,
     },
 }
 
