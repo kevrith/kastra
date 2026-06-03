@@ -168,9 +168,18 @@ export default function SupplierRequestDetail() {
     });
   };
 
+  const normalizePhone = (raw) => {
+    if (!raw) return null;
+    let p = raw.replace(/\s+/g, "").replace(/[^0-9+]/g, "");
+    if (p.startsWith("+")) p = p.slice(1);       // +254... → 254...
+    if (p.startsWith("0")) p = "254" + p.slice(1); // 07... → 2547...
+    return p;
+  };
+
   const handleWhatsApp = (invite) => {
-    if (!invite.supplier_phone) {
-      setWhatsappError(`No phone number saved for ${invite.supplier_name}. Edit this supplier in the Suppliers tab and add their phone number (format: 254712345678).`);
+    const phone = normalizePhone(invite.supplier_phone);
+    if (!phone) {
+      setWhatsappError(`No phone number saved for ${invite.supplier_name}. Edit this supplier and add their phone number.`);
       return;
     }
     setWhatsappError("");
@@ -185,7 +194,7 @@ export default function SupplierRequestDetail() {
       ``,
       `Thank you.`,
     ].join("\n");
-    window.open(`https://wa.me/${invite.supplier_phone}?text=${encodeURIComponent(msg)}`, "_blank");
+    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, "_blank");
   };
 
   const handleAddSupplier = async () => {
