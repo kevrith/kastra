@@ -1030,12 +1030,15 @@ async def sa_get_invoice(invoice_id: str, db: AsyncSession = Depends(get_db)):
 
 @router.get("/invoices/{invoice_id}/pdf", dependencies=[Depends(_verify_sa_token)])
 async def sa_invoice_pdf(invoice_id: str, db: AsyncSession = Depends(get_db)):
+    import logging
     from fastapi.responses import Response as RawResponse
     from sqlalchemy.orm import selectinload
     from app.models.invoice import Invoice
     from app.schemas.invoice import InvoiceOut
     from app.schemas.organization import OrganizationOut
     from app.services.pdf_service import generate_pdf
+
+    _log = logging.getLogger(__name__)
 
     result = await db.execute(
         select(Invoice).where(Invoice.id == invoice_id)
@@ -1052,12 +1055,19 @@ async def sa_invoice_pdf(invoice_id: str, db: AsyncSession = Depends(get_db)):
         raise HTTPException(404, "Invoice not found")
 
     org = await db.get(Organization, inv.organization_id)
-    doc = InvoiceOut.model_validate(inv).model_dump(mode="json")
-    org_data = OrganizationOut.model_validate(org).model_dump(mode="json") if org else {}
 
-    pdf_bytes = await generate_pdf("invoice", doc, org_data)
+    # Audit + commit before PDF generation to avoid session conflicts
     await record_audit(db, "sa_print_invoice", str(inv.organization_id), org.name if org else "", {"invoice_id": invoice_id})
     await db.commit()
+
+    try:
+        doc = InvoiceOut.model_validate(inv).model_dump(mode="json")
+        org_data = OrganizationOut.model_validate(org).model_dump(mode="json") if org else {}
+        pdf_bytes = await generate_pdf("invoice", doc, org_data)
+    except Exception as exc:
+        _log.exception("SA invoice PDF generation failed for %s", invoice_id)
+        raise HTTPException(500, f"PDF generation failed: {exc}") from exc
+
     return RawResponse(
         content=pdf_bytes,
         media_type="application/pdf",
@@ -1067,12 +1077,15 @@ async def sa_invoice_pdf(invoice_id: str, db: AsyncSession = Depends(get_db)):
 
 @router.get("/quotations/{quotation_id}/pdf", dependencies=[Depends(_verify_sa_token)])
 async def sa_quotation_pdf(quotation_id: str, db: AsyncSession = Depends(get_db)):
+    import logging
     from fastapi.responses import Response as RawResponse
     from sqlalchemy.orm import selectinload
     from app.models.quotation import Quotation
     from app.schemas.quotation import QuotationOut
     from app.schemas.organization import OrganizationOut
     from app.services.pdf_service import generate_pdf
+
+    _log = logging.getLogger(__name__)
 
     result = await db.execute(
         select(Quotation).where(Quotation.id == quotation_id)
@@ -1088,12 +1101,19 @@ async def sa_quotation_pdf(quotation_id: str, db: AsyncSession = Depends(get_db)
         raise HTTPException(404, "Quotation not found")
 
     org = await db.get(Organization, qt.organization_id)
-    doc = QuotationOut.model_validate(qt).model_dump(mode="json")
-    org_data = OrganizationOut.model_validate(org).model_dump(mode="json") if org else {}
 
-    pdf_bytes = await generate_pdf("quotation", doc, org_data)
+    # Audit + commit before PDF generation to avoid session conflicts
     await record_audit(db, "sa_print_quotation", str(qt.organization_id), org.name if org else "", {"quotation_id": quotation_id})
     await db.commit()
+
+    try:
+        doc = QuotationOut.model_validate(qt).model_dump(mode="json")
+        org_data = OrganizationOut.model_validate(org).model_dump(mode="json") if org else {}
+        pdf_bytes = await generate_pdf("quotation", doc, org_data)
+    except Exception as exc:
+        _log.exception("SA quotation PDF generation failed for %s", quotation_id)
+        raise HTTPException(500, f"PDF generation failed: {exc}") from exc
+
     return RawResponse(
         content=pdf_bytes,
         media_type="application/pdf",

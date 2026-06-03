@@ -326,7 +326,7 @@ export default function SuperAdmin() {
   const loadAllOrgs = useCallback(async () => {
     if (!token || allOrgs.length > 0) return;
     try {
-      const { data } = await superadminOrgs(token, { page: 1, limit: 200 });
+      const { data } = await superadminOrgs(token, { page: 1, limit: 100 });
       setAllOrgs(data.data ?? []);
     } catch {}
   }, [token, allOrgs.length]);
