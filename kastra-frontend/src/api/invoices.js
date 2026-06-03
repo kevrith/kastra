@@ -10,3 +10,4 @@ export const sendReminder = (id) => api.post(`/api/invoices/${id}/remind`);
 export const submitEtims = (id) => api.post(`/api/invoices/${id}/etims-submit`, {});
 export const testEtimsConnection = () => api.post("/api/organization/etims-test");
 export const sendInvoiceEmail = (id) => api.post(`/api/invoices/${id}/email`);
+export const deleteInvoice = (id) => api.delete(`/api/invoices/${id}`);

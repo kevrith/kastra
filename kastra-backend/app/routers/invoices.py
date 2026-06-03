@@ -519,6 +519,27 @@ async def update_invoice_expense(
     return exp
 
 
+@router.delete("/{invoice_id}", response_model=MessageResponse)
+async def delete_invoice(
+    invoice_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission("can_delete_invoices")),
+):
+    result = await db.execute(
+        select(Invoice).where(
+            Invoice.id == invoice_id,
+            Invoice.organization_id == current_user.organization_id,
+        )
+    )
+    invoice = result.scalar_one_or_none()
+    if not invoice:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    if invoice.payment_status == "paid":
+        raise HTTPException(status_code=400, detail="Cannot delete a fully paid invoice")
+    await db.delete(invoice)
+    return MessageResponse(message="Invoice deleted")
+
+
 @router.delete("/{invoice_id}/expenses/{expense_id}", response_model=MessageResponse)
 async def delete_invoice_expense(
     invoice_id: str,

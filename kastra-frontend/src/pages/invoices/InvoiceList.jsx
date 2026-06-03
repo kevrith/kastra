@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { getInvoices } from "../../api/invoices";
+import { getInvoices, deleteInvoice } from "../../api/invoices";
 import { ksh, date, statusBadgeClass } from "../../utils/formatters";
-import { Plus, Receipt } from "lucide-react";
+import { Plus, Receipt, Trash2 } from "lucide-react";
 import Spinner from "../../components/ui/Spinner";
 import Pagination from "../../components/ui/Pagination";
 import EmptyState from "../../components/ui/EmptyState";
+import ConfirmDialog from "../../components/ui/ConfirmDialog";
 
 const FILTERS = [
   { label: "All", value: "" },
@@ -21,6 +22,7 @@ export default function InvoiceList() {
   const [page, setPage] = useState(1);
   const [filter, setFilter] = useState("");
   const [loading, setLoading] = useState(true);
+  const [deleteTarget, setDeleteTarget] = useState(null);
 
   const load = () => {
     setLoading(true);
@@ -36,6 +38,12 @@ export default function InvoiceList() {
   };
 
   useEffect(() => { load(); }, [page, filter]);
+
+  const handleDelete = async (id) => {
+    await deleteInvoice(id);
+    setDeleteTarget(null);
+    load();
+  };
 
   return (
     <div className="p-4 md:p-6 max-w-5xl mx-auto space-y-4">
@@ -78,18 +86,18 @@ export default function InvoiceList() {
                     <th className="px-4 py-3 text-right">Total</th>
                     <th className="px-4 py-3 hidden md:table-cell">Due Date</th>
                     <th className="px-4 py-3 hidden md:table-cell">Created</th>
+                    <th className="px-4 py-3" />
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {invoices.map((inv) => (
-                    <tr key={inv.id} className="hover:bg-gray-50 cursor-pointer"
-                      onClick={() => navigate(`/invoices/${inv.id}`)}>
-                      <td className="px-4 py-3">
+                    <tr key={inv.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 cursor-pointer" onClick={() => navigate(`/invoices/${inv.id}`)}>
                         <div className="font-mono text-xs text-green-700 font-medium">{inv.id}</div>
                         {inv.lpo_number && <div className="text-[11px] text-gray-400 mt-0.5">LPO: {inv.lpo_number}</div>}
                       </td>
-                      <td className="px-4 py-3 font-medium text-gray-900">{inv.client.name}</td>
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3 font-medium text-gray-900 cursor-pointer" onClick={() => navigate(`/invoices/${inv.id}`)}>{inv.client.name}</td>
+                      <td className="px-4 py-3 cursor-pointer" onClick={() => navigate(`/invoices/${inv.id}`)}>
                         <div className="flex items-center gap-1.5 flex-wrap">
                           <span className={statusBadgeClass(inv.payment_status)}>{inv.payment_status}</span>
                           {inv.is_overdue && (
@@ -97,13 +105,24 @@ export default function InvoiceList() {
                           )}
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-right font-semibold">{ksh(inv.grand_total)}</td>
-                      <td className="px-4 py-3 text-gray-400 hidden md:table-cell">
+                      <td className="px-4 py-3 text-right font-semibold cursor-pointer" onClick={() => navigate(`/invoices/${inv.id}`)}>{ksh(inv.grand_total)}</td>
+                      <td className="px-4 py-3 text-gray-400 hidden md:table-cell cursor-pointer" onClick={() => navigate(`/invoices/${inv.id}`)}>
                         {inv.due_date
                           ? <span className={inv.is_overdue ? "text-red-600 font-medium" : ""}>{date(inv.due_date)}</span>
                           : <span className="text-gray-300">—</span>}
                       </td>
-                      <td className="px-4 py-3 text-gray-400 hidden md:table-cell">{date(inv.created_at)}</td>
+                      <td className="px-4 py-3 text-gray-400 hidden md:table-cell cursor-pointer" onClick={() => navigate(`/invoices/${inv.id}`)}>{date(inv.created_at)}</td>
+                      <td className="px-4 py-3">
+                        {inv.payment_status !== "paid" && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setDeleteTarget(inv); }}
+                            className="p-1.5 text-gray-300 hover:text-red-500 rounded transition-colors"
+                            title="Delete invoice"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -113,6 +132,15 @@ export default function InvoiceList() {
           </>
         )}
       </div>
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={() => handleDelete(deleteTarget.id)}
+        title="Delete Invoice"
+        message={`Delete ${deleteTarget?.id}? This cannot be undone. Fully paid invoices cannot be deleted.`}
+        danger
+      />
     </div>
   );
 }
