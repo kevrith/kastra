@@ -115,30 +115,30 @@ export default function SupplierPortal() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Top bar */}
-      <div className="bg-white border-b border-gray-200 px-4 py-4">
+      <div className="bg-white border-b border-gray-200 px-4 py-3 md:py-4">
         <div className="max-w-6xl mx-auto flex items-center gap-3">
-          <div className="h-10 w-10 rounded-xl bg-green-600 flex items-center justify-center shrink-0">
-            <PackageSearch size={20} className="text-white" />
+          <div className="h-9 w-9 md:h-10 md:w-10 rounded-xl bg-green-600 flex items-center justify-center shrink-0">
+            <PackageSearch size={18} className="text-white" />
           </div>
-          <div>
-            <p className="font-bold text-gray-900 text-lg leading-tight">{portal.organization_name}</p>
+          <div className="min-w-0 flex-1">
+            <p className="font-bold text-gray-900 text-base md:text-lg leading-tight truncate">{portal.organization_name}</p>
             <p className="text-xs text-gray-400">Price Request Portal</p>
           </div>
           {portal.status === "responded" && (
-            <span className="ml-auto inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full bg-green-100 text-green-700 font-semibold">
-              <CheckCircle size={12} /> Previously Submitted
+            <span className="shrink-0 inline-flex items-center gap-1.5 text-xs px-2.5 py-1 md:px-3 md:py-1.5 rounded-full bg-green-100 text-green-700 font-semibold">
+              <CheckCircle size={11} /> <span className="hidden sm:inline">Previously</span> Submitted
             </span>
           )}
         </div>
       </div>
 
       {/* Body */}
-      <div className="max-w-6xl mx-auto px-4 py-8">
-        <div className="lg:grid lg:grid-cols-3 lg:gap-8 space-y-6 lg:space-y-0">
+      <div className="max-w-6xl mx-auto px-3 sm:px-4 py-4 md:py-8">
+        <div className="lg:grid lg:grid-cols-3 lg:gap-8 space-y-4 lg:space-y-0">
 
           {/* ── Left panel: request info (desktop sidebar) ── */}
-          <div className="lg:col-span-1 space-y-5">
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-4">
+          <div className="lg:col-span-1 space-y-4">
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 md:p-6 space-y-3 md:space-y-4">
               <div className="flex items-center gap-2 text-xs font-semibold text-gray-400 uppercase tracking-wide">
                 <FileText size={13} /> Request Details
               </div>
@@ -189,14 +189,79 @@ export default function SupplierPortal() {
           {/* ── Right panel: price form ── */}
           <div className="lg:col-span-2">
             <form onSubmit={handleSubmit} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-              <div className="px-6 py-4 border-b border-gray-100 bg-gray-50">
+              <div className="px-4 md:px-6 py-3 md:py-4 border-b border-gray-100 bg-gray-50">
                 <h3 className="text-sm font-semibold text-gray-700">
                   Enter your unit price for each item below. You can also add extra items.
                 </h3>
               </div>
 
-              {/* Items table */}
-              <div className="overflow-x-auto">
+              {/* ── Mobile: stacked cards ── */}
+              <div className="md:hidden divide-y divide-gray-100">
+                {items.map((item, i) => {
+                  const lineTotal = (parseFloat(item.unit_price) || 0) * (parseFloat(item.quantity) || 0);
+                  return (
+                    <div key={i} className="p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Item {i + 1}</span>
+                        <button type="button" onClick={() => removeItem(i)} className="text-gray-300 hover:text-red-500 p-1">
+                          <Trash2 size={15} />
+                        </button>
+                      </div>
+                      <div>
+                        <label className="text-xs text-gray-500 font-medium mb-1 block">Description</label>
+                        <input
+                          className="input"
+                          placeholder="e.g. Dahua CCTV Camera 4MP"
+                          value={item.description}
+                          onChange={(e) => setItem(i, "description", e.target.value)}
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="text-xs text-gray-500 font-medium mb-1 block">Qty</label>
+                          <input
+                            className="input bg-gray-50"
+                            type="number"
+                            placeholder="0"
+                            min="0"
+                            step="any"
+                            value={item.quantity}
+                            onChange={(e) => setItem(i, "quantity", e.target.value)}
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs text-gray-500 font-medium mb-1 block">Unit Price (KSh) *</label>
+                          <input
+                            className="input font-semibold"
+                            type="number"
+                            placeholder="0.00"
+                            min="0"
+                            step="0.01"
+                            value={item.unit_price}
+                            onChange={(e) => setItem(i, "unit_price", e.target.value)}
+                            required={item.description.trim().length > 0}
+                          />
+                        </div>
+                      </div>
+                      {lineTotal > 0 && (
+                        <div className="flex justify-between items-center bg-green-50 rounded-xl px-3 py-2">
+                          <span className="text-xs text-green-700 font-medium">Line Total</span>
+                          <span className="text-sm font-bold text-green-700">{ksh(lineTotal)}</span>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+                {grandTotal > 0 && (
+                  <div className="flex justify-between items-center px-4 py-3 bg-green-600">
+                    <span className="text-sm font-bold text-white">Estimated Grand Total</span>
+                    <span className="text-base font-extrabold text-white">{ksh(grandTotal)}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* ── Desktop: table ── */}
+              <div className="hidden md:block overflow-x-auto">
                 <table className="w-full">
                   <thead>
                     <tr className="bg-gray-50 text-left">
@@ -213,52 +278,26 @@ export default function SupplierPortal() {
                       return (
                         <tr key={i} className="hover:bg-gray-50/50 transition-colors">
                           <td className="px-4 py-3">
-                            <input
-                              className="input text-sm"
-                              placeholder="e.g. Dahua CCTV Camera 4MP"
-                              value={item.description}
-                              onChange={(e) => setItem(i, "description", e.target.value)}
-                            />
+                            <input className="input text-sm" placeholder="e.g. Dahua CCTV Camera 4MP"
+                              value={item.description} onChange={(e) => setItem(i, "description", e.target.value)} />
                           </td>
                           <td className="px-3 py-3">
-                            <input
-                              className="input text-sm text-center bg-gray-50"
-                              type="number"
-                              placeholder="0"
-                              min="0"
-                              step="any"
-                              value={item.quantity}
-                              onChange={(e) => setItem(i, "quantity", e.target.value)}
-                            />
+                            <input className="input text-sm text-center bg-gray-50" type="number" placeholder="0" min="0" step="any"
+                              value={item.quantity} onChange={(e) => setItem(i, "quantity", e.target.value)} />
                           </td>
                           <td className="px-3 py-3">
-                            <input
-                              className="input text-sm font-semibold text-gray-900"
-                              type="number"
-                              placeholder="0.00"
-                              min="0"
-                              step="0.01"
-                              value={item.unit_price}
-                              onChange={(e) => setItem(i, "unit_price", e.target.value)}
-                              required={item.description.trim().length > 0}
-                            />
+                            <input className="input text-sm font-semibold text-gray-900" type="number" placeholder="0.00" min="0" step="0.01"
+                              value={item.unit_price} onChange={(e) => setItem(i, "unit_price", e.target.value)}
+                              required={item.description.trim().length > 0} />
                           </td>
                           <td className="px-3 py-3 text-right">
-                            {lineTotal > 0 ? (
-                              <span className="text-sm font-bold text-green-700 whitespace-nowrap">
-                                {ksh(lineTotal)}
-                              </span>
-                            ) : (
-                              <span className="text-sm text-gray-300">—</span>
-                            )}
+                            {lineTotal > 0
+                              ? <span className="text-sm font-bold text-green-700 whitespace-nowrap">{ksh(lineTotal)}</span>
+                              : <span className="text-sm text-gray-300">—</span>}
                           </td>
                           <td className="px-3 py-3 text-center">
-                            <button
-                              type="button"
-                              onClick={() => removeItem(i)}
-                              className="text-gray-300 hover:text-red-500 transition-colors p-1 rounded"
-                              title="Remove item"
-                            >
+                            <button type="button" onClick={() => removeItem(i)}
+                              className="text-gray-300 hover:text-red-500 transition-colors p-1 rounded">
                               <Trash2 size={15} />
                             </button>
                           </td>
@@ -266,13 +305,10 @@ export default function SupplierPortal() {
                       );
                     })}
                   </tbody>
-                  {/* Grand total row */}
                   {grandTotal > 0 && (
                     <tfoot>
                       <tr className="border-t-2 border-gray-200 bg-gray-50">
-                        <td colSpan={4} className="px-4 py-3 text-sm font-bold text-gray-700 text-right">
-                          Estimated Grand Total
-                        </td>
+                        <td colSpan={4} className="px-4 py-3 text-sm font-bold text-gray-700 text-right">Estimated Grand Total</td>
                         <td className="px-3 py-3 text-right">
                           <span className="text-base font-extrabold text-green-700">{ksh(grandTotal)}</span>
                         </td>
@@ -284,14 +320,14 @@ export default function SupplierPortal() {
               </div>
 
               {/* Add item button */}
-              <div className="px-6 py-3 border-t border-gray-100">
+              <div className="px-4 md:px-6 py-3 border-t border-gray-100">
                 <button type="button" className="btn-secondary text-sm" onClick={addItem}>
                   <Plus size={14} /> Add Item
                 </button>
               </div>
 
               {/* Notes + error + submit */}
-              <div className="px-6 pb-6 pt-2 space-y-4 border-t border-gray-100">
+              <div className="px-4 md:px-6 pb-5 md:pb-6 pt-2 space-y-4 border-t border-gray-100">
                 {error && (
                   <div className="bg-red-50 text-red-700 text-sm px-4 py-3 rounded-xl">{error}</div>
                 )}
