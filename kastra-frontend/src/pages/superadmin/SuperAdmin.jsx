@@ -531,8 +531,16 @@ export default function SuperAdmin() {
                   <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                     <StatCard label="Total Organisations" value={stats.total_orgs?.toLocaleString()} icon={Building2} color="text-gray-300" />
                     <StatCard label="New This Month" value={stats.new_orgs_this_month} icon={PlusCircle} color="text-cyan-400" />
-                    <StatCard label="Active Orgs" value={stats.active_orgs} sub="Created invoice this month" icon={Activity} color="text-yellow-400" />
+                    <StatCard label="Active Orgs" value={stats.active_orgs} sub="Invoiced this month" icon={Activity} color="text-yellow-400" />
                     <StatCard label="Total Users" value={stats.total_users?.toLocaleString()} icon={Users} color="text-gray-300" />
+                  </div>
+
+                  {/* Platform usage stats */}
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                    <StatCard label="Total Invoices" value={stats.total_invoices?.toLocaleString()} icon={FileText} color="text-green-400" />
+                    <StatCard label="Total Quotations" value={stats.total_quotations?.toLocaleString()} icon={FileText} color="text-blue-400" />
+                    <StatCard label="Total Suppliers" value={stats.total_suppliers?.toLocaleString()} icon={Building2} color="text-pink-400" />
+                    <StatCard label="Price Requests" value={stats.total_supplier_requests?.toLocaleString()} icon={FileText} color="text-orange-400" />
                   </div>
 
                   {/* Trial & health stats */}
@@ -543,8 +551,8 @@ export default function SuperAdmin() {
                     <StatCard label="Suspended Orgs" value={stats.suspended_orgs} icon={ShieldAlert} color={stats.suspended_orgs > 0 ? "text-red-400" : "text-gray-500"} />
                   </div>
 
-                  {/* Plan distribution */}
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  {/* Plan distribution + Conversion funnel + Feature adoption */}
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                     <div className="bg-gray-800 border border-gray-700 rounded-xl p-5">
                       <SectionTitle title="Paid Plan Distribution" />
                       <div className="space-y-3">
@@ -571,25 +579,81 @@ export default function SuperAdmin() {
                       </div>
                     </div>
 
+                    {/* Conversion funnel */}
                     <div className="bg-gray-800 border border-gray-700 rounded-xl p-5">
-                      <SectionTitle title="Trial Distribution" />
-                      {Object.entries(stats.trial_distribution ?? {}).every(([, v]) => v === 0) ? (
-                        <p className="text-gray-500 text-sm text-center py-6">No active trials</p>
-                      ) : (
-                        <div className="space-y-2">
-                          {["starter", "business", "premium"].map((plan) => {
-                            const count = stats.trial_distribution?.[plan] ?? 0;
-                            return (
-                              <div key={plan} className="flex items-center justify-between bg-gray-700/50 rounded-lg px-3 py-2">
-                                <Badge text={plan} colorClass={PLAN_COLORS[plan]} />
-                                <span className="text-white font-bold">{count} <span className="text-gray-400 font-normal text-xs">on trial</span></span>
+                      <SectionTitle title="Conversion Funnel" />
+                      <div className="space-y-3">
+                        {[
+                          { label: "Free", value: stats.free_orgs ?? 0, color: "bg-gray-500" },
+                          { label: "Trial", value: Object.values(stats.trial_distribution ?? {}).reduce((a, b) => a + b, 0), color: "bg-yellow-500" },
+                          { label: "Paid", value: stats.paid_orgs ?? 0, color: "bg-green-500" },
+                          { label: "Complimentary", value: stats.complimentary_count ?? 0, color: "bg-pink-500" },
+                        ].map(({ label, value, color }) => {
+                          const total = stats.total_orgs || 1;
+                          const pct = Math.round((value / total) * 100);
+                          return (
+                            <div key={label}>
+                              <div className="flex justify-between text-xs mb-1">
+                                <span className="text-gray-300">{label}</span>
+                                <span className="text-gray-400">{value} orgs · {pct}%</span>
                               </div>
-                            );
-                          })}
+                              <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
+                                <div className={`h-full rounded-full ${color}`} style={{ width: `${pct}%` }} />
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Feature adoption */}
+                    <div className="bg-gray-800 border border-gray-700 rounded-xl p-5">
+                      <SectionTitle title="Feature Adoption" />
+                      <div className="space-y-2.5">
+                        {[
+                          { label: "Expenses", value: stats.orgs_using_expenses ?? 0 },
+                          { label: "Suppliers", value: stats.orgs_using_suppliers ?? 0 },
+                          { label: "eTIMS / KRA", value: stats.orgs_with_etims ?? 0 },
+                        ].map(({ label, value }) => {
+                          const total = stats.total_orgs || 1;
+                          const pct = Math.round((value / total) * 100);
+                          return (
+                            <div key={label}>
+                              <div className="flex justify-between text-xs mb-1">
+                                <span className="text-gray-300">{label}</span>
+                                <span className="text-gray-400">{value} orgs · {pct}%</span>
+                              </div>
+                              <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
+                                <div className="h-full rounded-full bg-indigo-500" style={{ width: `${pct}%` }} />
+                              </div>
+                            </div>
+                          );
+                        })}
+                        <div className="pt-2 border-t border-gray-700 space-y-1 text-xs text-gray-500">
+                          <div className="flex justify-between"><span>Price requests created</span><span className="text-gray-300">{stats.total_supplier_requests ?? 0}</span></div>
+                          <div className="flex justify-between"><span>Active suppliers</span><span className="text-gray-300">{stats.total_suppliers ?? 0}</span></div>
                         </div>
-                      )}
+                      </div>
                     </div>
                   </div>
+
+                  {/* Trial distribution */}
+                  {!Object.values(stats.trial_distribution ?? {}).every((v) => v === 0) && (
+                    <div className="bg-gray-800 border border-gray-700 rounded-xl p-5">
+                      <SectionTitle title="Trial Distribution" />
+                      <div className="grid grid-cols-3 gap-3">
+                        {["starter", "business", "premium"].map((plan) => {
+                          const count = stats.trial_distribution?.[plan] ?? 0;
+                          return (
+                            <div key={plan} className="flex items-center justify-between bg-gray-700/50 rounded-lg px-3 py-2">
+                              <Badge text={plan} colorClass={PLAN_COLORS[plan]} />
+                              <span className="text-white font-bold">{count} <span className="text-gray-400 font-normal text-xs">on trial</span></span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </>
               ) : (
                 <div className="text-center py-16 text-gray-500">Loading dashboard…</div>

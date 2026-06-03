@@ -175,10 +175,35 @@ async def superadmin_stats(db: AsyncSession = Depends(get_db)):
         .where(SubscriptionPayment.status == "completed")
     )).scalar_one()
 
+    # Feature adoption — how many orgs have ever used each feature
+    from app.models.expense import Expense
+    from app.models.supplier import Supplier, SupplierRequest
+
+    total_quotations = (await db.execute(select(func.count()).select_from(Quotation))).scalar_one()
+    total_suppliers = (await db.execute(
+        select(func.count()).select_from(Supplier).where(Supplier.status == "active")
+    )).scalar_one()
+    total_supplier_requests = (await db.execute(select(func.count()).select_from(SupplierRequest))).scalar_one()
+    orgs_using_suppliers = (await db.execute(
+        select(func.count(func.distinct(Supplier.organization_id))).select_from(Supplier)
+    )).scalar_one()
+    orgs_using_expenses = (await db.execute(
+        select(func.count(func.distinct(Expense.organization_id))).select_from(Expense)
+    )).scalar_one()
+    orgs_with_etims = (await db.execute(
+        select(func.count(func.distinct(Invoice.organization_id))).select_from(Invoice)
+        .where(Invoice.etims_cu_invoice_no.isnot(None))
+    )).scalar_one()
+
+    # Conversion funnel
+    free_orgs = plan_counts.get("free", 0)
+    paid_orgs = sum(v for k, v in plan_counts.items() if k != "free")
+
     return {
         "total_orgs": total_orgs,
         "total_users": total_users,
         "total_invoices": total_invoices,
+        "total_quotations": total_quotations,
         "new_orgs_this_month": new_orgs_this_month,
         "invoices_this_month": invoices_this_month,
         "active_orgs": active_orgs,
@@ -192,6 +217,13 @@ async def superadmin_stats(db: AsyncSession = Depends(get_db)):
         "arr_kes": arr,
         "revenue_this_month_kes": int(revenue_this_month),
         "total_revenue_kes": int(total_revenue),
+        "total_suppliers": total_suppliers,
+        "total_supplier_requests": total_supplier_requests,
+        "orgs_using_suppliers": orgs_using_suppliers,
+        "orgs_using_expenses": orgs_using_expenses,
+        "orgs_with_etims": orgs_with_etims,
+        "free_orgs": free_orgs,
+        "paid_orgs": paid_orgs,
     }
 
 
