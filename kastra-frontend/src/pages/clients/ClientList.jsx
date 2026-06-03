@@ -11,7 +11,7 @@ import EmptyState from "../../components/ui/EmptyState";
 import { Users } from "lucide-react";
 
 function ClientForm({ onSave, onClose }) {
-  const [form, setForm] = useState({ name: "", email: "", phone: "", address: "" });
+  const [form, setForm] = useState({ name: "", email: "", phone: "", address: "", sms_consent: false });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -62,6 +62,19 @@ function ClientForm({ onSave, onClose }) {
         <textarea className="input" rows={2} placeholder="Nairobi, Kenya" value={form.address}
           onChange={(e) => setForm({ ...form, address: e.target.value })} />
       </div>
+      {form.phone && (
+        <label className="flex items-start gap-2.5 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            className="mt-0.5 accent-green-600"
+            checked={form.sms_consent}
+            onChange={(e) => setForm({ ...form, sms_consent: e.target.checked })}
+          />
+          <span className="text-xs text-gray-600">
+            Client consents to receive SMS notifications (invoice alerts, payment confirmations, reminders) at the phone number above. Required by the Kenya Data Protection Act 2019 to send SMS.
+          </span>
+        </label>
+      )}
       <div className="flex justify-end gap-2 pt-2">
         <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
         <button type="submit" className="btn-primary" disabled={saving}>

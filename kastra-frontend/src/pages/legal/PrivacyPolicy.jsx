@@ -64,14 +64,33 @@ export default function PrivacyPolicy() {
           </section>
 
           <section className="space-y-2">
-            <h2 className="font-semibold text-gray-900">5. Data Sharing</h2>
-            <p>We do not sell your personal data. We share data only with:</p>
+            <h2 className="font-semibold text-gray-900">5. Data Sharing &amp; Third-Party Processors</h2>
+            <p>We do not sell your personal data. We share data only with trusted processors necessary to deliver the Service:</p>
             <ul className="list-disc pl-5 space-y-1">
-              <li><strong>Safaricom:</strong> to initiate and confirm M-Pesa payments.</li>
-              <li><strong>SendGrid:</strong> to deliver transactional emails.</li>
-              <li><strong>KRA:</strong> eTIMS invoice submissions as required by law.</li>
-              <li><strong>Sentry:</strong> anonymised error diagnostics (no PII transmitted).</li>
+              <li><strong>Safaricom (Kenya):</strong> M-Pesa STK Push payment initiation and confirmation. Receives phone number and invoice amount.</li>
+              <li><strong>Paystack (Nigeria/International):</strong> Card payment processing for business subscriptions and client invoice payments. Receives transaction amount and payer email.</li>
+              <li><strong>SendGrid / Twilio (USA):</strong> Transactional email delivery (invoices, receipts, reminders). Receives recipient email address and message content.</li>
+              <li><strong>Africa's Talking (Kenya):</strong> SMS notifications (payment confirmations, invoice reminders). Receives client phone number and message content — only when the client has consented to SMS.</li>
+              <li><strong>Cloudinary (USA / International CDN):</strong> Storage of business logos and project photos. Receives image files uploaded by your account.</li>
+              <li><strong>Google (USA):</strong> Optional Google OAuth sign-in. Receives your Google account email and profile name if you choose to sign in with Google.</li>
+              <li><strong>KRA (Kenya):</strong> eTIMS invoice submissions as required by law.</li>
+              <li><strong>Sentry (USA):</strong> Anonymised error diagnostics. No personally identifiable information is transmitted (<code>send_default_pii=False</code>).</li>
             </ul>
+            <p className="text-sm text-gray-500 mt-1">All processors are bound by data processing agreements and are required to process data only on our instructions.</p>
+          </section>
+
+          <section className="space-y-2">
+            <h2 className="font-semibold text-gray-900">5a. International Data Transfers (Section 49, DPA 2019)</h2>
+            <p>
+              Some processors (SendGrid, Cloudinary, Google, Sentry) are based outside Kenya. Where personal data
+              is transferred internationally, we rely on one or more of the following safeguards:
+            </p>
+            <ul className="list-disc pl-5 space-y-1">
+              <li>Standard Contractual Clauses (SCCs) approved by the relevant data protection authority.</li>
+              <li>The recipient country's data protection framework has been assessed as providing adequate protection.</li>
+              <li>Your explicit consent at the point of data collection (e.g. Google sign-in).</li>
+            </ul>
+            <p className="text-sm text-gray-500 mt-1">You may request details of the specific safeguards in place by emailing <a href="mailto:privacy@kastra.co.ke" className="text-green-600 hover:underline">privacy@kastra.co.ke</a>.</p>
           </section>
 
           <section className="space-y-2">

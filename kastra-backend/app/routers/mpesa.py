@@ -206,6 +206,7 @@ async def mpesa_callback(request: Request, db: AsyncSession = Depends(get_db)):
             amount=paid_amount,
             business_name=biz_name,
             receipt=receipt_number or None,
+            sms_consent=getattr(invoice.client, "sms_consent", False) if invoice.client else False,
         ))
 
     return {"ResultCode": 0, "ResultDesc": "Accepted"}

@@ -10,6 +10,7 @@ class ClientCreate(BaseModel):
     email: str | None = None
     phone: str | None = None
     address: str | None = None
+    sms_consent: bool = False
 
     @field_validator("phone")
     @classmethod
@@ -32,6 +33,7 @@ class ClientUpdate(BaseModel):
     phone: str | None = None
     address: str | None = None
     status: str | None = None
+    sms_consent: bool | None = None
 
     @field_validator("phone")
     @classmethod
@@ -56,6 +58,7 @@ class ClientOut(BaseModel):
     phone: str | None
     address: str | None
     status: str
+    sms_consent: bool = False
     pin_enabled: bool = False
     created_at: datetime
     updated_at: datetime

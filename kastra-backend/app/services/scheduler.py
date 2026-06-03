@@ -12,6 +12,7 @@ from app.models.organization import Organization
 from app.models.quotation import Quotation
 from app.models.recurring_invoice import RecurringInvoice
 from app.services.email_service import send_due_soon_reminder_email, send_overdue_reminder_email
+from app.services.sms_service import sms_due_soon, sms_overdue_reminder
 from app.utils.id_generator import next_id
 
 logger = logging.getLogger(__name__)
@@ -73,17 +74,28 @@ async def _process_smart_reminders():
                 balance_due = float(inv.grand_total) - float(inv.amount_paid or 0)
 
                 try:
+                    client_phone = inv.client.phone if inv.client else None
+                    client_sms_consent = getattr(inv.client, "sms_consent", False) if inv.client else False
                     if milestone_day < 0:
                         # Pre-due: friendly heads-up
-                        days_until = abs(days_from_due - milestone_day)
+                        days_until = max(1, -days_from_due)
                         if client_email:
                             await send_due_soon_reminder_email(
                                 client_email=client_email,
                                 invoice_id=inv.id,
                                 amount=balance_due,
                                 business_name=biz_name,
-                                days_until_due=max(1, -days_from_due),
+                                days_until_due=days_until,
                             )
+                        await sms_due_soon(
+                            client_phone=client_phone,
+                            client_name=client_name,
+                            invoice_id=inv.id,
+                            amount=balance_due,
+                            business_name=biz_name,
+                            days_until_due=days_until,
+                            sms_consent=client_sms_consent,
+                        )
                     else:
                         # Overdue reminder
                         days_overdue = max(0, days_from_due)
@@ -96,6 +108,15 @@ async def _process_smart_reminders():
                                 days_overdue=days_overdue,
                                 balance_due=balance_due,
                             )
+                        await sms_overdue_reminder(
+                            client_phone=client_phone,
+                            client_name=client_name,
+                            invoice_id=inv.id,
+                            balance_due=balance_due,
+                            business_name=biz_name,
+                            days_overdue=days_overdue,
+                            sms_consent=client_sms_consent,
+                        )
 
                     inv.reminders_sent += 1
                     inv.last_reminded_at = now

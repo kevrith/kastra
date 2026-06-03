@@ -76,7 +76,9 @@ async def send_sms(phone: str | None, message: str) -> bool:
 
 
 async def sms_invoice_sent(client_phone: str | None, client_name: str, invoice_id: str,
-                           amount: float, business_name: str) -> None:
+                           amount: float, business_name: str, sms_consent: bool = True) -> None:
+    if not sms_consent:
+        return
     msg = (
         f"Hi {client_name}, {business_name} has sent you invoice {invoice_id} "
         f"for KSh {amount:,.0f}. Reply or contact them to arrange payment."
@@ -85,7 +87,10 @@ async def sms_invoice_sent(client_phone: str | None, client_name: str, invoice_i
 
 
 async def sms_payment_received(client_phone: str | None, client_name: str, invoice_id: str,
-                                amount: float, business_name: str, receipt: str | None = None) -> None:
+                                amount: float, business_name: str, receipt: str | None = None,
+                                sms_consent: bool = True) -> None:
+    if not sms_consent:
+        return
     ref = f" (Ref: {receipt})" if receipt else ""
     msg = (
         f"Hi {client_name}, {business_name} has received your payment of "
@@ -95,7 +100,10 @@ async def sms_payment_received(client_phone: str | None, client_name: str, invoi
 
 
 async def sms_overdue_reminder(client_phone: str | None, client_name: str, invoice_id: str,
-                                balance_due: float, business_name: str, days_overdue: int) -> None:
+                                balance_due: float, business_name: str, days_overdue: int,
+                                sms_consent: bool = True) -> None:
+    if not sms_consent:
+        return
     msg = (
         f"Hi {client_name}, invoice {invoice_id} from {business_name} is "
         f"{days_overdue} day(s) overdue. Balance: KSh {balance_due:,.0f}. "
@@ -105,7 +113,10 @@ async def sms_overdue_reminder(client_phone: str | None, client_name: str, invoi
 
 
 async def sms_due_soon(client_phone: str | None, client_name: str, invoice_id: str,
-                        amount: float, business_name: str, days_until_due: int) -> None:
+                        amount: float, business_name: str, days_until_due: int,
+                        sms_consent: bool = True) -> None:
+    if not sms_consent:
+        return
     msg = (
         f"Hi {client_name}, invoice {invoice_id} from {business_name} for "
         f"KSh {amount:,.0f} is due in {days_until_due} day(s). Please arrange payment."

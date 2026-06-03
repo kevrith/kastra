@@ -35,6 +35,14 @@ services:
       - key: MAIL_FROM
         sync: false   # e.g. noreply@kastra.co.ke
 
+      # Africa's Talking (SMS)
+      - key: AT_API_KEY
+        sync: false
+      - key: AT_USERNAME
+        sync: false   # your AT username (not "sandbox")
+      - key: AT_SENDER_ID
+        sync: false   # optional branded sender ID e.g. KASTRA
+
       # Claude AI / OCR
       - key: ANTHROPIC_API_KEY
         sync: false
