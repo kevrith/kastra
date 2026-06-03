@@ -858,6 +858,8 @@ export default function SuperAdmin() {
                 <StatCard label="Total Quotations" value={selectedOrg.total_quotations} icon={FileText} color="text-blue-400" />
                 <StatCard label="Invoices This Month" value={selectedOrg.invoices_this_month} icon={TrendingUp} color="text-yellow-400" />
                 <StatCard label="Team Members" value={selectedOrg.users?.length} icon={Users} color="text-purple-400" />
+                <StatCard label="Suppliers" value={selectedOrg.total_suppliers ?? 0} icon={Users} color="text-pink-400" />
+                <StatCard label="Price Requests" value={selectedOrg.total_supplier_requests ?? 0} icon={FileText} color="text-orange-400" />
               </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -963,6 +965,50 @@ export default function SuperAdmin() {
                   </dl>
                 </div>
               </div>
+
+              {/* Plan Features */}
+              {selectedOrg.plan_features && (
+                <div className="bg-gray-800 border border-gray-700 rounded-xl p-5">
+                  <SectionTitle title={`Plan Features — ${selectedOrg.plan?.charAt(0).toUpperCase()}${selectedOrg.plan?.slice(1)}`} />
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 mt-2">
+                    {[
+                      ["Suppliers", "suppliers"],
+                      ["Job Profitability", "job_profitability"],
+                      ["Expenses", "expenses"],
+                      ["Products", "products"],
+                      ["Client Portal", "client_portal"],
+                      ["Paystack", "paystack"],
+                      ["Email Invoices", "email_invoices"],
+                      ["Auto Reminders", "auto_reminders"],
+                      ["SMS", "sms"],
+                      ["Recurring Invoices", "recurring_invoices"],
+                      ["eTIMS / KRA", "etims"],
+                      ["Audit Logs", "audit_logs"],
+                      ["Global Search", "global_search"],
+                      ["Priority Support", "priority_support"],
+                      ["White Label", "white_label"],
+                    ].map(([label, key]) => {
+                      const enabled = selectedOrg.plan_features[key];
+                      return (
+                        <div key={key} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium ${
+                          enabled ? "bg-green-900/40 text-green-300 border border-green-800" : "bg-gray-700/50 text-gray-500 border border-gray-700"
+                        }`}>
+                          <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${enabled ? "bg-green-400" : "bg-gray-600"}`} />
+                          {label}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-3 text-xs text-gray-500 border-t border-gray-700 pt-3">
+                    <span>Invoices/mo: <span className="text-gray-300">{selectedOrg.plan_features.invoices_per_month === -1 ? "∞" : selectedOrg.plan_features.invoices_per_month}</span></span>
+                    <span>Quotations/mo: <span className="text-gray-300">{selectedOrg.plan_features.quotations_per_month === -1 ? "∞" : selectedOrg.plan_features.quotations_per_month}</span></span>
+                    <span>Clients: <span className="text-gray-300">{selectedOrg.plan_features.clients === -1 ? "∞" : selectedOrg.plan_features.clients}</span></span>
+                    <span>Team: <span className="text-gray-300">{selectedOrg.plan_features.team_members === -1 ? "∞" : selectedOrg.plan_features.team_members}</span></span>
+                    <span>OCR/mo: <span className="text-gray-300">{selectedOrg.plan_features.ocr_scans_per_month === -1 ? "∞" : selectedOrg.plan_features.ocr_scans_per_month}</span></span>
+                    <span>Reports: <span className="text-gray-300">{selectedOrg.plan_features.reports_months === -1 ? "∞" : selectedOrg.plan_features.reports_months === 0 ? "Dashboard only" : `${selectedOrg.plan_features.reports_months}mo`}</span></span>
+                  </div>
+                </div>
+              )}
 
               {/* Payment history for this org */}
               {selectedOrg.recent_payments?.length > 0 && (

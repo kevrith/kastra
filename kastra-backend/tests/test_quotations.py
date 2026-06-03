@@ -54,10 +54,10 @@ async def test_create_quotation_returns_201(client: AsyncClient, auth_headers: d
 
 
 async def test_quotation_id_format(client: AsyncClient, auth_headers: dict, sample_client_id: str):
-    """ID should match QT-YYYY-XXX."""
+    """ID should match PREFIX-QT-YYYY-XXX."""
     data = await _create_quotation(client, auth_headers, sample_client_id)
     import re
-    assert re.match(r"^QT-\d{4}-\d{3}$", data["id"])
+    assert re.match(r"^[A-Z0-9]+-QT-\d{4}-\d{3}$", data["id"])
 
 
 async def test_vat_calculation_single_item(client: AsyncClient, auth_headers: dict, sample_client_id: str):
@@ -240,7 +240,7 @@ async def test_convert_accepted_quotation(client: AsyncClient, auth_headers: dic
     assert data["converted_to_invoice"] is True
     assert data["invoice_id"] is not None
     import re
-    assert re.match(r"^INV-\d{4}-\d{3}$", data["invoice_id"])
+    assert re.match(r"^[A-Z0-9]+-INV-\d{4}-\d{3}$", data["invoice_id"])
 
 
 async def test_convert_preserves_totals(client: AsyncClient, auth_headers: dict, sample_client_id: str):

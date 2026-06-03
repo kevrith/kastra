@@ -20,9 +20,10 @@ from app.models.invoice import Invoice
 from app.models.organization import Organization
 from app.models.quotation import Quotation
 from app.models.subscription_payment import SubscriptionPayment
+from app.models.supplier import Supplier, SupplierRequest
 from app.models.user import User
 from app.utils.billing_events import record_audit, record_subscription_payment
-from app.utils.plan_limits import PLAN_PRICES_KES, VALID_PLANS
+from app.utils.plan_limits import PLAN_PRICES_KES, VALID_PLANS, get_limits
 from app.utils.security import hash_password
 
 router = APIRouter(prefix="/api/superadmin", tags=["superadmin"])
@@ -722,6 +723,17 @@ async def get_org_detail(org_id: str, db: AsyncSession = Depends(get_db)):
         select(func.count()).select_from(Quotation).where(Quotation.organization_id == org_id)
     )).scalar_one()
 
+    supplier_count = (await db.execute(
+        select(func.count()).select_from(Supplier).where(
+            Supplier.organization_id == org_id,
+            Supplier.status == "active",
+        )
+    )).scalar_one()
+
+    supplier_request_count = (await db.execute(
+        select(func.count()).select_from(SupplierRequest).where(SupplierRequest.organization_id == org_id)
+    )).scalar_one()
+
     # Last 5 payments for this org
     payments_result = await db.execute(
         select(SubscriptionPayment)
@@ -752,6 +764,9 @@ async def get_org_detail(org_id: str, db: AsyncSession = Depends(get_db)):
         "created_at": org.created_at.isoformat(),
         "total_invoices": invoice_count,
         "total_quotations": quotation_count,
+        "total_suppliers": supplier_count,
+        "total_supplier_requests": supplier_request_count,
+        "plan_features": get_limits(org.plan),
         "users": [
             {"id": str(u.id), "email": u.email, "display_name": u.display_name, "role": u.role, "is_active": u.is_active}
             for u in users
