@@ -419,20 +419,61 @@ export default function SupplierRequestDetail() {
                     </div>
 
                     {/* Submitted response preview */}
-                    {invite.status === "responded" && invite.response_items.length > 0 && (
-                      <div className="bg-green-50 rounded-lg p-3 space-y-1">
-                        <p className="text-xs font-semibold text-green-700 mb-2">
-                          Submitted {invite.submitted_at ? new Date(invite.submitted_at).toLocaleDateString("en-KE", { day: "2-digit", month: "short", year: "numeric" }) : ""}
-                          {invite.supplier_notes && <span className="text-gray-500 font-normal ml-2">— "{invite.supplier_notes}"</span>}
-                        </p>
-                        {invite.response_items.map((r) => (
-                          <div key={r.id} className="flex justify-between text-sm text-gray-700">
-                            <span>{r.description} {r.quantity ? `× ${r.quantity}` : ""} {r.unit || ""}</span>
-                            <span className="font-semibold text-green-800">{ksh(r.unit_price)}</span>
+                    {invite.status === "responded" && invite.response_items.length > 0 && (() => {
+                      const grandTotal = invite.response_items.reduce((sum, r) => {
+                        const qty = parseFloat(r.quantity) || 0;
+                        return sum + (parseFloat(r.unit_price) * (qty || 1));
+                      }, 0);
+                      const hasQty = invite.response_items.some((r) => r.quantity);
+                      return (
+                        <div className="rounded-xl overflow-hidden border border-green-200 mt-1">
+                          <div className="bg-green-700 px-3 py-2 flex items-center justify-between flex-wrap gap-1">
+                            <p className="text-xs font-semibold text-white">
+                              Submitted {invite.submitted_at
+                                ? new Date(invite.submitted_at).toLocaleDateString("en-KE", { day: "2-digit", month: "short", year: "numeric" })
+                                : ""}
+                            </p>
+                            {invite.supplier_notes && (
+                              <p className="text-xs text-green-200 italic">"{invite.supplier_notes}"</p>
+                            )}
                           </div>
-                        ))}
-                      </div>
-                    )}
+                          <table className="w-full text-sm bg-white">
+                            <thead className="bg-green-50">
+                              <tr>
+                                <th className="px-3 py-2 text-left text-xs font-semibold text-green-800">Item</th>
+                                {hasQty && <th className="px-2 py-2 text-center text-xs font-semibold text-green-800 whitespace-nowrap">Qty</th>}
+                                <th className="px-2 py-2 text-right text-xs font-semibold text-green-800 whitespace-nowrap">Unit Price</th>
+                                {hasQty && <th className="px-3 py-2 text-right text-xs font-semibold text-green-800 whitespace-nowrap">Line Total</th>}
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-green-50">
+                              {invite.response_items.map((r) => {
+                                const qty = parseFloat(r.quantity) || 0;
+                                const lineTotal = parseFloat(r.unit_price) * (qty || 1);
+                                return (
+                                  <tr key={r.id}>
+                                    <td className="px-3 py-2 text-gray-800">{r.description}</td>
+                                    {hasQty && <td className="px-2 py-2 text-center text-gray-500">{qty > 0 ? qty : "—"}</td>}
+                                    <td className="px-2 py-2 text-right font-medium text-gray-700">{ksh(r.unit_price)}</td>
+                                    {hasQty && <td className="px-3 py-2 text-right font-semibold text-green-700">{ksh(lineTotal)}</td>}
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                            <tfoot>
+                              <tr className="border-t-2 border-green-200 bg-green-50">
+                                <td colSpan={hasQty ? 3 : 1} className="px-3 py-2.5 text-sm font-bold text-green-800 text-right">
+                                  Grand Total
+                                </td>
+                                <td className="px-3 py-2.5 text-right text-base font-extrabold text-green-800">
+                                  {ksh(grandTotal)}
+                                </td>
+                              </tr>
+                            </tfoot>
+                          </table>
+                        </div>
+                      );
+                    })()}
                   </div>
                 ))}
               </div>
