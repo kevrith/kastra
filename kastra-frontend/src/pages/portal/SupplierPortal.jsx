@@ -153,58 +153,68 @@ export default function SupplierPortal() {
             {/* Column headers */}
             <div className="hidden sm:grid grid-cols-12 gap-2 text-[10px] text-gray-400 uppercase tracking-wide px-1">
               <div className="col-span-4">Item Description</div>
-              <div className="col-span-2">Qty</div>
-              <div className="col-span-2">Unit</div>
-              <div className="col-span-3">Your Unit Price (KSh) *</div>
+              <div className="col-span-1">Qty</div>
+              <div className="col-span-1">Unit</div>
+              <div className="col-span-3">Unit Price (KSh) *</div>
+              <div className="col-span-2 text-right">Line Total</div>
               <div className="col-span-1" />
             </div>
 
-            {items.map((item, i) => (
-              <div key={i} className="grid grid-cols-12 gap-2 items-start">
-                <div className="col-span-12 sm:col-span-4">
-                  <input
-                    className="input"
-                    placeholder="Item description"
-                    value={item.description}
-                    onChange={(e) => setItem(i, "description", e.target.value)}
-                  />
+            {items.map((item, i) => {
+              const lineTotal = (parseFloat(item.unit_price) || 0) * (parseFloat(item.quantity) || 0);
+              return (
+                <div key={i} className="grid grid-cols-12 gap-2 items-center">
+                  <div className="col-span-12 sm:col-span-4">
+                    <input
+                      className="input"
+                      placeholder="Item description"
+                      value={item.description}
+                      onChange={(e) => setItem(i, "description", e.target.value)}
+                    />
+                  </div>
+                  <div className="col-span-3 sm:col-span-1">
+                    <input
+                      className="input bg-gray-50"
+                      type="number"
+                      placeholder="Qty"
+                      value={item.quantity}
+                      onChange={(e) => setItem(i, "quantity", e.target.value)}
+                    />
+                  </div>
+                  <div className="col-span-3 sm:col-span-1">
+                    <input
+                      className="input bg-gray-50"
+                      placeholder="unit"
+                      value={item.unit}
+                      onChange={(e) => setItem(i, "unit", e.target.value)}
+                    />
+                  </div>
+                  <div className="col-span-5 sm:col-span-3">
+                    <input
+                      className="input font-medium"
+                      type="number"
+                      placeholder="0.00"
+                      min="0"
+                      step="0.01"
+                      value={item.unit_price}
+                      onChange={(e) => setItem(i, "unit_price", e.target.value)}
+                      required={item.description.trim().length > 0}
+                    />
+                  </div>
+                  <div className="col-span-1 hidden sm:block" />
+                  <div className="col-span-12 sm:col-span-2 flex items-center justify-end sm:justify-end gap-2">
+                    {lineTotal > 0 ? (
+                      <span className="text-sm font-semibold text-green-700 whitespace-nowrap">{ksh(lineTotal)}</span>
+                    ) : (
+                      <span className="text-sm text-gray-300 hidden sm:block">—</span>
+                    )}
+                    <button type="button" onClick={() => removeItem(i)} className="text-gray-300 hover:text-red-500 p-1 shrink-0">
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
                 </div>
-                <div className="col-span-4 sm:col-span-2">
-                  <input
-                    className="input bg-gray-50"
-                    type="number"
-                    placeholder="Qty"
-                    value={item.quantity}
-                    onChange={(e) => setItem(i, "quantity", e.target.value)}
-                  />
-                </div>
-                <div className="col-span-4 sm:col-span-2">
-                  <input
-                    className="input bg-gray-50"
-                    placeholder="unit"
-                    value={item.unit}
-                    onChange={(e) => setItem(i, "unit", e.target.value)}
-                  />
-                </div>
-                <div className="col-span-10 sm:col-span-3">
-                  <input
-                    className="input font-medium"
-                    type="number"
-                    placeholder="0.00"
-                    min="0"
-                    step="0.01"
-                    value={item.unit_price}
-                    onChange={(e) => setItem(i, "unit_price", e.target.value)}
-                    required={item.description.trim().length > 0}
-                  />
-                </div>
-                <div className="col-span-2 sm:col-span-1 flex justify-center pt-2">
-                  <button type="button" onClick={() => removeItem(i)} className="text-gray-300 hover:text-red-500 p-1">
-                    <Trash2 size={14} />
-                  </button>
-                </div>
-              </div>
-            ))}
+              );
+            })}
 
             <button type="button" className="btn-secondary text-sm" onClick={addItem}>
               <Plus size={14} /> Add Item
