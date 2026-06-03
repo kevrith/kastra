@@ -4,7 +4,7 @@ import { getInvoice, markPaid, mpesaPay, sendReminder, submitEtims, sendInvoiceE
 import { getOrganization } from "../../api/organization";
 import { getInvoicePayments, recordPayment, deletePayment } from "../../api/invoice_payments";
 import { createInvoiceExpense, updateInvoiceExpense, deleteInvoiceExpense } from "../../api/expenses";
-import { ksh, date, phone, statusBadgeClass } from "../../utils/formatters";
+import { ksh, date, phone, statusBadgeClass, normalizePhone } from "../../utils/formatters";
 import { publicOrigin } from "../../utils/publicUrl";
 import {
   ArrowLeft, MessageCircle, Smartphone, CheckCircle, FileDown, ShieldCheck,
@@ -383,7 +383,7 @@ function RequestPaymentForm({ invoice, paymentsData, onClose }) {
 
   const handleWhatsApp = () => {
     if (!link) return;
-    const clientPhone = invoice.client?.phone ?? "";
+    const clientPhone = normalizePhone(invoice.client?.phone);
     const amtLabel = isPartial ? `*KSh ${amountNum.toLocaleString()}* (partial)` : `*${ksh(invoice.grand_total)}*`;
     const msg = [
       `Hello ${invoice.client?.name ?? ""},`,
@@ -532,7 +532,7 @@ export default function InvoiceDetail() {
     if (!invoice) return;
     const payLink = `${publicOrigin()}/pay/${id}`;
     const msg = [`Hello ${invoice.client?.name ?? ""},`, ``, `Please find your invoice *${id}* for *${ksh(invoice.grand_total)}*.`, ``, `Pay online here: ${payLink}`, ``, `Thank you.`].join("\n");
-    window.open(`https://wa.me/${invoice.client?.phone ?? ""}?text=${encodeURIComponent(msg)}`, "_blank");
+    window.open(`https://wa.me/${normalizePhone(invoice.client?.phone)}?text=${encodeURIComponent(msg)}`, "_blank");
   };
 
   const handleEtimsSubmit = async () => {

@@ -4,7 +4,7 @@ import {
   getSupplierRequest, getComparison, addInvite, removeInvite,
   closeSupplierRequest, updateSupplierRequest, getSuppliers,
 } from "../../api/suppliers";
-import { ksh } from "../../utils/formatters";
+import { ksh, normalizePhone } from "../../utils/formatters";
 import { publicOrigin } from "../../utils/publicUrl";
 import {
   ArrowLeft, Copy, MessageCircle, CheckCircle, Clock, Plus, Trash2,
@@ -166,14 +166,6 @@ export default function SupplierRequestDetail() {
       setCopied((p) => ({ ...p, [invite.id]: true }));
       setTimeout(() => setCopied((p) => ({ ...p, [invite.id]: false })), 2000);
     });
-  };
-
-  const normalizePhone = (raw) => {
-    if (!raw) return null;
-    let p = raw.replace(/\s+/g, "").replace(/[^0-9+]/g, "");
-    if (p.startsWith("+")) p = p.slice(1);       // +254... → 254...
-    if (p.startsWith("0")) p = "254" + p.slice(1); // 07... → 2547...
-    return p;
   };
 
   const handleWhatsApp = (invite) => {

@@ -5,7 +5,7 @@ import { getQuotation, updateQuotationStatus, convertToInvoice, emailQuotation, 
 import { getInvoices } from "../../api/invoices";
 import { getOrganization } from "../../api/organization";
 import { createProject, listProjects } from "../../api/projects";
-import { ksh, date, phone, statusBadgeClass } from "../../utils/formatters";
+import { ksh, date, phone, statusBadgeClass, normalizePhone } from "../../utils/formatters";
 import { ArrowLeft, Edit2, RefreshCw, MessageCircle, FileDown, Copy, Mail, Receipt, StickyNote, Send, Briefcase } from "lucide-react";
 import Spinner from "../../components/ui/Spinner";
 import Modal from "../../components/ui/Modal";
@@ -137,7 +137,7 @@ export default function QuotationDetail() {
       ``,
       `Thank you.`,
     ].join("\n");
-    const ph = quotation.client.phone ?? "";
+    const ph = normalizePhone(quotation.client.phone);
     window.open(`https://wa.me/${ph}?text=${encodeURIComponent(msg)}`, "_blank");
   };
 

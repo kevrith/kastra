@@ -11,6 +11,16 @@ export const phone = (p) => {
   return p;
 };
 
+// Converts any local/international format to WhatsApp-compatible (no +, with country code)
+// 0712345678 → 254712345678, +254712345678 → 254712345678, 254712345678 → 254712345678
+export const normalizePhone = (raw) => {
+  if (!raw) return "";
+  let p = raw.replace(/\s+/g, "").replace(/[^0-9+]/g, "");
+  if (p.startsWith("+")) p = p.slice(1);
+  if (p.startsWith("0")) p = "254" + p.slice(1);
+  return p;
+};
+
 export const statusBadgeClass = (status) => {
   const map = {
     paid: "badge-paid",

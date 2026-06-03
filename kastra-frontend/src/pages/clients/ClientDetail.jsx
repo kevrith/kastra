@@ -5,7 +5,7 @@ import { getClient, getClientHistory, updateClient } from "../../api/clients";
 import { getQuotations } from "../../api/quotations";
 import { getInvoices } from "../../api/invoices";
 import { getOrganization } from "../../api/organization";
-import { ksh, phone, date, statusBadgeClass } from "../../utils/formatters";
+import { ksh, phone, date, statusBadgeClass, normalizePhone } from "../../utils/formatters";
 import { ArrowLeft, Edit2, Check, X, Copy, MessageCircle, ExternalLink, Lock, LockOpen, RefreshCw } from "lucide-react";
 import Spinner from "../../components/ui/Spinner";
 import Modal from "../../components/ui/Modal";
@@ -70,7 +70,7 @@ export default function ClientDetail() {
       ``,
       `Tap the link above to pay invoices or respond to quotations.`,
     ].join("\n");
-    const ph = client.phone ?? "";
+    const ph = normalizePhone(client.phone);
     window.open(`https://wa.me/${ph}?text=${encodeURIComponent(msg)}`, "_blank");
   };
 
