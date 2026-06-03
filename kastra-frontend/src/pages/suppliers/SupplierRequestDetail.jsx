@@ -2,13 +2,13 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   getSupplierRequest, getComparison, addInvite, removeInvite,
-  closeSupplierRequest, getSuppliers,
+  closeSupplierRequest, updateSupplierRequest, getSuppliers,
 } from "../../api/suppliers";
 import { ksh } from "../../utils/formatters";
 import { publicOrigin } from "../../utils/publicUrl";
 import {
   ArrowLeft, Copy, MessageCircle, CheckCircle, Clock, Plus, Trash2,
-  BarChart2, Users, Lock, RefreshCw,
+  BarChart2, Users, Lock, Edit2,
 } from "lucide-react";
 import Spinner from "../../components/ui/Spinner";
 import Modal from "../../components/ui/Modal";
@@ -125,6 +125,7 @@ export default function SupplierRequestDetail() {
   const [allSuppliers, setAllSuppliers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAddSupplier, setShowAddSupplier] = useState(false);
+  const [whatsappError, setWhatsappError] = useState("");
   const [selectedSupplierId, setSelectedSupplierId] = useState("");
   const [addingSupplier, setAddingSupplier] = useState(false);
   const [addError, setAddError] = useState("");
@@ -132,6 +133,10 @@ export default function SupplierRequestDetail() {
   const [copied, setCopied] = useState({});
   const [closeConfirm, setCloseConfirm] = useState(false);
   const [activeTab, setActiveTab] = useState("overview"); // overview | comparison
+  const [showEdit, setShowEdit] = useState(false);
+  const [editForm, setEditForm] = useState({ title: "", notes: "", items: [] });
+  const [editSaving, setEditSaving] = useState(false);
+  const [editError, setEditError] = useState("");
 
   const load = async () => {
     setLoading(true);
@@ -164,6 +169,11 @@ export default function SupplierRequestDetail() {
   };
 
   const handleWhatsApp = (invite) => {
+    if (!invite.supplier_phone) {
+      setWhatsappError(`No phone number saved for ${invite.supplier_name}. Edit this supplier in the Suppliers tab and add their phone number (format: 254712345678).`);
+      return;
+    }
+    setWhatsappError("");
     const url = invite.portal_url;
     const msg = [
       `Hello ${invite.supplier_name},`,
@@ -175,7 +185,7 @@ export default function SupplierRequestDetail() {
       ``,
       `Thank you.`,
     ].join("\n");
-    window.open(`https://wa.me/${invite.supplier_phone ?? ""}?text=${encodeURIComponent(msg)}`, "_blank");
+    window.open(`https://wa.me/${invite.supplier_phone}?text=${encodeURIComponent(msg)}`, "_blank");
   };
 
   const handleAddSupplier = async () => {
@@ -206,6 +216,56 @@ export default function SupplierRequestDetail() {
     load();
   };
 
+  const openEdit = () => {
+    setEditForm({
+      title: request.title,
+      notes: request.notes ?? "",
+      items: request.items.map((it) => ({
+        description: it.description,
+        quantity: it.quantity != null ? String(it.quantity) : "",
+        unit: it.unit ?? "",
+      })),
+    });
+    setEditError("");
+    setShowEdit(true);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editForm.title || editForm.items.filter((it) => it.description.trim()).length === 0) {
+      setEditError("Title and at least one item are required.");
+      return;
+    }
+    setEditSaving(true);
+    setEditError("");
+    try {
+      await updateSupplierRequest(id, {
+        title: editForm.title,
+        notes: editForm.notes || null,
+        items: editForm.items
+          .filter((it) => it.description.trim())
+          .map((it, i) => ({
+            description: it.description,
+            quantity: parseFloat(it.quantity) || null,
+            unit: it.unit || null,
+            sort_order: i,
+          })),
+      });
+      setShowEdit(false);
+      load();
+    } catch (err) {
+      setEditError(err.response?.data?.detail ?? "Failed to save changes");
+    } finally {
+      setEditSaving(false);
+    }
+  };
+
+  const setEditItem = (i, k, v) =>
+    setEditForm((prev) => ({ ...prev, items: prev.items.map((it, idx) => idx === i ? { ...it, [k]: v } : it) }));
+  const addEditItem = () =>
+    setEditForm((prev) => ({ ...prev, items: [...prev.items, { description: "", quantity: "", unit: "" }] }));
+  const removeEditItem = (i) =>
+    setEditForm((prev) => ({ ...prev, items: prev.items.filter((_, idx) => idx !== i) }));
+
   if (loading) return <div className="flex h-96 items-center justify-center"><Spinner size="lg" /></div>;
   if (!request) return null;
 
@@ -231,6 +291,9 @@ export default function SupplierRequestDetail() {
         </div>
         {request.status === "open" && (
           <div className="flex gap-2 flex-wrap">
+            <button className="btn-secondary text-sm" onClick={openEdit}>
+              <Edit2 size={14} /> Edit
+            </button>
             <button className="btn-secondary text-sm" onClick={() => setShowAddSupplier(true)}>
               <Users size={14} /> Add Supplier
             </button>
@@ -297,6 +360,11 @@ export default function SupplierRequestDetail() {
               )}
             </div>
 
+            {whatsappError && (
+              <div className="mx-4 mt-3 bg-amber-50 border border-amber-200 text-amber-800 text-sm px-4 py-3 rounded-xl">
+                {whatsappError}
+              </div>
+            )}
             {request.invites.length === 0 ? (
               <div className="px-4 py-8 text-center text-sm text-gray-400">
                 No suppliers added yet. Add a supplier to generate a shareable link.
@@ -433,6 +501,81 @@ export default function SupplierRequestDetail() {
         message="Close this request? You can still view all submitted prices but no new responses will be accepted."
         danger={false}
       />
+
+      {/* Edit request modal */}
+      <Modal open={showEdit} onClose={() => setShowEdit(false)} title="Edit Price Request">
+        <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-1">
+          {editError && <div className="bg-red-50 text-red-700 text-sm px-3 py-2 rounded-lg">{editError}</div>}
+          <div>
+            <label className="label">Request Title *</label>
+            <input
+              className="input"
+              value={editForm.title}
+              onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+              placeholder="e.g. Cement & Steel — June 2026"
+            />
+          </div>
+          <div>
+            <label className="label">Notes <span className="text-gray-400 font-normal">(optional)</span></label>
+            <textarea
+              className="input"
+              rows={2}
+              value={editForm.notes}
+              onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
+              placeholder="Delivery location, urgency, special requirements…"
+            />
+          </div>
+          <div>
+            <label className="label">Items</label>
+            <div className="space-y-2">
+              <div className="hidden sm:grid grid-cols-12 gap-2 text-[10px] text-gray-400 uppercase tracking-wide px-1">
+                <div className="col-span-7">Description</div>
+                <div className="col-span-3">Quantity</div>
+                <div className="col-span-2" />
+              </div>
+              {editForm.items.map((item, i) => (
+                <div key={i} className="grid grid-cols-12 gap-2 items-center">
+                  <div className="col-span-12 sm:col-span-7">
+                    <input
+                      className="input text-sm"
+                      placeholder="e.g. Cement (50kg bag)"
+                      value={item.description}
+                      onChange={(e) => setEditItem(i, "description", e.target.value)}
+                    />
+                  </div>
+                  <div className="col-span-10 sm:col-span-3">
+                    <input
+                      className="input text-sm"
+                      type="number"
+                      placeholder="Qty"
+                      min="0"
+                      step="any"
+                      value={item.quantity}
+                      onChange={(e) => setEditItem(i, "quantity", e.target.value)}
+                    />
+                  </div>
+                  <div className="col-span-2 flex justify-center">
+                    {editForm.items.length > 1 && (
+                      <button type="button" onClick={() => removeEditItem(i)} className="text-gray-400 hover:text-red-500 p-1">
+                        <Trash2 size={14} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+              <button type="button" className="btn-secondary text-sm" onClick={addEditItem}>
+                <Plus size={13} /> Add Item
+              </button>
+            </div>
+          </div>
+          <div className="flex gap-2 justify-end pt-2 border-t border-gray-100">
+            <button className="btn-secondary" onClick={() => setShowEdit(false)}>Cancel</button>
+            <button className="btn-primary" onClick={handleSaveEdit} disabled={editSaving}>
+              {editSaving ? "Saving…" : "Save Changes"}
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

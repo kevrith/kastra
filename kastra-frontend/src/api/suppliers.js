@@ -10,6 +10,7 @@ export const deleteSupplier = (id) => api.delete(`/api/suppliers/${id}`);
 export const getSupplierRequests = (params) => api.get("/api/suppliers/requests", { params });
 export const createSupplierRequest = (data) => api.post("/api/suppliers/requests", data);
 export const getSupplierRequest = (id) => api.get(`/api/suppliers/requests/${id}`);
+export const updateSupplierRequest = (id, data) => api.put(`/api/suppliers/requests/${id}`, data);
 export const closeSupplierRequest = (id) => api.patch(`/api/suppliers/requests/${id}/close`);
 export const deleteSupplierRequest = (id) => api.delete(`/api/suppliers/requests/${id}`);
 

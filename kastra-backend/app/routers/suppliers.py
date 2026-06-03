@@ -327,6 +327,48 @@ async def get_request(
     return Response(data=_request_to_out(req))
 
 
+@router.put("/requests/{request_id}", response_model=Response[SupplierRequestOut])
+async def update_request(
+    request_id: uuid.UUID,
+    payload: SupplierRequestIn,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    result = await db.execute(
+        select(SupplierRequest).where(
+            SupplierRequest.id == request_id,
+            SupplierRequest.organization_id == current_user.organization_id,
+        ).options(selectinload(SupplierRequest.items))
+    )
+    req = result.scalar_one_or_none()
+    if not req:
+        raise HTTPException(status_code=404, detail="Request not found")
+
+    req.title = payload.title
+    req.notes = payload.notes
+
+    # Replace items: delete old, insert new
+    for old_item in req.items:
+        await db.delete(old_item)
+    await db.flush()
+
+    for i, item in enumerate(payload.items):
+        db.add(SupplierRequestItem(
+            request_id=req.id,
+            description=item.description,
+            quantity=item.quantity,
+            unit=item.unit,
+            sort_order=item.sort_order if item.sort_order else i,
+        ))
+
+    await db.flush()
+    db.expire(req)
+    result2 = await db.execute(
+        select(SupplierRequest).where(SupplierRequest.id == request_id).options(*_load_request_full)
+    )
+    return Response(data=_request_to_out(result2.scalar_one()))
+
+
 @router.patch("/requests/{request_id}/close", response_model=Response[SupplierRequestOut])
 async def close_request(
     request_id: uuid.UUID,
