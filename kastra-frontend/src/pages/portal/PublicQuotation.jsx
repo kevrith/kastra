@@ -181,25 +181,16 @@ export default function PublicQuotation() {
 
             {/* WHT */}
             {Number(quotation.wht_amount) > 0 && (
-              <div className="flex justify-between text-amber-600 text-xs">
-                <span>WHT ({quotation.wht_pct}%) — deducted by client</span>
-                <span>− {ksh(quotation.wht_amount)}</span>
-              </div>
-            )}
-
-            {/* Deposit */}
-            {Number(quotation.deposit_amount) > 0 && (
-              <div className="flex justify-between text-green-600 text-xs">
-                <span>Deposit</span>
-                <span>− {ksh(quotation.deposit_amount)}</span>
-              </div>
-            )}
-
-            {(Number(quotation.wht_amount) > 0 || Number(quotation.deposit_amount) > 0) && (
-              <div className="flex justify-between font-bold text-gray-900 border-t pt-2">
-                <span>Amount Payable</span>
-                <span>{ksh(Number(quotation.grand_total) - Number(quotation.wht_amount) - Number(quotation.deposit_amount))}</span>
-              </div>
+              <>
+                <div className="flex justify-between text-amber-600 text-xs">
+                  <span>WHT ({quotation.wht_pct}%) — deducted by client</span>
+                  <span>− {ksh(quotation.wht_amount)}</span>
+                </div>
+                <div className="flex justify-between font-bold text-gray-900 border-t pt-2">
+                  <span>Amount Payable</span>
+                  <span>{ksh(Number(quotation.grand_total) - Number(quotation.wht_amount))}</span>
+                </div>
+              </>
             )}
           </div>
         </div>

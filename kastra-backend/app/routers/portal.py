@@ -120,7 +120,6 @@ class PublicQuotationOut(BaseModel):
     discount_pct: Decimal
     wht_pct: Decimal
     wht_amount: Decimal
-    deposit_amount: Decimal
     grand_total: Decimal
     status: str
     expires_at: datetime | None
@@ -235,7 +234,6 @@ async def get_public_quotation(quotation_id: str, db: AsyncSession = Depends(get
         discount_pct=qt.discount_pct,
         wht_pct=qt.wht_pct,
         wht_amount=qt.wht_amount,
-        deposit_amount=qt.deposit_amount,
         grand_total=qt.grand_total,
         status=qt.status,
         expires_at=qt.expires_at,
