@@ -75,3 +75,23 @@ export const superadminSuppliers = (token, params = {}) =>
 
 export const superadminSupplierRequests = (token, params = {}) =>
   api.get("/api/superadmin/supplier-requests", { ...saHeaders(token), params });
+
+// Document access
+export const superadminInvoiceDetail = (token, invoiceId) =>
+  api.get(`/api/superadmin/invoices/${invoiceId}/detail`, saHeaders(token));
+export const superadminQuotationPdfBlob = async (token, quotationId) => {
+  const res = await fetch(`/api/superadmin/quotations/${quotationId}/pdf`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) throw new Error("PDF failed");
+  return res.blob();
+};
+export const superadminInvoicePdfBlob = async (token, invoiceId) => {
+  const res = await fetch(`/api/superadmin/invoices/${invoiceId}/pdf`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) throw new Error("PDF failed");
+  return res.blob();
+};
+export const superadminSupplierRequestDetail = (token, requestId) =>
+  api.get(`/api/superadmin/supplier-requests/${requestId}/detail`, saHeaders(token));

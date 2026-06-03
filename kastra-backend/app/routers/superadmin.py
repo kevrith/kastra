@@ -993,3 +993,154 @@ async def sa_list_supplier_requests(
         "data": result,
         "meta": {"page": page, "limit": limit, "total": total, "pages": math.ceil(total / max(limit, 1))},
     }
+
+
+# ── Superadmin document access (view + PDF) ───────────────────────────────────
+
+@router.get("/invoices/{invoice_id}/detail", dependencies=[Depends(_verify_sa_token)])
+async def sa_get_invoice(invoice_id: str, db: AsyncSession = Depends(get_db)):
+    from sqlalchemy.orm import selectinload
+    from app.models.client import Client
+    from app.models.invoice import Invoice, InvoiceCharge, InvoiceItem
+    from app.schemas.invoice import InvoiceOut
+    from app.schemas.organization import OrganizationOut
+
+    result = await db.execute(
+        select(Invoice).where(Invoice.id == invoice_id)
+        .options(
+            selectinload(Invoice.client),
+            selectinload(Invoice.items),
+            selectinload(Invoice.charges),
+            selectinload(Invoice.payment_detail),
+            selectinload(Invoice.expenses),
+        )
+    )
+    inv = result.scalar_one_or_none()
+    if not inv:
+        raise HTTPException(404, "Invoice not found")
+
+    org = await db.get(Organization, inv.organization_id)
+    doc = InvoiceOut.model_validate(inv).model_dump(mode="json")
+    org_data = OrganizationOut.model_validate(org).model_dump(mode="json") if org else {}
+
+    await record_audit(db, "sa_view_invoice", str(inv.organization_id), org.name if org else "", {"invoice_id": invoice_id})
+    await db.commit()
+    return {"invoice": doc, "org": org_data}
+
+
+@router.get("/invoices/{invoice_id}/pdf", dependencies=[Depends(_verify_sa_token)])
+async def sa_invoice_pdf(invoice_id: str, db: AsyncSession = Depends(get_db)):
+    from fastapi.responses import Response as RawResponse
+    from sqlalchemy.orm import selectinload
+    from app.models.invoice import Invoice
+    from app.schemas.invoice import InvoiceOut
+    from app.schemas.organization import OrganizationOut
+    from app.services.pdf_service import generate_pdf
+
+    result = await db.execute(
+        select(Invoice).where(Invoice.id == invoice_id)
+        .options(
+            selectinload(Invoice.client),
+            selectinload(Invoice.items),
+            selectinload(Invoice.charges),
+            selectinload(Invoice.payment_detail),
+            selectinload(Invoice.expenses),
+        )
+    )
+    inv = result.scalar_one_or_none()
+    if not inv:
+        raise HTTPException(404, "Invoice not found")
+
+    org = await db.get(Organization, inv.organization_id)
+    doc = InvoiceOut.model_validate(inv).model_dump(mode="json")
+    org_data = OrganizationOut.model_validate(org).model_dump(mode="json") if org else {}
+
+    pdf_bytes = await generate_pdf("invoice", doc, org_data)
+    await record_audit(db, "sa_print_invoice", str(inv.organization_id), org.name if org else "", {"invoice_id": invoice_id})
+    await db.commit()
+    return RawResponse(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'inline; filename="{invoice_id}.pdf"'},
+    )
+
+
+@router.get("/quotations/{quotation_id}/pdf", dependencies=[Depends(_verify_sa_token)])
+async def sa_quotation_pdf(quotation_id: str, db: AsyncSession = Depends(get_db)):
+    from fastapi.responses import Response as RawResponse
+    from sqlalchemy.orm import selectinload
+    from app.models.quotation import Quotation
+    from app.schemas.quotation import QuotationOut
+    from app.schemas.organization import OrganizationOut
+    from app.services.pdf_service import generate_pdf
+
+    result = await db.execute(
+        select(Quotation).where(Quotation.id == quotation_id)
+        .options(
+            selectinload(Quotation.client),
+            selectinload(Quotation.items),
+            selectinload(Quotation.charges),
+            selectinload(Quotation.created_by_user),
+        )
+    )
+    qt = result.scalar_one_or_none()
+    if not qt:
+        raise HTTPException(404, "Quotation not found")
+
+    org = await db.get(Organization, qt.organization_id)
+    doc = QuotationOut.model_validate(qt).model_dump(mode="json")
+    org_data = OrganizationOut.model_validate(org).model_dump(mode="json") if org else {}
+
+    pdf_bytes = await generate_pdf("quotation", doc, org_data)
+    await record_audit(db, "sa_print_quotation", str(qt.organization_id), org.name if org else "", {"quotation_id": quotation_id})
+    await db.commit()
+    return RawResponse(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'inline; filename="{quotation_id}.pdf"'},
+    )
+
+
+@router.get("/supplier-requests/{request_id}/detail", dependencies=[Depends(_verify_sa_token)])
+async def sa_supplier_request_detail(request_id: str, db: AsyncSession = Depends(get_db)):
+    from sqlalchemy.orm import selectinload
+    from app.models.supplier import SupplierRequest, SupplierRequestInvite
+
+    result = await db.execute(
+        select(SupplierRequest).where(SupplierRequest.id == request_id)
+        .options(
+            selectinload(SupplierRequest.items),
+            selectinload(SupplierRequest.invites).selectinload(SupplierRequestInvite.supplier),
+            selectinload(SupplierRequest.invites).selectinload(SupplierRequestInvite.response_items),
+        )
+    )
+    req = result.scalar_one_or_none()
+    if not req:
+        raise HTTPException(404, "Request not found")
+
+    org = await db.get(Organization, req.organization_id)
+    await record_audit(db, "sa_view_supplier_request", str(req.organization_id), org.name if org else "", {"request_id": request_id})
+    await db.commit()
+
+    return {
+        "id": str(req.id),
+        "title": req.title,
+        "notes": req.notes,
+        "status": req.status,
+        "org_name": org.name if org else "",
+        "items": [{"description": i.description, "quantity": float(i.quantity) if i.quantity else None} for i in req.items],
+        "invites": [
+            {
+                "supplier_name": inv.supplier.name,
+                "supplier_company": inv.supplier.company_name,
+                "status": inv.status,
+                "submitted_at": inv.submitted_at.isoformat() if inv.submitted_at else None,
+                "supplier_notes": inv.supplier_notes,
+                "response_items": [
+                    {"description": r.description, "quantity": float(r.quantity) if r.quantity else None, "unit_price": float(r.unit_price)}
+                    for r in sorted(inv.response_items, key=lambda x: x.sort_order)
+                ],
+            }
+            for inv in req.invites
+        ],
+    }

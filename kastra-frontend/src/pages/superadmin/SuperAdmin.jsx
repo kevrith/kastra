@@ -8,12 +8,14 @@ import {
   superadminResetUserPassword, superadminDeactivateUser, superadminReactivateUser,
   superadminChangeUserRole,
   superadminInvoices, superadminQuotations, superadminSuppliers, superadminSupplierRequests,
+  superadminInvoiceDetail, superadminInvoicePdfBlob, superadminQuotationPdfBlob,
+  superadminSupplierRequestDetail,
 } from "../../api/subscriptions";
 import {
   LayoutDashboard, Building2, LogOut, Search, ChevronLeft, ChevronRight,
   TrendingUp, Users, FileText, RefreshCw, AlertCircle, CheckCircle2,
   CreditCard, Clock, Activity, DollarSign, BarChart2, ShieldAlert,
-  PlusCircle, X, Gift, Menu, Key, UserX, UserCheck, Shield, Receipt, Truck, Package,
+  PlusCircle, X, Gift, Menu, Key, UserX, UserCheck, Shield, Receipt, Truck, Package, Printer, Eye,
 } from "lucide-react";
 
 // ── Colour maps ────────────────────────────────────────────────────────────────
@@ -200,6 +202,8 @@ export default function SuperAdmin() {
   const [saRequestsOrgFilter, setSaRequestsOrgFilter] = useState("");
 
   const [allOrgs, setAllOrgs] = useState([]); // for filter dropdowns
+  const [pdfLoading, setPdfLoading] = useState(null); // id of item generating PDF
+  const [viewingRequest, setViewingRequest] = useState(null); // supplier request detail modal
 
   // Modal states
   const [extendModal, setExtendModal] = useState(false);
@@ -292,6 +296,31 @@ export default function SuperAdmin() {
       const { data } = await superadminOrgDetail(token, orgId);
       setSelectedOrg(data); setView("org_detail");
     } finally { setLoading(false); }
+  };
+
+  const openPdf = async (type, id) => {
+    setPdfLoading(id);
+    try {
+      const blob = type === "invoice"
+        ? await superadminInvoicePdfBlob(token, id)
+        : await superadminQuotationPdfBlob(token, id);
+      const url = URL.createObjectURL(blob);
+      window.open(url, "_blank");
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
+    } catch {
+      flash("Failed to generate PDF", "error");
+    } finally {
+      setPdfLoading(null);
+    }
+  };
+
+  const openSupplierRequest = async (id) => {
+    try {
+      const { data } = await superadminSupplierRequestDetail(token, id);
+      setViewingRequest(data);
+    } catch {
+      flash("Failed to load request", "error");
+    }
   };
 
   const loadAllOrgs = useCallback(async () => {
@@ -992,6 +1021,16 @@ export default function SuperAdmin() {
                   { key: "grand_total", label: "Amount", right: true, render: (r) => <span className="font-semibold text-green-400">{fmtKES(r.grand_total)}</span> },
                   { key: "payment_status", label: "Status", render: (r) => <Badge text={r.payment_status} colorClass={r.payment_status === "paid" ? "bg-green-900 text-green-300" : r.payment_status === "partial" ? "bg-blue-900 text-blue-300" : "bg-amber-900 text-amber-300"} /> },
                   { key: "created_at", label: "Date", render: (r) => <span className="text-xs text-gray-400">{fmtDate(r.created_at)}</span> },
+                  { key: "_print", label: "", render: (r) => (
+                    <button
+                      onClick={() => openPdf("invoice", r.id)}
+                      disabled={pdfLoading === r.id}
+                      className="flex items-center gap-1 text-xs text-gray-400 hover:text-white px-2 py-1 rounded hover:bg-gray-700 transition"
+                      title="Print / Download PDF"
+                    >
+                      <Printer size={13} /> {pdfLoading === r.id ? "…" : "Print"}
+                    </button>
+                  )},
                 ]}
                 rows={saInvoices}
               />
@@ -1033,6 +1072,16 @@ export default function SuperAdmin() {
                   { key: "grand_total", label: "Amount", right: true, render: (r) => <span className="font-semibold text-blue-400">{fmtKES(r.grand_total)}</span> },
                   { key: "status", label: "Status", render: (r) => <Badge text={r.status} colorClass={r.status === "accepted" ? "bg-green-900 text-green-300" : r.status === "converted" ? "bg-purple-900 text-purple-300" : r.status === "declined" ? "bg-red-900 text-red-300" : "bg-amber-900 text-amber-300"} /> },
                   { key: "created_at", label: "Date", render: (r) => <span className="text-xs text-gray-400">{fmtDate(r.created_at)}</span> },
+                  { key: "_print", label: "", render: (r) => (
+                    <button
+                      onClick={() => openPdf("quotation", r.id)}
+                      disabled={pdfLoading === r.id}
+                      className="flex items-center gap-1 text-xs text-gray-400 hover:text-white px-2 py-1 rounded hover:bg-gray-700 transition"
+                      title="Print / Download PDF"
+                    >
+                      <Printer size={13} /> {pdfLoading === r.id ? "…" : "Print"}
+                    </button>
+                  )},
                 ]}
                 rows={saQuotations}
               />
@@ -1097,6 +1146,15 @@ export default function SuperAdmin() {
                   { key: "invites", label: "Suppliers Sent", right: true, render: (r) => <span className="text-gray-300">{r.invites}</span> },
                   { key: "responses", label: "Responses", right: true, render: (r) => <span className={r.responses > 0 ? "text-green-400 font-semibold" : "text-gray-500"}>{r.responses}</span> },
                   { key: "created_at", label: "Created", render: (r) => <span className="text-xs text-gray-400">{fmtDate(r.created_at)}</span> },
+                  { key: "_view", label: "", render: (r) => (
+                    <button
+                      onClick={() => openSupplierRequest(r.id)}
+                      className="flex items-center gap-1 text-xs text-gray-400 hover:text-white px-2 py-1 rounded hover:bg-gray-700 transition"
+                      title="View full request & responses"
+                    >
+                      <Eye size={13} /> View
+                    </button>
+                  )},
                 ]}
                 rows={saRequests}
               />
@@ -1541,6 +1599,97 @@ export default function SuperAdmin() {
                     Change Role
                   </button>
                 </div>
+              </div>
+            )}
+          </div>
+        </Modal>
+      )}
+
+      {/* Supplier request detail modal */}
+      {viewingRequest && (
+        <Modal title={`Price Request — ${viewingRequest.title}`} onClose={() => setViewingRequest(null)}>
+          <div className="space-y-4 max-h-[75vh] overflow-y-auto pr-1">
+            <div className="flex items-center gap-3 flex-wrap">
+              <span className="text-xs text-gray-400">{viewingRequest.org_name}</span>
+              <Badge text={viewingRequest.status} colorClass={viewingRequest.status === "open" ? "bg-green-900 text-green-300" : "bg-gray-700 text-gray-400"} />
+            </div>
+            {viewingRequest.notes && (
+              <p className="text-sm text-gray-400 bg-gray-800 rounded-lg px-3 py-2">{viewingRequest.notes}</p>
+            )}
+
+            {/* Items requested */}
+            <div>
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Items Requested</p>
+              <table className="w-full text-sm border border-gray-700 rounded-lg overflow-hidden">
+                <thead className="bg-gray-800">
+                  <tr>
+                    <th className="px-3 py-2 text-left text-xs text-gray-400">Description</th>
+                    <th className="px-3 py-2 text-right text-xs text-gray-400">Qty</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-700">
+                  {viewingRequest.items.map((item, i) => (
+                    <tr key={i}>
+                      <td className="px-3 py-2 text-gray-200">{item.description}</td>
+                      <td className="px-3 py-2 text-right text-gray-400">{item.quantity ?? "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Supplier responses */}
+            {viewingRequest.invites.length > 0 && (
+              <div className="space-y-3">
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Supplier Responses</p>
+                {viewingRequest.invites.map((inv, i) => {
+                  const grandTotal = inv.response_items.reduce((s, r) => s + r.unit_price * (r.quantity || 1), 0);
+                  return (
+                    <div key={i} className={`rounded-xl border overflow-hidden ${inv.status === "responded" ? "border-green-800" : "border-gray-700"}`}>
+                      <div className={`px-3 py-2 flex items-center justify-between ${inv.status === "responded" ? "bg-green-900/40" : "bg-gray-800"}`}>
+                        <div>
+                          <p className="text-sm font-semibold text-gray-200">{inv.supplier_name}</p>
+                          {inv.supplier_company && <p className="text-xs text-gray-500">{inv.supplier_company}</p>}
+                        </div>
+                        <Badge text={inv.status} colorClass={inv.status === "responded" ? "bg-green-900 text-green-300" : "bg-gray-700 text-gray-400"} />
+                      </div>
+                      {inv.status === "responded" && inv.response_items.length > 0 && (
+                        <table className="w-full text-sm bg-gray-900">
+                          <thead className="bg-gray-800">
+                            <tr>
+                              <th className="px-3 py-1.5 text-left text-xs text-gray-500">Item</th>
+                              <th className="px-3 py-1.5 text-right text-xs text-gray-500">Qty</th>
+                              <th className="px-3 py-1.5 text-right text-xs text-gray-500">Unit Price</th>
+                              <th className="px-3 py-1.5 text-right text-xs text-gray-500">Total</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-800">
+                            {inv.response_items.map((r, j) => (
+                              <tr key={j}>
+                                <td className="px-3 py-2 text-gray-300">{r.description}</td>
+                                <td className="px-3 py-2 text-right text-gray-400">{r.quantity ?? "—"}</td>
+                                <td className="px-3 py-2 text-right text-gray-300">{fmtKES(r.unit_price)}</td>
+                                <td className="px-3 py-2 text-right text-green-400 font-semibold">{fmtKES(r.unit_price * (r.quantity || 1))}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                          <tfoot>
+                            <tr className="border-t border-gray-700 bg-gray-800">
+                              <td colSpan={3} className="px-3 py-2 text-right text-xs font-bold text-gray-400">Grand Total</td>
+                              <td className="px-3 py-2 text-right font-extrabold text-green-400">{fmtKES(grandTotal)}</td>
+                            </tr>
+                          </tfoot>
+                        </table>
+                      )}
+                      {inv.supplier_notes && (
+                        <p className="px-3 py-2 text-xs text-gray-500 italic bg-gray-900">Note: "{inv.supplier_notes}"</p>
+                      )}
+                      {inv.status === "pending" && (
+                        <p className="px-3 py-2 text-xs text-gray-600 bg-gray-900">No response submitted yet.</p>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
