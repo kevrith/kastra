@@ -545,7 +545,7 @@ export default function SuperAdmin() {
           </div>
         </div>
 
-        <nav className="flex-1 p-3 space-y-0.5">
+        <nav className="flex-1 p-3 space-y-0.5 overflow-y-auto">
           {navItems.map(({ id, label, icon: Icon, badge }) => (
             <button
               key={id}
