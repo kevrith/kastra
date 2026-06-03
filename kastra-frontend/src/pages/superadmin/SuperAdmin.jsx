@@ -7,12 +7,13 @@ import {
   superadminGrantComplimentary, superadminRevokeComplimentary,
   superadminResetUserPassword, superadminDeactivateUser, superadminReactivateUser,
   superadminChangeUserRole,
+  superadminInvoices, superadminQuotations, superadminSuppliers, superadminSupplierRequests,
 } from "../../api/subscriptions";
 import {
   LayoutDashboard, Building2, LogOut, Search, ChevronLeft, ChevronRight,
   TrendingUp, Users, FileText, RefreshCw, AlertCircle, CheckCircle2,
   CreditCard, Clock, Activity, DollarSign, BarChart2, ShieldAlert,
-  PlusCircle, X, Gift, Menu, Key, UserX, UserCheck, Shield,
+  PlusCircle, X, Gift, Menu, Key, UserX, UserCheck, Shield, Receipt, Truck, Package,
 } from "lucide-react";
 
 // ── Colour maps ────────────────────────────────────────────────────────────────
@@ -175,6 +176,31 @@ export default function SuperAdmin() {
   const [loading, setLoading] = useState(false);
   const [actionMsg, setActionMsg] = useState({ text: "", type: "success" });
 
+  // Platform data views
+  const [saInvoices, setSaInvoices] = useState([]);
+  const [saInvoicesMeta, setSaInvoicesMeta] = useState(null);
+  const [saInvoicesPage, setSaInvoicesPage] = useState(1);
+  const [saInvoicesOrgFilter, setSaInvoicesOrgFilter] = useState("");
+  const [saInvoicesStatusFilter, setSaInvoicesStatusFilter] = useState("");
+
+  const [saQuotations, setSaQuotations] = useState([]);
+  const [saQuotationsMeta, setSaQuotationsMeta] = useState(null);
+  const [saQuotationsPage, setSaQuotationsPage] = useState(1);
+  const [saQuotationsOrgFilter, setSaQuotationsOrgFilter] = useState("");
+  const [saQuotationsStatusFilter, setSaQuotationsStatusFilter] = useState("");
+
+  const [saSuppliers, setSaSuppliers] = useState([]);
+  const [saSuppliersMeta, setSaSuppliersMeta] = useState(null);
+  const [saSuppliersPage, setSaSuppliersPage] = useState(1);
+  const [saSuppliersOrgFilter, setSaSuppliersOrgFilter] = useState("");
+
+  const [saRequests, setSaRequests] = useState([]);
+  const [saRequestsMeta, setSaRequestsMeta] = useState(null);
+  const [saRequestsPage, setSaRequestsPage] = useState(1);
+  const [saRequestsOrgFilter, setSaRequestsOrgFilter] = useState("");
+
+  const [allOrgs, setAllOrgs] = useState([]); // for filter dropdowns
+
   // Modal states
   const [extendModal, setExtendModal] = useState(false);
   const [extendDays, setExtendDays] = useState(7);
@@ -268,6 +294,64 @@ export default function SuperAdmin() {
     } finally { setLoading(false); }
   };
 
+  const loadAllOrgs = useCallback(async () => {
+    if (!token || allOrgs.length > 0) return;
+    try {
+      const { data } = await superadminOrgs(token, { page: 1, limit: 200 });
+      setAllOrgs(data.data ?? []);
+    } catch {}
+  }, [token, allOrgs.length]);
+
+  const loadSaInvoices = useCallback(async () => {
+    if (!token) return;
+    setLoading(true);
+    try {
+      const { data } = await superadminInvoices(token, {
+        page: saInvoicesPage, limit: 30,
+        ...(saInvoicesOrgFilter ? { org_id: saInvoicesOrgFilter } : {}),
+        ...(saInvoicesStatusFilter ? { payment_status: saInvoicesStatusFilter } : {}),
+      });
+      setSaInvoices(data.data); setSaInvoicesMeta(data.meta);
+    } finally { setLoading(false); }
+  }, [token, saInvoicesPage, saInvoicesOrgFilter, saInvoicesStatusFilter]);
+
+  const loadSaQuotations = useCallback(async () => {
+    if (!token) return;
+    setLoading(true);
+    try {
+      const { data } = await superadminQuotations(token, {
+        page: saQuotationsPage, limit: 30,
+        ...(saQuotationsOrgFilter ? { org_id: saQuotationsOrgFilter } : {}),
+        ...(saQuotationsStatusFilter ? { status: saQuotationsStatusFilter } : {}),
+      });
+      setSaQuotations(data.data); setSaQuotationsMeta(data.meta);
+    } finally { setLoading(false); }
+  }, [token, saQuotationsPage, saQuotationsOrgFilter, saQuotationsStatusFilter]);
+
+  const loadSaSuppliers = useCallback(async () => {
+    if (!token) return;
+    setLoading(true);
+    try {
+      const { data } = await superadminSuppliers(token, {
+        page: saSuppliersPage, limit: 30,
+        ...(saSuppliersOrgFilter ? { org_id: saSuppliersOrgFilter } : {}),
+      });
+      setSaSuppliers(data.data); setSaSuppliersMeta(data.meta);
+    } finally { setLoading(false); }
+  }, [token, saSuppliersPage, saSuppliersOrgFilter]);
+
+  const loadSaRequests = useCallback(async () => {
+    if (!token) return;
+    setLoading(true);
+    try {
+      const { data } = await superadminSupplierRequests(token, {
+        page: saRequestsPage, limit: 30,
+        ...(saRequestsOrgFilter ? { org_id: saRequestsOrgFilter } : {}),
+      });
+      setSaRequests(data.data); setSaRequestsMeta(data.meta);
+    } finally { setLoading(false); }
+  }, [token, saRequestsPage, saRequestsOrgFilter]);
+
   // ── Effects ───────────────────────────────────────────────────────────────────
   useEffect(() => { if (isAuthed) loadStats(); }, [isAuthed, loadStats]);
   useEffect(() => { if (isAuthed && view === "revenue") { loadRevenue(); loadPayments(); } }, [isAuthed, view, loadRevenue, loadPayments]);
@@ -275,6 +359,11 @@ export default function SuperAdmin() {
   useEffect(() => { if (isAuthed && view === "trials") loadTrials(); }, [isAuthed, view, loadTrials]);
   useEffect(() => { if (isAuthed && view === "audit") loadAuditLog(); }, [isAuthed, view, auditPage, loadAuditLog]);
   useEffect(() => { if (isAuthed && view === "orgs") loadOrgs(); }, [isAuthed, view, loadOrgs]);
+  useEffect(() => { if (isAuthed && ["invoices","quotations","suppliers","supplier_requests"].includes(view)) loadAllOrgs(); }, [isAuthed, view, loadAllOrgs]);
+  useEffect(() => { if (isAuthed && view === "invoices") loadSaInvoices(); }, [isAuthed, view, loadSaInvoices]);
+  useEffect(() => { if (isAuthed && view === "quotations") loadSaQuotations(); }, [isAuthed, view, loadSaQuotations]);
+  useEffect(() => { if (isAuthed && view === "suppliers") loadSaSuppliers(); }, [isAuthed, view, loadSaSuppliers]);
+  useEffect(() => { if (isAuthed && view === "supplier_requests") loadSaRequests(); }, [isAuthed, view, loadSaRequests]);
 
   // ── Org actions ───────────────────────────────────────────────────────────────
   const changePlan = async (orgId, plan) => {
@@ -421,11 +510,15 @@ export default function SuperAdmin() {
 
   // ── Authenticated layout ──────────────────────────────────────────────────────
   const navItems = [
-    { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
-    { id: "revenue",   label: "Revenue",   icon: DollarSign },
-    { id: "trials",    label: "Trials",    icon: Clock, badge: stats?.trials_expiring_7d > 0 ? stats.trials_expiring_7d : null },
-    { id: "orgs",      label: "Organisations", icon: Building2 },
-    { id: "audit",     label: "Audit Log", icon: Activity },
+    { id: "dashboard",         label: "Dashboard",       icon: LayoutDashboard },
+    { id: "revenue",           label: "Revenue",         icon: DollarSign },
+    { id: "trials",            label: "Trials",          icon: Clock, badge: stats?.trials_expiring_7d > 0 ? stats.trials_expiring_7d : null },
+    { id: "orgs",              label: "Organisations",   icon: Building2 },
+    { id: "invoices",          label: "Invoices",        icon: Receipt },
+    { id: "quotations",        label: "Quotations",      icon: FileText },
+    { id: "suppliers",         label: "Suppliers",       icon: Truck },
+    { id: "supplier_requests", label: "Price Requests",  icon: Package },
+    { id: "audit",             label: "Audit Log",       icon: Activity },
   ];
 
   return (
@@ -820,7 +913,7 @@ export default function SuperAdmin() {
                   </div>
                   {[
                     { label: "All plans", value: "", setter: setOrgsPlanFilter, current: orgsPlanFilter, options: ["free", "starter", "business", "premium"] },
-                    { label: "All status", value: "", setter: setOrgsStatusFilter, current: orgsStatusFilter, options: ["active", "suspended"] },
+                    { label: "All status", value: "", setter: setOrgsStatusFilter, current: orgsStatusFilter, options: ["active", "suspended", "complimentary"] },
                   ].map((f, i) => (
                     <select key={i}
                       className="bg-gray-800 border border-gray-700 text-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-green-500"
@@ -864,6 +957,153 @@ export default function SuperAdmin() {
                   <Pagination meta={orgsMeta} page={orgsPage} setPage={setOrgsPage} />
                 </>
               )}
+            </>
+          )}
+
+          {/* ─── HELPER: org filter dropdown ─── */}
+          {/* reused across invoices/quotations/suppliers views */}
+
+          {/* ─── INVOICES ─── */}
+          {view === "invoices" && (
+            <>
+              <div className="flex items-center justify-between flex-wrap gap-3">
+                <h1 className="text-xl font-bold text-white">All Invoices</h1>
+                <button onClick={loadSaInvoices} className="text-gray-500 hover:text-gray-300 p-1.5 rounded-lg hover:bg-gray-800"><RefreshCw size={15} /></button>
+              </div>
+              <div className="flex flex-wrap gap-3">
+                <select className="bg-gray-800 border border-gray-700 text-gray-300 text-sm rounded-lg px-3 py-2"
+                  value={saInvoicesOrgFilter} onChange={(e) => { setSaInvoicesOrgFilter(e.target.value); setSaInvoicesPage(1); }}>
+                  <option value="">All organisations</option>
+                  {allOrgs.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+                </select>
+                <select className="bg-gray-800 border border-gray-700 text-gray-300 text-sm rounded-lg px-3 py-2"
+                  value={saInvoicesStatusFilter} onChange={(e) => { setSaInvoicesStatusFilter(e.target.value); setSaInvoicesPage(1); }}>
+                  <option value="">All statuses</option>
+                  <option value="unpaid">Unpaid</option>
+                  <option value="partial">Partial</option>
+                  <option value="paid">Paid</option>
+                </select>
+              </div>
+              <Table
+                columns={[
+                  { key: "id", label: "Invoice ID", render: (r) => <span className="font-mono text-xs text-green-400">{r.id}</span> },
+                  { key: "org_name", label: "Organisation", render: (r) => <button className="text-blue-400 hover:underline text-xs" onClick={() => loadOrgDetail(r.org_id)}>{r.org_name}</button> },
+                  { key: "client_name", label: "Client" },
+                  { key: "grand_total", label: "Amount", right: true, render: (r) => <span className="font-semibold text-green-400">{fmtKES(r.grand_total)}</span> },
+                  { key: "payment_status", label: "Status", render: (r) => <Badge text={r.payment_status} colorClass={r.payment_status === "paid" ? "bg-green-900 text-green-300" : r.payment_status === "partial" ? "bg-blue-900 text-blue-300" : "bg-amber-900 text-amber-300"} /> },
+                  { key: "created_at", label: "Date", render: (r) => <span className="text-xs text-gray-400">{fmtDate(r.created_at)}</span> },
+                ]}
+                rows={saInvoices}
+              />
+              {saInvoicesMeta && saInvoicesMeta.pages > 1 && (
+                <Paginator meta={saInvoicesMeta} page={saInvoicesPage} setPage={setSaInvoicesPage} />
+              )}
+              {saInvoices.length === 0 && !loading && <p className="text-center text-gray-500 py-10">No invoices found.</p>}
+            </>
+          )}
+
+          {/* ─── QUOTATIONS ─── */}
+          {view === "quotations" && (
+            <>
+              <div className="flex items-center justify-between flex-wrap gap-3">
+                <h1 className="text-xl font-bold text-white">All Quotations</h1>
+                <button onClick={loadSaQuotations} className="text-gray-500 hover:text-gray-300 p-1.5 rounded-lg hover:bg-gray-800"><RefreshCw size={15} /></button>
+              </div>
+              <div className="flex flex-wrap gap-3">
+                <select className="bg-gray-800 border border-gray-700 text-gray-300 text-sm rounded-lg px-3 py-2"
+                  value={saQuotationsOrgFilter} onChange={(e) => { setSaQuotationsOrgFilter(e.target.value); setSaQuotationsPage(1); }}>
+                  <option value="">All organisations</option>
+                  {allOrgs.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+                </select>
+                <select className="bg-gray-800 border border-gray-700 text-gray-300 text-sm rounded-lg px-3 py-2"
+                  value={saQuotationsStatusFilter} onChange={(e) => { setSaQuotationsStatusFilter(e.target.value); setSaQuotationsPage(1); }}>
+                  <option value="">All statuses</option>
+                  <option value="draft">Draft</option>
+                  <option value="pending">Pending</option>
+                  <option value="accepted">Accepted</option>
+                  <option value="declined">Declined</option>
+                  <option value="converted">Converted</option>
+                </select>
+              </div>
+              <Table
+                columns={[
+                  { key: "id", label: "Quotation ID", render: (r) => <span className="font-mono text-xs text-blue-400">{r.id}</span> },
+                  { key: "org_name", label: "Organisation", render: (r) => <button className="text-blue-400 hover:underline text-xs" onClick={() => loadOrgDetail(r.org_id)}>{r.org_name}</button> },
+                  { key: "client_name", label: "Client" },
+                  { key: "grand_total", label: "Amount", right: true, render: (r) => <span className="font-semibold text-blue-400">{fmtKES(r.grand_total)}</span> },
+                  { key: "status", label: "Status", render: (r) => <Badge text={r.status} colorClass={r.status === "accepted" ? "bg-green-900 text-green-300" : r.status === "converted" ? "bg-purple-900 text-purple-300" : r.status === "declined" ? "bg-red-900 text-red-300" : "bg-amber-900 text-amber-300"} /> },
+                  { key: "created_at", label: "Date", render: (r) => <span className="text-xs text-gray-400">{fmtDate(r.created_at)}</span> },
+                ]}
+                rows={saQuotations}
+              />
+              {saQuotationsMeta && saQuotationsMeta.pages > 1 && (
+                <Paginator meta={saQuotationsMeta} page={saQuotationsPage} setPage={setSaQuotationsPage} />
+              )}
+              {saQuotations.length === 0 && !loading && <p className="text-center text-gray-500 py-10">No quotations found.</p>}
+            </>
+          )}
+
+          {/* ─── SUPPLIERS ─── */}
+          {view === "suppliers" && (
+            <>
+              <div className="flex items-center justify-between flex-wrap gap-3">
+                <h1 className="text-xl font-bold text-white">All Suppliers</h1>
+                <button onClick={loadSaSuppliers} className="text-gray-500 hover:text-gray-300 p-1.5 rounded-lg hover:bg-gray-800"><RefreshCw size={15} /></button>
+              </div>
+              <div className="flex flex-wrap gap-3">
+                <select className="bg-gray-800 border border-gray-700 text-gray-300 text-sm rounded-lg px-3 py-2"
+                  value={saSuppliersOrgFilter} onChange={(e) => { setSaSuppliersOrgFilter(e.target.value); setSaSuppliersPage(1); }}>
+                  <option value="">All organisations</option>
+                  {allOrgs.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+                </select>
+              </div>
+              <Table
+                columns={[
+                  { key: "name", label: "Supplier Name" },
+                  { key: "company_name", label: "Company", render: (r) => <span className="text-gray-400">{r.company_name || "—"}</span> },
+                  { key: "org_name", label: "Organisation", render: (r) => <button className="text-blue-400 hover:underline text-xs" onClick={() => loadOrgDetail(r.org_id)}>{r.org_name}</button> },
+                  { key: "phone", label: "Phone", render: (r) => <span className="text-gray-400 text-xs font-mono">{r.phone || "—"}</span> },
+                  { key: "email", label: "Email", render: (r) => <span className="text-gray-400 text-xs">{r.email || "—"}</span> },
+                  { key: "created_at", label: "Added", render: (r) => <span className="text-xs text-gray-400">{fmtDate(r.created_at)}</span> },
+                ]}
+                rows={saSuppliers}
+              />
+              {saSuppliersMeta && saSuppliersMeta.pages > 1 && (
+                <Paginator meta={saSuppliersMeta} page={saSuppliersPage} setPage={setSaSuppliersPage} />
+              )}
+              {saSuppliers.length === 0 && !loading && <p className="text-center text-gray-500 py-10">No suppliers found.</p>}
+            </>
+          )}
+
+          {/* ─── PRICE REQUESTS ─── */}
+          {view === "supplier_requests" && (
+            <>
+              <div className="flex items-center justify-between flex-wrap gap-3">
+                <h1 className="text-xl font-bold text-white">All Price Requests</h1>
+                <button onClick={loadSaRequests} className="text-gray-500 hover:text-gray-300 p-1.5 rounded-lg hover:bg-gray-800"><RefreshCw size={15} /></button>
+              </div>
+              <div className="flex flex-wrap gap-3">
+                <select className="bg-gray-800 border border-gray-700 text-gray-300 text-sm rounded-lg px-3 py-2"
+                  value={saRequestsOrgFilter} onChange={(e) => { setSaRequestsOrgFilter(e.target.value); setSaRequestsPage(1); }}>
+                  <option value="">All organisations</option>
+                  {allOrgs.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+                </select>
+              </div>
+              <Table
+                columns={[
+                  { key: "title", label: "Request Title" },
+                  { key: "org_name", label: "Organisation", render: (r) => <button className="text-blue-400 hover:underline text-xs" onClick={() => loadOrgDetail(r.org_id)}>{r.org_name}</button> },
+                  { key: "status", label: "Status", render: (r) => <Badge text={r.status} colorClass={r.status === "open" ? "bg-green-900 text-green-300" : "bg-gray-700 text-gray-400"} /> },
+                  { key: "invites", label: "Suppliers Sent", right: true, render: (r) => <span className="text-gray-300">{r.invites}</span> },
+                  { key: "responses", label: "Responses", right: true, render: (r) => <span className={r.responses > 0 ? "text-green-400 font-semibold" : "text-gray-500"}>{r.responses}</span> },
+                  { key: "created_at", label: "Created", render: (r) => <span className="text-xs text-gray-400">{fmtDate(r.created_at)}</span> },
+                ]}
+                rows={saRequests}
+              />
+              {saRequestsMeta && saRequestsMeta.pages > 1 && (
+                <Paginator meta={saRequestsMeta} page={saRequestsPage} setPage={setSaRequestsPage} />
+              )}
+              {saRequests.length === 0 && !loading && <p className="text-center text-gray-500 py-10">No price requests found.</p>}
             </>
           )}
 

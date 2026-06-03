@@ -63,3 +63,15 @@ export const superadminReactivateUser = (token, userId) =>
 
 export const superadminChangeUserRole = (token, userId, role) =>
   api.patch(`/api/superadmin/users/${userId}/role`, { role }, saHeaders(token));
+
+export const superadminInvoices = (token, params = {}) =>
+  api.get("/api/superadmin/invoices", { ...saHeaders(token), params });
+
+export const superadminQuotations = (token, params = {}) =>
+  api.get("/api/superadmin/quotations", { ...saHeaders(token), params });
+
+export const superadminSuppliers = (token, params = {}) =>
+  api.get("/api/superadmin/suppliers", { ...saHeaders(token), params });
+
+export const superadminSupplierRequests = (token, params = {}) =>
+  api.get("/api/superadmin/supplier-requests", { ...saHeaders(token), params });

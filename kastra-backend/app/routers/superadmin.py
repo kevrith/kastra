@@ -838,3 +838,158 @@ async def get_org_detail(org_id: str, db: AsyncSession = Depends(get_db)):
             for p in payments
         ],
     }
+
+
+# ── Platform-wide data views ──────────────────────────────────────────────────
+
+@router.get("/invoices", dependencies=[Depends(_verify_sa_token)])
+async def sa_list_invoices(
+    page: int = Query(1, ge=1),
+    limit: int = Query(30, ge=1, le=100),
+    org_id: Optional[str] = Query(None),
+    payment_status: Optional[str] = Query(None),
+    db: AsyncSession = Depends(get_db),
+):
+    from app.models.client import Client
+    q = (
+        select(Invoice, Organization.name.label("org_name"), Client.name.label("client_name"))
+        .join(Organization, Invoice.organization_id == Organization.id)
+        .join(Client, Invoice.client_id == Client.id)
+    )
+    if org_id:
+        q = q.where(Invoice.organization_id == org_id)
+    if payment_status:
+        q = q.where(Invoice.payment_status == payment_status)
+    total = (await db.execute(select(func.count()).select_from(q.subquery()))).scalar_one()
+    rows = (await db.execute(q.order_by(Invoice.created_at.desc()).offset((page - 1) * limit).limit(limit))).all()
+    return {
+        "data": [
+            {
+                "id": r.Invoice.id,
+                "org_id": str(r.Invoice.organization_id),
+                "org_name": r.org_name,
+                "client_name": r.client_name,
+                "grand_total": float(r.Invoice.grand_total),
+                "payment_status": r.Invoice.payment_status,
+                "invoice_date": r.Invoice.invoice_date.isoformat() if r.Invoice.invoice_date else None,
+                "created_at": r.Invoice.created_at.isoformat(),
+            }
+            for r in rows
+        ],
+        "meta": {"page": page, "limit": limit, "total": total, "pages": math.ceil(total / max(limit, 1))},
+    }
+
+
+@router.get("/quotations", dependencies=[Depends(_verify_sa_token)])
+async def sa_list_quotations(
+    page: int = Query(1, ge=1),
+    limit: int = Query(30, ge=1, le=100),
+    org_id: Optional[str] = Query(None),
+    status: Optional[str] = Query(None),
+    db: AsyncSession = Depends(get_db),
+):
+    from app.models.client import Client
+    q = (
+        select(Quotation, Organization.name.label("org_name"), Client.name.label("client_name"))
+        .join(Organization, Quotation.organization_id == Organization.id)
+        .join(Client, Quotation.client_id == Client.id)
+    )
+    if org_id:
+        q = q.where(Quotation.organization_id == org_id)
+    if status:
+        q = q.where(Quotation.status == status)
+    total = (await db.execute(select(func.count()).select_from(q.subquery()))).scalar_one()
+    rows = (await db.execute(q.order_by(Quotation.created_at.desc()).offset((page - 1) * limit).limit(limit))).all()
+    return {
+        "data": [
+            {
+                "id": r.Quotation.id,
+                "org_id": str(r.Quotation.organization_id),
+                "org_name": r.org_name,
+                "client_name": r.client_name,
+                "grand_total": float(r.Quotation.grand_total),
+                "status": r.Quotation.status,
+                "created_at": r.Quotation.created_at.isoformat(),
+            }
+            for r in rows
+        ],
+        "meta": {"page": page, "limit": limit, "total": total, "pages": math.ceil(total / max(limit, 1))},
+    }
+
+
+@router.get("/suppliers", dependencies=[Depends(_verify_sa_token)])
+async def sa_list_suppliers(
+    page: int = Query(1, ge=1),
+    limit: int = Query(30, ge=1, le=100),
+    org_id: Optional[str] = Query(None),
+    db: AsyncSession = Depends(get_db),
+):
+    from app.models.supplier import Supplier
+    q = (
+        select(Supplier, Organization.name.label("org_name"))
+        .join(Organization, Supplier.organization_id == Organization.id)
+        .where(Supplier.status == "active")
+    )
+    if org_id:
+        q = q.where(Supplier.organization_id == org_id)
+    total = (await db.execute(select(func.count()).select_from(q.subquery()))).scalar_one()
+    rows = (await db.execute(q.order_by(Supplier.created_at.desc()).offset((page - 1) * limit).limit(limit))).all()
+    return {
+        "data": [
+            {
+                "id": str(r.Supplier.id),
+                "org_id": str(r.Supplier.organization_id),
+                "org_name": r.org_name,
+                "name": r.Supplier.name,
+                "company_name": r.Supplier.company_name,
+                "phone": r.Supplier.phone,
+                "email": r.Supplier.email,
+                "created_at": r.Supplier.created_at.isoformat(),
+            }
+            for r in rows
+        ],
+        "meta": {"page": page, "limit": limit, "total": total, "pages": math.ceil(total / max(limit, 1))},
+    }
+
+
+@router.get("/supplier-requests", dependencies=[Depends(_verify_sa_token)])
+async def sa_list_supplier_requests(
+    page: int = Query(1, ge=1),
+    limit: int = Query(30, ge=1, le=100),
+    org_id: Optional[str] = Query(None),
+    db: AsyncSession = Depends(get_db),
+):
+    from app.models.supplier import SupplierRequest, SupplierRequestInvite
+    q = (
+        select(SupplierRequest, Organization.name.label("org_name"))
+        .join(Organization, SupplierRequest.organization_id == Organization.id)
+    )
+    if org_id:
+        q = q.where(SupplierRequest.organization_id == org_id)
+    total = (await db.execute(select(func.count()).select_from(q.subquery()))).scalar_one()
+    rows = (await db.execute(q.order_by(SupplierRequest.created_at.desc()).offset((page - 1) * limit).limit(limit))).all()
+
+    result = []
+    for r in rows:
+        inv_count = (await db.execute(
+            select(func.count()).select_from(SupplierRequestInvite)
+            .where(SupplierRequestInvite.request_id == r.SupplierRequest.id)
+        )).scalar_one()
+        responded = (await db.execute(
+            select(func.count()).select_from(SupplierRequestInvite)
+            .where(SupplierRequestInvite.request_id == r.SupplierRequest.id, SupplierRequestInvite.status == "responded")
+        )).scalar_one()
+        result.append({
+            "id": str(r.SupplierRequest.id),
+            "org_id": str(r.SupplierRequest.organization_id),
+            "org_name": r.org_name,
+            "title": r.SupplierRequest.title,
+            "status": r.SupplierRequest.status,
+            "invites": inv_count,
+            "responses": responded,
+            "created_at": r.SupplierRequest.created_at.isoformat(),
+        })
+    return {
+        "data": result,
+        "meta": {"page": page, "limit": limit, "total": total, "pages": math.ceil(total / max(limit, 1))},
+    }
