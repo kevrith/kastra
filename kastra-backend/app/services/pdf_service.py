@@ -118,7 +118,9 @@ def render_html(doc_type: str, doc: dict, org: dict) -> str:
 
 async def html_to_pdf(html: str) -> bytes:
     async with async_playwright() as pw:
-        browser = await pw.chromium.launch()
+        browser = await pw.chromium.launch(
+            args=["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"]
+        )
         page = await browser.new_page()
         await page.set_content(html, wait_until="networkidle")
         pdf_bytes = await page.pdf(
