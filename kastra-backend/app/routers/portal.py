@@ -98,6 +98,14 @@ class PublicQuotationItemOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class PublicQuotationChargeOut(BaseModel):
+    description: str
+    amount: Decimal
+    vat_exempt: bool
+
+    model_config = {"from_attributes": True}
+
+
 class PublicQuotationOut(BaseModel):
     id: str
     business_name: str
@@ -107,11 +115,18 @@ class PublicQuotationOut(BaseModel):
     notes: str | None
     subtotal: Decimal
     vat_amount: Decimal
+    charges_total: Decimal
+    total_discount: Decimal
+    discount_pct: Decimal
+    wht_pct: Decimal
+    wht_amount: Decimal
+    deposit_amount: Decimal
     grand_total: Decimal
     status: str
     expires_at: datetime | None
     created_at: datetime
     items: list[PublicQuotationItemOut]
+    charges: list[PublicQuotationChargeOut] = []
 
     @computed_field
     @property
@@ -198,6 +213,7 @@ async def get_public_quotation(quotation_id: str, db: AsyncSession = Depends(get
         .options(
             selectinload(Quotation.client),
             selectinload(Quotation.items),
+            selectinload(Quotation.charges),
             selectinload(Quotation.organization),
         )
     )
@@ -214,11 +230,18 @@ async def get_public_quotation(quotation_id: str, db: AsyncSession = Depends(get
         notes=qt.notes,
         subtotal=qt.subtotal,
         vat_amount=qt.vat_amount,
+        charges_total=qt.charges_total,
+        total_discount=qt.total_discount,
+        discount_pct=qt.discount_pct,
+        wht_pct=qt.wht_pct,
+        wht_amount=qt.wht_amount,
+        deposit_amount=qt.deposit_amount,
         grand_total=qt.grand_total,
         status=qt.status,
         expires_at=qt.expires_at,
         created_at=qt.created_at,
         items=[PublicQuotationItemOut.model_validate(i) for i in qt.items],
+        charges=[PublicQuotationChargeOut.model_validate(c) for c in qt.charges],
     )
 
 

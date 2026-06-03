@@ -147,12 +147,60 @@ export default function PublicQuotation() {
           </table>
           <div className="px-4 py-3 border-t border-gray-100 space-y-1.5 text-sm">
             <div className="flex justify-between text-gray-500"><span>Subtotal</span><span>{ksh(quotation.subtotal)}</span></div>
+
+            {/* Discount */}
+            {Number(quotation.total_discount) > 0 && (
+              <div className="flex justify-between text-red-500">
+                <span>Discount {Number(quotation.discount_pct) > 0 ? `(${quotation.discount_pct}%)` : ""}</span>
+                <span>− {ksh(quotation.total_discount)}</span>
+              </div>
+            )}
+
+            {/* Charges (Labour with %, other charges) */}
+            {(quotation.charges ?? []).map((charge, i) => {
+              const isLabour = charge.description?.toLowerCase() === "labour";
+              const pct = Number(quotation.subtotal) > 0
+                ? Math.round((Number(charge.amount) / Number(quotation.subtotal)) * 10000) / 100
+                : 0;
+              return (
+                <div key={i} className="flex justify-between text-gray-500">
+                  <span>{charge.description}{isLabour && pct > 0 ? ` (${pct}%)` : ""}</span>
+                  <span>{ksh(charge.amount)}</span>
+                </div>
+              );
+            })}
+
+            {/* VAT */}
             {Number(quotation.vat_amount) > 0 && (
               <div className="flex justify-between text-gray-500"><span>VAT (16%)</span><span>{ksh(quotation.vat_amount)}</span></div>
             )}
+
             <div className="flex justify-between font-bold text-gray-900 text-base border-t pt-2">
               <span>Total</span><span>{ksh(quotation.grand_total)}</span>
             </div>
+
+            {/* WHT */}
+            {Number(quotation.wht_amount) > 0 && (
+              <div className="flex justify-between text-amber-600 text-xs">
+                <span>WHT ({quotation.wht_pct}%) — deducted by client</span>
+                <span>− {ksh(quotation.wht_amount)}</span>
+              </div>
+            )}
+
+            {/* Deposit */}
+            {Number(quotation.deposit_amount) > 0 && (
+              <div className="flex justify-between text-green-600 text-xs">
+                <span>Deposit</span>
+                <span>− {ksh(quotation.deposit_amount)}</span>
+              </div>
+            )}
+
+            {(Number(quotation.wht_amount) > 0 || Number(quotation.deposit_amount) > 0) && (
+              <div className="flex justify-between font-bold text-gray-900 border-t pt-2">
+                <span>Amount Payable</span>
+                <span>{ksh(Number(quotation.grand_total) - Number(quotation.wht_amount) - Number(quotation.deposit_amount))}</span>
+              </div>
+            )}
           </div>
         </div>
 
