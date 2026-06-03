@@ -134,7 +134,10 @@ app = FastAPI(
 )
 
 app.state.limiter = limiter
-# CORS must be outermost so its headers survive even on unhandled 500s
+# Middlewares are applied in reverse order — last added = outermost (runs first).
+# CORSMiddleware must be outermost so CORS headers survive even on 500s.
+app.add_middleware(SlowAPIMiddleware)
+app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.allowed_origins,
@@ -142,8 +145,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-app.add_middleware(SecurityHeadersMiddleware)
-app.add_middleware(SlowAPIMiddleware)
 
 
 @app.exception_handler(RateLimitExceeded)
