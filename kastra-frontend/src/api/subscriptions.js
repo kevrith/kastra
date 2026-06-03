@@ -79,15 +79,18 @@ export const superadminSupplierRequests = (token, params = {}) =>
 // Document access
 export const superadminInvoiceDetail = (token, invoiceId) =>
   api.get(`/api/superadmin/invoices/${invoiceId}/detail`, saHeaders(token));
-export const superadminQuotationPdfBlob = async (token, quotationId) => {
-  const res = await fetch(`/api/superadmin/quotations/${quotationId}/pdf`, {
+
+const _baseUrl = () => import.meta.env.VITE_API_URL ?? "http://localhost:8000";
+
+export const superadminInvoicePdfBlob = async (token, invoiceId) => {
+  const res = await fetch(`${_baseUrl()}/api/superadmin/invoices/${invoiceId}/pdf`, {
     headers: { Authorization: `Bearer ${token}` },
   });
   if (!res.ok) throw new Error("PDF failed");
   return res.blob();
 };
-export const superadminInvoicePdfBlob = async (token, invoiceId) => {
-  const res = await fetch(`/api/superadmin/invoices/${invoiceId}/pdf`, {
+export const superadminQuotationPdfBlob = async (token, quotationId) => {
+  const res = await fetch(`${_baseUrl()}/api/superadmin/quotations/${quotationId}/pdf`, {
     headers: { Authorization: `Bearer ${token}` },
   });
   if (!res.ok) throw new Error("PDF failed");
