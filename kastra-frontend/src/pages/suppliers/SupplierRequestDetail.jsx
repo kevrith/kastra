@@ -175,7 +175,7 @@ export default function SupplierRequestDetail() {
       ``,
       `Thank you.`,
     ].join("\n");
-    window.open(`https://wa.me/${invite.supplier_company ?? ""}?text=${encodeURIComponent(msg)}`, "_blank");
+    window.open(`https://wa.me/${invite.supplier_phone ?? ""}?text=${encodeURIComponent(msg)}`, "_blank");
   };
 
   const handleAddSupplier = async () => {

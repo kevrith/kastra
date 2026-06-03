@@ -85,6 +85,7 @@ class InviteOut(BaseModel):
     supplier_id: uuid.UUID
     supplier_name: str
     supplier_company: str | None
+    supplier_phone: str | None
     portal_token: uuid.UUID
     portal_url: str
     status: str
@@ -102,6 +103,7 @@ class InviteOut(BaseModel):
             supplier_id=invite.supplier_id,
             supplier_name=invite.supplier.name,
             supplier_company=invite.supplier.company_name,
+            supplier_phone=invite.supplier.phone,
             portal_token=invite.portal_token,
             portal_url=f"{base_url}/supplier-portal/{invite.portal_token}",
             status=invite.status,
