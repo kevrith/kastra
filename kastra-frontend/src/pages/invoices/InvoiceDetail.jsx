@@ -619,9 +619,11 @@ export default function InvoiceDetail() {
               <button className="btn-secondary" onClick={() => setShowRequestPayment(true)}>
                 <Link2 size={15} /> Request Payment
               </button>
-              <button className="btn-secondary" onClick={() => setShowMpesa(true)}>
-                <Smartphone size={15} /> M-Pesa
-              </button>
+              {org?.mpesa_configured && (
+                <button className="btn-secondary" onClick={() => setShowMpesa(true)}>
+                  <Smartphone size={15} /> M-Pesa
+                </button>
+              )}
               <button className="btn-primary" onClick={() => setShowPayment(true)}>
                 <Plus size={15} /> Record Payment
               </button>

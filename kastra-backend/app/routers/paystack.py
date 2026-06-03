@@ -183,6 +183,9 @@ async def initialize_payment(payload: PaystackInitRequest, db: AsyncSession = De
     callback_url = f"{settings.frontend_url}/portal/paystack/verify"
     secret_key = _org_paystack_key(inv.organization)
 
+    if not secret_key or secret_key in ("sk_test_placeholder", ""):
+        raise HTTPException(status_code=400, detail="Card payments are not configured for this business.")
+
     async with httpx.AsyncClient() as client:
         resp = await client.post(
             f"{PAYSTACK_API}/transaction/initialize",

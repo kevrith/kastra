@@ -122,6 +122,9 @@ export default function PublicPayment() {
   const chargeAmount = requestedAmount ?? Number(invoice.balance_due ?? invoice.grand_total);
   const isPartialRequest = requestedAmount && requestedAmount < Number(invoice.grand_total);
 
+  const mpesaEnabled = invoice.mpesa_configured;
+  const cardEnabled = invoice.paystack_configured;
+
   return (
     <div className="min-h-screen bg-gray-50 flex items-start justify-center py-10 px-4">
       <div className="w-full max-w-md space-y-4">
@@ -231,81 +234,93 @@ export default function PublicPayment() {
             <p className="text-xs text-gray-400">This page updates automatically once confirmed.</p>
           </div>
 
+        ) : (!mpesaEnabled && !cardEnabled) ? (
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 text-center space-y-2">
+            <AlertCircle size={32} className="text-amber-400 mx-auto" />
+            <p className="font-semibold text-gray-800">Online payments not available</p>
+            <p className="text-sm text-gray-500">
+              This business hasn't set up online payments yet. Please contact them directly to arrange payment.
+            </p>
+          </div>
         ) : (
           <>
             {/* M-Pesa */}
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-4">
-              <div className="flex items-center gap-2">
-                <Smartphone size={18} className="text-green-600" />
-                <h2 className="font-semibold text-gray-800">Pay via M-Pesa</h2>
-              </div>
-              {isPartialRequest && (
-                <div className="flex items-center gap-2 bg-indigo-50 text-indigo-800 text-xs px-3 py-2 rounded-lg">
-                  <span>Sending prompt for <strong>{ksh(chargeAmount)}</strong> (partial payment)</span>
+            {mpesaEnabled && (
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-4">
+                <div className="flex items-center gap-2">
+                  <Smartphone size={18} className="text-green-600" />
+                  <h2 className="font-semibold text-gray-800">Pay via M-Pesa</h2>
                 </div>
-              )}
-              {error && (
-                <div className="bg-red-50 text-red-700 text-sm px-3 py-2 rounded-lg flex items-start gap-2">
-                  <AlertCircle size={15} className="mt-0.5 shrink-0" /> {error}
+                {isPartialRequest && (
+                  <div className="flex items-center gap-2 bg-indigo-50 text-indigo-800 text-xs px-3 py-2 rounded-lg">
+                    <span>Sending prompt for <strong>{ksh(chargeAmount)}</strong> (partial payment)</span>
+                  </div>
+                )}
+                {error && (
+                  <div className="bg-red-50 text-red-700 text-sm px-3 py-2 rounded-lg flex items-start gap-2">
+                    <AlertCircle size={15} className="mt-0.5 shrink-0" /> {error}
+                  </div>
+                )}
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1.5">Phone Number</label>
+                  <input
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-transparent"
+                    placeholder="254712345678"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))}
+                    maxLength={12}
+                    inputMode="numeric"
+                  />
+                  <p className="text-xs text-gray-400 mt-1">Format: 254XXXXXXXXX (12 digits)</p>
                 </div>
-              )}
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1.5">Phone Number</label>
-                <input
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-transparent"
-                  placeholder="254712345678"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))}
-                  maxLength={12}
-                  inputMode="numeric"
-                />
-                <p className="text-xs text-gray-400 mt-1">Format: 254XXXXXXXXX (12 digits)</p>
+                <button onClick={handlePay} disabled={sending || !phone}
+                  className="w-full bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white font-semibold rounded-xl py-3 flex items-center justify-center gap-2 transition-colors">
+                  {sending ? <Loader size={17} className="animate-spin" /> : <Smartphone size={17} />}
+                  {sending ? "Sending…" : `Pay ${ksh(chargeAmount)} via M-Pesa`}
+                </button>
               </div>
-              <button onClick={handlePay} disabled={sending || !phone}
-                className="w-full bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white font-semibold rounded-xl py-3 flex items-center justify-center gap-2 transition-colors">
-                {sending ? <Loader size={17} className="animate-spin" /> : <Smartphone size={17} />}
-                {sending ? "Sending…" : `Pay ${ksh(chargeAmount)} via M-Pesa`}
-              </button>
-            </div>
+            )}
 
             {/* Card */}
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-4">
-              <div className="flex items-center gap-2">
-                <CreditCard size={18} className="text-indigo-600" />
-                <h2 className="font-semibold text-gray-800">Pay by Card (Visa / Mastercard)</h2>
+            {cardEnabled && (
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-4">
+                <div className="flex items-center gap-2">
+                  <CreditCard size={18} className="text-indigo-600" />
+                  <h2 className="font-semibold text-gray-800">Pay by Card (Visa / Mastercard)</h2>
+                </div>
+                {isPartialRequest && (
+                  <div className="flex items-center gap-2 bg-indigo-50 text-indigo-800 text-xs px-3 py-2 rounded-lg">
+                    <span>Charging <strong>{ksh(chargeAmount)}</strong> — partial payment</span>
+                  </div>
+                )}
+                <p className="text-sm text-gray-500">
+                  You'll be redirected to Paystack's secure page to enter your card details.
+                </p>
+                {cardError && (
+                  <div className="bg-red-50 text-red-700 text-sm px-3 py-2 rounded-lg flex items-start gap-2">
+                    <AlertCircle size={15} className="mt-0.5 shrink-0" /> {cardError}
+                  </div>
+                )}
+                {!invoice.client_email && (
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1.5">
+                      Email Address <span className="text-gray-400">(for your receipt)</span>
+                    </label>
+                    <input
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent"
+                      type="email" placeholder="your@email.com"
+                      value={cardEmail}
+                      onChange={(e) => setCardEmail(e.target.value)}
+                    />
+                  </div>
+                )}
+                <button onClick={handleCardPay} disabled={cardLoading || !cardEmail}
+                  className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-semibold rounded-xl py-3 flex items-center justify-center gap-2 transition-colors">
+                  {cardLoading ? <Loader size={17} className="animate-spin" /> : <CreditCard size={17} />}
+                  {cardLoading ? "Redirecting to Paystack…" : `Pay ${ksh(chargeAmount)} by Card`}
+                </button>
               </div>
-              {isPartialRequest && (
-                <div className="flex items-center gap-2 bg-indigo-50 text-indigo-800 text-xs px-3 py-2 rounded-lg">
-                  <span>Charging <strong>{ksh(chargeAmount)}</strong> — partial payment</span>
-                </div>
-              )}
-              <p className="text-sm text-gray-500">
-                You'll be redirected to Paystack's secure page to enter your card details.
-              </p>
-              {cardError && (
-                <div className="bg-red-50 text-red-700 text-sm px-3 py-2 rounded-lg flex items-start gap-2">
-                  <AlertCircle size={15} className="mt-0.5 shrink-0" /> {cardError}
-                </div>
-              )}
-              {!invoice.client_email && (
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1.5">
-                    Email Address <span className="text-gray-400">(for your receipt)</span>
-                  </label>
-                  <input
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent"
-                    type="email" placeholder="your@email.com"
-                    value={cardEmail}
-                    onChange={(e) => setCardEmail(e.target.value)}
-                  />
-                </div>
-              )}
-              <button onClick={handleCardPay} disabled={cardLoading || !cardEmail}
-                className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-semibold rounded-xl py-3 flex items-center justify-center gap-2 transition-colors">
-                {cardLoading ? <Loader size={17} className="animate-spin" /> : <CreditCard size={17} />}
-                {cardLoading ? "Redirecting to Paystack…" : `Pay ${ksh(chargeAmount)} by Card`}
-              </button>
-            </div>
+            )}
           </>
         )}
 

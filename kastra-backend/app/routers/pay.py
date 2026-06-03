@@ -30,6 +30,8 @@ class PublicInvoiceOut(BaseModel):
     payment_status: str
     due_date: datetime | None
     created_at: datetime
+    mpesa_configured: bool
+    paystack_configured: bool
 
 
 class PublicMpesaRequest(BaseModel):
@@ -51,9 +53,10 @@ async def get_public_invoice(invoice_id: str, db: AsyncSession = Depends(get_db)
     amount_paid = Decimal(str(inv.amount_paid or 0))
     balance_due = Decimal(str(inv.grand_total)) - amount_paid
 
+    org = inv.organization
     return PublicInvoiceOut(
         id=inv.id,
-        business_name=inv.organization.name,
+        business_name=org.name,
         client_name=inv.client.name,
         client_email=inv.client.email,
         grand_total=inv.grand_total,
@@ -62,6 +65,8 @@ async def get_public_invoice(invoice_id: str, db: AsyncSession = Depends(get_db)
         payment_status=inv.payment_status,
         due_date=inv.due_date,
         created_at=inv.created_at,
+        mpesa_configured=bool(org.mpesa_consumer_key and org.mpesa_shortcode and org.mpesa_passkey),
+        paystack_configured=bool(getattr(org, "paystack_secret_key", None)),
     )
 
 
@@ -79,6 +84,10 @@ async def public_mpesa_pay(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invoice not found")
     if inv.payment_status == "paid":
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invoice is already paid")
+
+    org = inv.organization
+    if not (org.mpesa_consumer_key and org.mpesa_shortcode and org.mpesa_passkey):
+        raise HTTPException(status_code=400, detail="M-Pesa payments are not configured for this business.")
 
     balance_due = float(inv.grand_total) - float(inv.amount_paid or 0)
     charge = payload.amount if payload.amount else balance_due
