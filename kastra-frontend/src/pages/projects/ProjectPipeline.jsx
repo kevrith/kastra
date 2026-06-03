@@ -104,10 +104,10 @@ export default function ProjectPipeline() {
   }
 
   return (
-    <div className="p-6">
+    <div className="p-4 sm:p-6">
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
-      
-      <div className="flex items-center justify-between mb-6">
+
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
             <Kanban className="w-7 h-7" />

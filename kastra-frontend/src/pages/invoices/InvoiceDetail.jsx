@@ -132,7 +132,7 @@ function JobExpensesSection({ invoiceId, expenses, onRefresh }) {
       {showForm && (
         <div className="px-4 py-4 border-t border-gray-100 bg-gray-50 space-y-3">
           {error && <div className="bg-red-50 text-red-700 text-xs px-3 py-2 rounded-lg">{error}</div>}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="label">Category</label>
               <select className="input" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>
@@ -150,7 +150,7 @@ function JobExpensesSection({ invoiceId, expenses, onRefresh }) {
             <label className="label">Description *</label>
             <input className="input" placeholder="e.g. 50 bags of cement, 3 workers × 2 days" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="label">Amount (KSh) *</label>
               <input className="input" type="number" min="0.01" step="0.01" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} />
@@ -260,7 +260,7 @@ function RecordPaymentForm({ invoice, paymentsData, onSave, onClose }) {
         <CreditCard size={16} className="shrink-0" />
         Balance due: <strong>{ksh(balance)}</strong>
       </div>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label className="label">Amount (KSh) *</label>
           <input className="input" type="number" min="0.01" step="0.01" value={form.amount}

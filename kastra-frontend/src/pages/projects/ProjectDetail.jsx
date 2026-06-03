@@ -352,9 +352,9 @@ export default function ProjectDetail() {
             />
           </label>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
             {project.photos.length === 0 && (
-              <p className="text-gray-500 text-sm col-span-2">No photos yet</p>
+              <p className="text-gray-500 text-sm col-span-2 sm:col-span-3">No photos yet</p>
             )}
             {project.photos.map(photo => (
               <div key={photo.id} className="relative">

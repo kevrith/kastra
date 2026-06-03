@@ -288,7 +288,8 @@ export default function QuotationDetail() {
 
       {/* Items */}
       <div className="card overflow-hidden">
-        <table className="w-full text-sm">
+        <div className="overflow-x-auto">
+        <table className="w-full text-sm min-w-[400px]">
           <thead className="bg-gray-50 text-left text-xs text-gray-500 uppercase tracking-wide">
             <tr>
               <th className="px-4 py-3">Description</th>
@@ -308,6 +309,7 @@ export default function QuotationDetail() {
             ))}
           </tbody>
         </table>
+        </div>
         {quotation.charges?.length > 0 && (
           <div className="px-4 py-2 border-t border-gray-100">
             <p className="text-xs text-gray-400 uppercase tracking-wide mb-1.5">Charges</p>

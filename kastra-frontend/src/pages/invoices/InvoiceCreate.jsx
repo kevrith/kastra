@@ -98,7 +98,7 @@ export default function InvoiceCreate() {
               {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="label">Invoice Date</label>
               <input className="input" type="date" value={invoiceDate}
@@ -110,7 +110,7 @@ export default function InvoiceCreate() {
                 onChange={(e) => setDueDate(e.target.value)} />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="label">LPO Number <span className="text-gray-400 font-normal">(optional)</span></label>
               <input className="input" type="text" placeholder="e.g. LPO-2026-001"

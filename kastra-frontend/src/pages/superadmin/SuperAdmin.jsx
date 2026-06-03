@@ -620,7 +620,7 @@ export default function SuperAdmin() {
 
           {/* Flash message */}
           {actionMsg.text && (
-            <div className={`fixed top-4 right-4 z-50 px-4 py-3 rounded-xl text-sm font-medium shadow-xl border flex items-center gap-2 ${
+            <div className={`fixed top-4 right-4 z-50 px-4 py-3 rounded-xl text-sm font-medium shadow-xl border flex items-center gap-2 max-w-[calc(100vw-2rem)] ${
               actionMsg.type === "error" ? "bg-red-900 border-red-700 text-red-200" : "bg-green-900 border-green-700 text-green-200"
             }`}>
               {actionMsg.type === "error" ? <AlertCircle size={14} /> : <CheckCircle2 size={14} />}
@@ -781,7 +781,7 @@ export default function SuperAdmin() {
                   {!Object.values(stats.trial_distribution ?? {}).every((v) => v === 0) && (
                     <div className="bg-gray-800 border border-gray-700 rounded-xl p-5">
                       <SectionTitle title="Trial Distribution" />
-                      <div className="grid grid-cols-3 gap-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                         {["starter", "business", "premium"].map((plan) => {
                           const count = stats.trial_distribution?.[plan] ?? 0;
                           return (

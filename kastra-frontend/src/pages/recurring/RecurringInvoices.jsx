@@ -115,7 +115,7 @@ export default function RecurringInvoices() {
       {/* Create Modal */}
       <Modal open={showModal} onClose={() => setShowModal(false)} title="New Recurring Invoice" size="md">
         <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="label">Client *</label>
               <select className="input" value={form.client_id} onChange={(e) => setForm((f) => ({ ...f, client_id: e.target.value }))}>

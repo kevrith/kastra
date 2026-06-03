@@ -88,7 +88,8 @@ export default function Reports() {
             <div className="p-4 border-b border-gray-100">
               <h2 className="text-sm font-semibold text-gray-700">Income Breakdown</h2>
             </div>
-            <table className="w-full text-sm">
+            <div className="overflow-x-auto">
+            <table className="w-full text-sm min-w-[320px]">
               <thead className="bg-gray-50 text-left text-xs text-gray-500 uppercase tracking-wide">
                 <tr>
                   <th className="px-4 py-3">Month</th>
@@ -111,6 +112,7 @@ export default function Reports() {
                 </tr>
               </tbody>
             </table>
+            </div>
           </div>
 
           {/* Client Revenue Table */}
@@ -118,7 +120,8 @@ export default function Reports() {
             <div className="p-4 border-b border-gray-100">
               <h2 className="text-sm font-semibold text-gray-700">Client Revenue (All Time)</h2>
             </div>
-            <table className="w-full text-sm">
+            <div className="overflow-x-auto">
+            <table className="w-full text-sm min-w-[380px]">
               <thead className="bg-gray-50 text-left text-xs text-gray-500 uppercase tracking-wide">
                 <tr>
                   <th className="px-4 py-3">Client</th>
@@ -138,6 +141,7 @@ export default function Reports() {
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
         </>
       )}

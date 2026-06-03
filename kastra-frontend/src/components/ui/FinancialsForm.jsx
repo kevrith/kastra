@@ -143,7 +143,7 @@ export default function FinancialsForm({
       {/* Document-level settings: overall discount, WHT, deposit */}
       <div className="card p-4 space-y-3">
         <h2 className="text-sm font-semibold text-gray-700">Pricing Settings</h2>
-        <div className={`grid gap-4 ${showDeposit ? "grid-cols-3" : "grid-cols-2"}`}>
+        <div className={`grid gap-4 ${showDeposit ? "grid-cols-1 sm:grid-cols-3" : "grid-cols-1 sm:grid-cols-2"}`}>
           <div>
             <label className="label">Overall Discount %</label>
             <div className="relative">

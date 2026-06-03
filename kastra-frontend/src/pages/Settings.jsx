@@ -708,7 +708,7 @@ export default function Settings() {
       {/* Document Template */}
       {isAdmin && <Section title="Document Template" icon={Palette}>
         <p className="text-xs text-gray-500">Choose the design for your quotations and invoices. Your selection is saved automatically when you click a template.</p>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           {TEMPLATES.map((t) => (
             <button
               key={t.id}

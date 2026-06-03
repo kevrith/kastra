@@ -25,7 +25,7 @@ function SupplierForm({ initial, onSave, onClose }) {
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label className="label">Contact Name *</label>
           <input className="input" value={form.name} onChange={f("name")} placeholder="e.g. James Mwangi" />
@@ -35,7 +35,7 @@ function SupplierForm({ initial, onSave, onClose }) {
           <input className="input" value={form.company_name} onChange={f("company_name")} placeholder="e.g. Nairobi Hardware Ltd" />
         </div>
       </div>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label className="label">Phone</label>
           <input className="input" value={form.phone} onChange={f("phone")} placeholder="254712345678" />
