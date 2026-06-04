@@ -100,7 +100,7 @@ async def record_payment(
     inv = (await db.execute(
         select(Invoice)
         .where(Invoice.id == invoice_id, Invoice.organization_id == current_user.organization_id)
-        .options(selectinload(Invoice.payments))
+        .options(selectinload(Invoice.payments), selectinload(Invoice.payment_detail))
     )).scalar_one_or_none()
     if not inv:
         raise HTTPException(status_code=404, detail="Invoice not found")
