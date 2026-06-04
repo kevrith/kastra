@@ -165,7 +165,7 @@ export default function Dashboard() {
               <XAxis dataKey="month" tick={{ fontSize: 11 }} />
               <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
               <Tooltip formatter={(v) => ksh(v)} />
-              <Bar dataKey="revenue" fill="#16a34a" radius={4} />
+              <Bar dataKey="revenue" fill="#16a34a" />
             </BarChart>
           </ResponsiveContainer>
         </div>
