@@ -5,8 +5,9 @@ import { getClient, getClientHistory, updateClient } from "../../api/clients";
 import { getQuotations } from "../../api/quotations";
 import { getInvoices } from "../../api/invoices";
 import { getOrganization } from "../../api/organization";
+import { getClientRisk } from "../../api/ai";
 import { ksh, phone, date, statusBadgeClass, normalizePhone } from "../../utils/formatters";
-import { ArrowLeft, Edit2, Check, X, Copy, MessageCircle, ExternalLink, Lock, LockOpen, RefreshCw } from "lucide-react";
+import { ArrowLeft, Edit2, Check, X, Copy, MessageCircle, ExternalLink, Lock, LockOpen, RefreshCw, Sparkles, ShieldAlert } from "lucide-react";
 import Spinner from "../../components/ui/Spinner";
 import Modal from "../../components/ui/Modal";
 import api from "../../api/axios";
@@ -29,6 +30,9 @@ export default function ClientDetail() {
   const [pinForm, setPinForm] = useState("");
   const [pinSaving, setPinSaving] = useState(false);
   const [generatedPin, setGeneratedPin] = useState(() => sessionStorage.getItem(PIN_KEY(id)));
+  const [risk, setRisk] = useState(null);
+  const [riskLoading, setRiskLoading] = useState(false);
+  const [riskError, setRiskError] = useState("");
 
   const load = async () => {
     setLoading(true);
@@ -114,6 +118,26 @@ export default function ClientDetail() {
     load();
   };
 
+  const handleCheckRisk = async () => {
+    setRiskLoading(true);
+    setRiskError("");
+    try {
+      const { data } = await getClientRisk(id);
+      setRisk(data);
+    } catch (err) {
+      setRiskError(err.response?.data?.detail ?? "Could not assess risk.");
+    } finally {
+      setRiskLoading(false);
+    }
+  };
+
+  const riskColor = (score) => {
+    if (score <= 1) return { bg: "bg-green-50", text: "text-green-700", border: "border-green-200" };
+    if (score === 2) return { bg: "bg-yellow-50", text: "text-yellow-700", border: "border-yellow-200" };
+    if (score === 3) return { bg: "bg-orange-50", text: "text-orange-700", border: "border-orange-200" };
+    return { bg: "bg-red-50", text: "text-red-700", border: "border-red-200" };
+  };
+
   if (loading) return <div className="flex h-96 items-center justify-center"><Spinner size="lg" /></div>;
   if (!client) return null;
 
@@ -154,6 +178,46 @@ export default function ClientDetail() {
           ))}
         </div>
       )}
+
+      {/* AI Payment Risk */}
+      <div className="card p-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <ShieldAlert size={16} className="text-purple-600" />
+            <h2 className="text-sm font-semibold text-gray-700">Payment Risk Score</h2>
+          </div>
+          <button
+            onClick={handleCheckRisk}
+            disabled={riskLoading}
+            className="flex items-center gap-1.5 text-xs text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded-lg px-3 py-1.5 font-medium transition-colors disabled:opacity-50"
+          >
+            {riskLoading ? <RefreshCw size={12} className="animate-spin" /> : <Sparkles size={12} />}
+            {risk ? "Re-assess" : "Assess Risk"}
+          </button>
+        </div>
+        {riskError && <p className="text-xs text-red-600">{riskError}</p>}
+        {risk && (() => {
+          const c = riskColor(risk.score);
+          return (
+            <div className={`rounded-lg border ${c.border} ${c.bg} p-3 space-y-1.5`}>
+              <div className="flex items-center gap-2">
+                <span className={`text-lg font-bold ${c.text}`}>{risk.label} Risk</span>
+                <span className={`text-xs font-medium px-2 py-0.5 rounded-full border ${c.border} ${c.bg} ${c.text}`}>
+                  {risk.score}/5
+                </span>
+              </div>
+              <p className="text-xs text-gray-600">{risk.reason}</p>
+              <div className="flex gap-4 text-xs text-gray-500 pt-0.5">
+                <span>{risk.late_count} late payment{risk.late_count !== 1 ? "s" : ""} of {risk.total_invoices}</span>
+                {risk.avg_days_late > 0 && <span>avg {risk.avg_days_late}d late</span>}
+              </div>
+            </div>
+          );
+        })()}
+        {!risk && !riskLoading && (
+          <p className="text-xs text-gray-400">Click "Assess Risk" to analyse this client's payment behaviour with AI.</p>
+        )}
+      </div>
 
       {/* Details */}
       <div className="card p-4 grid sm:grid-cols-2 gap-4">

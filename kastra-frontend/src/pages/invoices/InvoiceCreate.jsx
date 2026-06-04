@@ -3,7 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { createInvoice } from "../../api/invoices";
 import { getClients } from "../../api/clients";
 import { getOrganization } from "../../api/organization";
-import { Plus, Trash2, ArrowLeft } from "lucide-react";
+import { suggestItems } from "../../api/ai";
+import { Plus, Trash2, ArrowLeft, Sparkles } from "lucide-react";
 import ProductAutocomplete from "../../components/ui/ProductAutocomplete";
 import FinancialsForm from "../../components/ui/FinancialsForm";
 
@@ -24,6 +25,8 @@ export default function InvoiceCreate() {
   const [depositAmount, setDepositAmount] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [suggesting, setSuggesting] = useState(false);
+  const [suggestions, setSuggestions] = useState([]);
 
   useEffect(() => {
     getClients({ limit: 100 }).then(({ data }) => setClients(data.data));
@@ -40,6 +43,30 @@ export default function InvoiceCreate() {
 
   const removeItem = (i) => setItems((prev) => prev.filter((_, idx) => idx !== i));
   const addItem = () => setItems((prev) => [...prev, emptyItem()]);
+
+  const handleSuggestItems = async () => {
+    if (!clientId) return;
+    setSuggesting(true);
+    setSuggestions([]);
+    try {
+      const { data } = await suggestItems(clientId);
+      setSuggestions(data.items || []);
+    } catch (err) {
+      setError(err.response?.data?.detail ?? "AI suggestion failed");
+    } finally {
+      setSuggesting(false);
+    }
+  };
+
+  const applySuggestion = (s) => {
+    setItems((prev) => {
+      const hasEmpty = prev.some((it) => !it.description && !it.unit_price);
+      const newItem = { description: s.description, quantity: String(s.quantity), unit_price: String(s.unit_price), cost_price: "", discount_pct: "0", vat_exempt: false };
+      if (hasEmpty) return prev.map((it, idx) => (!it.description && !it.unit_price && idx === prev.findIndex((x) => !x.description && !x.unit_price)) ? newItem : it);
+      return [...prev, newItem];
+    });
+    setSuggestions((prev) => prev.filter((x) => x.description !== s.description));
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -120,7 +147,37 @@ export default function InvoiceCreate() {
         </div>
 
         <div className="card p-4 space-y-3">
-          <h2 className="text-sm font-semibold text-gray-700">Line Items</h2>
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-gray-700">Line Items</h2>
+            {clientId && (
+              <button
+                type="button"
+                onClick={handleSuggestItems}
+                disabled={suggesting}
+                className="flex items-center gap-1.5 text-xs text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded-lg px-3 py-1.5 font-medium transition-colors disabled:opacity-50"
+              >
+                <Sparkles size={13} />
+                {suggesting ? "Thinking…" : "AI Suggest"}
+              </button>
+            )}
+          </div>
+          {suggestions.length > 0 && (
+            <div className="bg-purple-50 border border-purple-200 rounded-lg p-3 space-y-2">
+              <p className="text-xs text-purple-700 font-medium">Suggested from past invoices — click to add:</p>
+              <div className="flex flex-wrap gap-2">
+                {suggestions.map((s, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => applySuggestion(s)}
+                    className="text-xs bg-white border border-purple-200 rounded-lg px-3 py-1.5 hover:bg-purple-100 text-gray-700 transition-colors"
+                  >
+                    {s.description} — KES {Number(s.unit_price).toLocaleString()}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           <div className="hidden sm:grid grid-cols-12 gap-2 text-[10px] text-gray-400 uppercase tracking-wide px-1">
             <div className="col-span-4">Description</div>
             <div className="col-span-1">Qty</div>

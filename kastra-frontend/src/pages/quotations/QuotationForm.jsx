@@ -4,7 +4,8 @@ import { createQuotation, getQuotation, updateQuotation } from "../../api/quotat
 import { getClients, createClient } from "../../api/clients";
 import { getOrganization } from "../../api/organization";
 import { scanReceipt } from "../../api/ocr";
-import { Plus, Trash2, ArrowLeft, ScanLine, X, Camera } from "lucide-react";
+import { generateDescription } from "../../api/ai";
+import { Plus, Trash2, ArrowLeft, ScanLine, X, Camera, Sparkles } from "lucide-react";
 import ProductAutocomplete from "../../components/ui/ProductAutocomplete";
 import FinancialsForm from "../../components/ui/FinancialsForm";
 
@@ -62,6 +63,10 @@ export default function QuotationForm() {
   const [scanError, setScanError] = useState("");
   const [scanClientHint, setScanClientHint] = useState(null);
   const [creatingClient, setCreatingClient] = useState(false);
+  const [showDescGen, setShowDescGen] = useState(false);
+  const [descBullets, setDescBullets] = useState("");
+  const [generating, setGenerating] = useState(false);
+  const [genError, setGenError] = useState("");
   const fileInputRef = useRef(null);
 
   useEffect(() => {
@@ -210,6 +215,23 @@ export default function QuotationForm() {
       setScanError(err.response?.data?.detail ?? "Scan failed. Try a clearer image.");
     } finally {
       setScanning(false);
+    }
+  };
+
+  const handleGenerateDescription = async () => {
+    if (!descBullets.trim()) return;
+    setGenerating(true);
+    setGenError("");
+    try {
+      const context = projectDescription ? `Project: ${projectDescription}` : "";
+      const { data } = await generateDescription(descBullets, context);
+      setNotes((prev) => (prev ? prev + "\n\n" : "") + data.description);
+      setShowDescGen(false);
+      setDescBullets("");
+    } catch (err) {
+      setGenError(err.response?.data?.detail ?? "Generation failed. Try again.");
+    } finally {
+      setGenerating(false);
     }
   };
 
@@ -397,9 +419,37 @@ export default function QuotationForm() {
           setLabourVatExempt={setLabourVatExempt}
         />
 
-        <div className="card p-4">
-          <label className="label">Notes</label>
-          <textarea className="input" rows={3} placeholder="Payment terms, special instructions…"
+        <div className="card p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <label className="label mb-0">Notes / Scope</label>
+            <button
+              type="button"
+              onClick={() => { setShowDescGen((v) => !v); setGenError(""); }}
+              className="flex items-center gap-1.5 text-xs text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded-lg px-3 py-1.5 font-medium transition-colors"
+            >
+              <Sparkles size={13} /> AI Write
+            </button>
+          </div>
+          {showDescGen && (
+            <div className="bg-purple-50 border border-purple-200 rounded-lg p-3 space-y-2">
+              <p className="text-xs text-purple-700 font-medium">Enter bullet points — AI will write a professional scope for you:</p>
+              <textarea
+                className="input text-sm"
+                rows={3}
+                placeholder={"- Supply and install 10 CCTV cameras\n- 6 months warranty\n- Commissioning included"}
+                value={descBullets}
+                onChange={(e) => setDescBullets(e.target.value)}
+              />
+              {genError && <p className="text-xs text-red-600">{genError}</p>}
+              <div className="flex gap-2 justify-end">
+                <button type="button" className="btn-secondary text-xs" onClick={() => { setShowDescGen(false); setDescBullets(""); }}>Cancel</button>
+                <button type="button" className="btn-primary text-xs flex items-center gap-1.5" onClick={handleGenerateDescription} disabled={generating || !descBullets.trim()}>
+                  <Sparkles size={12} /> {generating ? "Writing…" : "Generate"}
+                </button>
+              </div>
+            </div>
+          )}
+          <textarea className="input" rows={3} placeholder="Payment terms, special instructions, scope of work…"
             value={notes} onChange={(e) => setNotes(e.target.value)} />
         </div>
 

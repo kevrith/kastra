@@ -24,6 +24,7 @@ def _maybe_reset_counters(org) -> None:
         org.invoices_this_month = 0
         org.quotations_this_month = 0
         org.ocr_scans_this_month = 0
+        org.ai_calls_this_month = 0
         org.counters_reset_at = now
 
 _SYSTEM = """You are a receipt/quotation data extraction assistant for a Kenyan business platform.

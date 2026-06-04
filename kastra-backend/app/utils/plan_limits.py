@@ -26,6 +26,8 @@ class PlanLimits(TypedDict):
     white_label: bool
     suppliers: bool           # supplier management + price comparison portal
     job_profitability: bool   # cost price on items + invoice expense tracking
+    ai_features: bool         # Claude AI smart features
+    ai_calls_per_month: int   # -1 = unlimited
 
 
 PLANS: dict[str, PlanLimits] = {
@@ -54,6 +56,8 @@ PLANS: dict[str, PlanLimits] = {
         "white_label": False,
         "suppliers": False,
         "job_profitability": False,
+        "ai_features": False,
+        "ai_calls_per_month": 0,
     },
     "starter": {
         "invoices_per_month": 200,
@@ -80,6 +84,8 @@ PLANS: dict[str, PlanLimits] = {
         "white_label": False,
         "suppliers": True,
         "job_profitability": True,
+        "ai_features": True,
+        "ai_calls_per_month": 15,
     },
     "business": {
         "invoices_per_month": 400,
@@ -106,6 +112,8 @@ PLANS: dict[str, PlanLimits] = {
         "white_label": False,
         "suppliers": True,
         "job_profitability": True,
+        "ai_features": True,
+        "ai_calls_per_month": 50,
     },
     "premium": {
         "invoices_per_month": -1,
@@ -132,6 +140,8 @@ PLANS: dict[str, PlanLimits] = {
         "white_label": True,
         "suppliers": True,
         "job_profitability": True,
+        "ai_features": True,
+        "ai_calls_per_month": -1,
     },
 }
 

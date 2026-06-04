@@ -1,11 +1,102 @@
 import { useEffect, useState } from "react";
 import { getDashboardStats } from "../api/dashboard";
+import { getCashFlowForecast } from "../api/ai";
 import { ksh, date } from "../utils/formatters";
 import { statusBadgeClass } from "../utils/formatters";
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
-import { FileText, Receipt, TrendingUp, TrendingDown, Users, DollarSign } from "lucide-react";
+import { FileText, Receipt, TrendingUp, TrendingDown, Users, DollarSign, Sparkles, RefreshCw, AlertTriangle } from "lucide-react";
 import Spinner from "../components/ui/Spinner";
 import TeamOverview from "../components/dashboard/TeamOverview";
+
+function CashFlowWidget() {
+  const [forecast, setForecast] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const load = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const { data } = await getCashFlowForecast();
+      setForecast(data);
+    } catch (err) {
+      setError(err.response?.data?.detail ?? "Could not generate forecast.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!forecast && !loading && !error) {
+    return (
+      <div className="card p-5 flex flex-col items-center justify-center gap-3 text-center min-h-[140px]">
+        <div className="h-10 w-10 rounded-xl bg-purple-100 flex items-center justify-center">
+          <Sparkles size={20} className="text-purple-600" />
+        </div>
+        <div>
+          <p className="text-sm font-semibold text-gray-800">AI Cash Flow Forecast</p>
+          <p className="text-xs text-gray-400 mt-0.5">30-day projection based on your invoices</p>
+        </div>
+        <button onClick={load} className="btn-secondary text-xs flex items-center gap-1.5">
+          <Sparkles size={13} /> Generate Forecast
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="card p-5 space-y-3">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className="h-8 w-8 rounded-lg bg-purple-100 flex items-center justify-center">
+            <Sparkles size={16} className="text-purple-600" />
+          </div>
+          <h2 className="text-sm font-semibold text-gray-700">AI Cash Flow Forecast</h2>
+        </div>
+        <button onClick={load} disabled={loading} className="text-gray-400 hover:text-gray-600 disabled:opacity-40">
+          <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
+        </button>
+      </div>
+
+      {loading && <div className="flex justify-center py-4"><Spinner /></div>}
+
+      {error && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-xs text-amber-800">
+          {error}
+        </div>
+      )}
+
+      {forecast && !loading && (
+        <>
+          <div className="grid grid-cols-3 gap-3 text-center">
+            <div className="bg-red-50 rounded-lg p-3">
+              <p className="text-xs text-red-500 font-medium">Overdue</p>
+              <p className="text-base font-bold text-red-700 mt-0.5">{ksh(forecast.overdue_amount)}</p>
+            </div>
+            <div className="bg-green-50 rounded-lg p-3">
+              <p className="text-xs text-green-600 font-medium">Expected In</p>
+              <p className="text-base font-bold text-green-700 mt-0.5">{ksh(forecast.expected_inflow_30d)}</p>
+            </div>
+            <div className={`rounded-lg p-3 ${forecast.net_30_days >= 0 ? "bg-blue-50" : "bg-orange-50"}`}>
+              <p className={`text-xs font-medium ${forecast.net_30_days >= 0 ? "text-blue-600" : "text-orange-600"}`}>Net 30d</p>
+              <p className={`text-base font-bold mt-0.5 ${forecast.net_30_days >= 0 ? "text-blue-700" : "text-orange-700"}`}>{ksh(forecast.net_30_days)}</p>
+            </div>
+          </div>
+          <p className="text-xs text-gray-600 leading-relaxed">{forecast.summary}</p>
+          {forecast.warnings?.length > 0 && (
+            <ul className="space-y-1">
+              {forecast.warnings.map((w, i) => (
+                <li key={i} className="flex items-start gap-1.5 text-xs text-amber-700">
+                  <AlertTriangle size={12} className="mt-0.5 shrink-0" />
+                  {w}
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
 
 function KpiCard({ label, value, icon: Icon, color }) {
   return (
@@ -60,6 +151,9 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+
+      {/* AI Cash Flow Forecast */}
+      <CashFlowWidget />
 
       {/* Charts */}
       <div className="grid md:grid-cols-2 gap-4">

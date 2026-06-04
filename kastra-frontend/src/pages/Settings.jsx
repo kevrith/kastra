@@ -459,11 +459,12 @@ export default function Settings() {
                 </>
               )}
             </div>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {[
                 { label: "Invoices this month", used: planInfo.invoices_this_month, cap: planInfo.limits?.invoices_per_month },
                 { label: "Quotations this month", used: planInfo.quotations_this_month, cap: planInfo.limits?.quotations_per_month },
                 { label: "OCR scans this month", used: planInfo.ocr_scans_this_month, cap: planInfo.limits?.ocr_scans_per_month },
+                { label: "AI calls this month", used: planInfo.ai_calls_this_month ?? 0, cap: planInfo.limits?.ai_calls_per_month ?? 0 },
               ].map(({ label, used, cap }) => (
                 <div key={label} className="bg-gray-50 rounded-lg p-3">
                   <p className="text-xs text-gray-500 mb-1">{label}</p>

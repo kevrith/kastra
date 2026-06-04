@@ -32,6 +32,7 @@ class PlanInfo(BaseModel):
     invoices_this_month: int
     quotations_this_month: int
     ocr_scans_this_month: int
+    ai_calls_this_month: int
     billing_cycle_start: datetime | None
     next_billing_date: datetime | None
     limits: dict
@@ -93,6 +94,7 @@ async def get_my_plan(
         invoices_this_month=org.invoices_this_month,
         quotations_this_month=org.quotations_this_month,
         ocr_scans_this_month=org.ocr_scans_this_month,
+        ai_calls_this_month=org.ai_calls_this_month,
         billing_cycle_start=org.billing_cycle_start,
         next_billing_date=org.next_billing_date,
         limits=dict(limits),

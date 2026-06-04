@@ -17,6 +17,7 @@ from app.routers import pay, portal, paystack
 from app.routers import expenses, products, notifications, search, invoice_payments, recurring_invoices
 from app.routers import ocr, subscriptions, superadmin, team, projects
 from app.routers import suppliers, supplier_portal
+from app.routers import ai as ai_router
 from app.services.scheduler import start_scheduler, stop_scheduler
 from app.utils.rate_limit import limiter
 
@@ -183,6 +184,7 @@ app.include_router(notifications.router)
 app.include_router(search.router)
 app.include_router(recurring_invoices.router)
 app.include_router(ocr.router)
+app.include_router(ai_router.router)
 app.include_router(subscriptions.router)
 app.include_router(superadmin.router)
 

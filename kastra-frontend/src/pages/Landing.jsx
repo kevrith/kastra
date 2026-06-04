@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import {
   FileText, Receipt, CreditCard, Users, BarChart2, Shield,
   CheckCircle, Smartphone, Zap, Globe, ArrowRight, Star,
-  TrendingUp, Clock, Lock, UserCog, FolderKanban, Camera, DollarSign, Truck,
+  TrendingUp, Clock, Lock, UserCog, FolderKanban, Camera, DollarSign, Truck, Sparkles,
 } from "lucide-react";
 
 const features = [
@@ -71,6 +71,11 @@ const features = [
     title: "Recurring Invoices",
     desc: "Set up automatic recurring invoices for retainer clients. Never miss a billing cycle.",
   },
+  {
+    icon: Sparkles,
+    title: "AI Smart Features",
+    desc: "Auto-suggest invoice line items from past history, scan receipts to categorise expenses, get a 30-day cash flow forecast, generate quotation descriptions from bullet points, and score client payment risk — all powered by Claude AI.",
+  },
 ];
 
 const stats = [
@@ -108,7 +113,7 @@ const plans = [
     price: "KES 0",
     period: "forever",
     desc: "Perfect for freelancers just getting started.",
-    features: ["20 invoices / month", "20 quotations / month", "1 team member", "5 OCR scans / month", "3 clients", "M-Pesa payments", "Classic template"],
+    features: ["20 invoices / month", "20 quotations / month", "1 team member", "5 OCR scans / month", "3 clients", "M-Pesa payments", "Classic template", "No AI features"],
     cta: "Get started free",
     highlight: false,
   },
@@ -118,7 +123,7 @@ const plans = [
     price: "KES 1,500",
     period: "/ month",
     desc: "For small businesses ready to grow.",
-    features: ["200 invoices / month", "150 quotations / month", "3 team members", "10 OCR scans / month", "20 clients", "M-Pesa + Paystack", "Email invoices", "Client portal", "Products catalog", "Supplier price requests", "Job profitability tracking", "3-month reports"],
+    features: ["200 invoices / month", "150 quotations / month", "3 team members", "10 OCR scans / month", "20 clients", "M-Pesa + Paystack", "Email invoices", "Client portal", "Products catalog", "Supplier price requests", "Job profitability tracking", "3-month reports", "15 AI calls / month"],
     cta: "Start with Starter",
     highlight: false,
   },
@@ -128,7 +133,7 @@ const plans = [
     price: "KES 3,000",
     period: "/ month",
     desc: "For teams that need collaboration.",
-    features: ["400 invoices / month", "250 quotations / month", "6 team members", "35 OCR scans / month", "100 clients", "Team management", "Project pipeline", "Field reporting", "Photo uploads", "SMS notifications", "Recurring invoices", "eTIMS / KRA compliance", "Supplier price comparison", "Job profitability tracking", "Audit logs"],
+    features: ["400 invoices / month", "250 quotations / month", "6 team members", "35 OCR scans / month", "100 clients", "Team management", "Project pipeline", "Field reporting", "Photo uploads", "SMS notifications", "Recurring invoices", "eTIMS / KRA compliance", "Supplier price comparison", "Job profitability tracking", "Audit logs", "50 AI calls / month"],
     cta: "Go Business",
     highlight: true,
   },
@@ -138,7 +143,7 @@ const plans = [
     price: "KES 5,500",
     period: "/ month",
     desc: "Unlimited power for high-volume operations.",
-    features: ["Unlimited invoices", "Unlimited quotations", "15 team members", "100+ OCR scans / month", "Unlimited clients", "Unlimited projects", "White-label branding", "Priority support", "All 3 templates", "Full history reports", "Supplier price comparison", "Job profitability tracking"],
+    features: ["Unlimited invoices", "Unlimited quotations", "15 team members", "100+ OCR scans / month", "Unlimited clients", "Unlimited projects", "White-label branding", "Priority support", "All 3 templates", "Full history reports", "Supplier price comparison", "Job profitability tracking", "Unlimited AI calls"],
     cta: "Go Premium",
     highlight: false,
   },

@@ -450,6 +450,7 @@ async def list_organizations(
             "invoices_this_month": o.invoices_this_month,
             "quotations_this_month": o.quotations_this_month,
             "ocr_scans_this_month": o.ocr_scans_this_month,
+            "ai_calls_this_month": o.ai_calls_this_month,
             "created_at": o.created_at.isoformat(),
             "user_count": user_counts.get(str(o.id), 0),
         })
@@ -814,6 +815,7 @@ async def get_org_detail(org_id: str, db: AsyncSession = Depends(get_db)):
         "invoices_this_month": org.invoices_this_month,
         "quotations_this_month": org.quotations_this_month,
         "ocr_scans_this_month": org.ocr_scans_this_month,
+        "ai_calls_this_month": org.ai_calls_this_month,
         "billing_cycle_start": org.billing_cycle_start.isoformat() if org.billing_cycle_start else None,
         "next_billing_date": org.next_billing_date.isoformat() if org.next_billing_date else None,
         "created_at": org.created_at.isoformat(),

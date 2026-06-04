@@ -1335,6 +1335,7 @@ export default function SuperAdmin() {
                       ["Comp. Ends", selectedOrg.complimentary_ends_at ? fmtDate(selectedOrg.complimentary_ends_at) : (selectedOrg.plan_status === "complimentary" ? "Indefinite" : null)],
                       ["Comp. Reason", selectedOrg.complimentary_reason],
                       ["OCR Scans/mo", selectedOrg.ocr_scans_this_month],
+                      ["AI Calls/mo", selectedOrg.ai_calls_this_month],
                       ["Quotations/mo", selectedOrg.quotations_this_month],
                     ].filter(([, v]) => v != null).map(([k, v]) => (
                       <div key={k} className="flex justify-between">
@@ -1367,6 +1368,7 @@ export default function SuperAdmin() {
                       ["Global Search", "global_search"],
                       ["Priority Support", "priority_support"],
                       ["White Label", "white_label"],
+                      ["AI Features", "ai_features"],
                     ].map(([label, key]) => {
                       const enabled = selectedOrg.plan_features[key];
                       return (
@@ -1385,6 +1387,7 @@ export default function SuperAdmin() {
                     <span>Clients: <span className="text-gray-300">{selectedOrg.plan_features.clients === -1 ? "∞" : selectedOrg.plan_features.clients}</span></span>
                     <span>Team: <span className="text-gray-300">{selectedOrg.plan_features.team_members === -1 ? "∞" : selectedOrg.plan_features.team_members}</span></span>
                     <span>OCR/mo: <span className="text-gray-300">{selectedOrg.plan_features.ocr_scans_per_month === -1 ? "∞" : selectedOrg.plan_features.ocr_scans_per_month}</span></span>
+                    <span>AI calls/mo: <span className="text-gray-300">{selectedOrg.plan_features.ai_calls_per_month === -1 ? "∞" : selectedOrg.plan_features.ai_calls_per_month}</span></span>
                     <span>Reports: <span className="text-gray-300">{selectedOrg.plan_features.reports_months === -1 ? "∞" : selectedOrg.plan_features.reports_months === 0 ? "Dashboard only" : `${selectedOrg.plan_features.reports_months}mo`}</span></span>
                   </div>
                 </div>

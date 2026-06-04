@@ -1,11 +1,38 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { getExpenses, createExpense, updateExpense, deleteExpense } from "../../api/expenses";
-import { Plus, Edit2, Trash2, X, Check } from "lucide-react";
+import { categorizeExpense } from "../../api/ai";
+import { Plus, Edit2, Trash2, X, Check, ScanLine } from "lucide-react";
 import Modal from "../../components/ui/Modal";
 import ConfirmDialog from "../../components/ui/ConfirmDialog";
 import Spinner from "../../components/ui/Spinner";
 
-const CATEGORIES = ["rent", "salaries", "utilities", "supplies", "transport", "marketing", "other"];
+const CATEGORIES = ["rent", "salaries", "utilities", "supplies", "materials", "labour", "lunch", "transport", "fuel", "other"];
+
+function compressImage(file, maxDimension = 1920) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    const objectUrl = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+      let { width, height } = img;
+      if (width > maxDimension || height > maxDimension) {
+        if (width >= height) { height = Math.round(height * maxDimension / width); width = maxDimension; }
+        else { width = Math.round(width * maxDimension / height); height = maxDimension; }
+      }
+      const canvas = document.createElement("canvas");
+      canvas.width = width; canvas.height = height;
+      canvas.getContext("2d").drawImage(img, 0, 0, width, height);
+      const encode = (q) => {
+        const dataUrl = canvas.toDataURL("image/jpeg", q);
+        const b64 = dataUrl.split(",")[1];
+        if (b64.length > 4 * 1024 * 1024 && q > 0.3) return encode(Math.max(0.3, q - 0.15));
+        return { base64: b64, mediaType: "image/jpeg" };
+      };
+      resolve(encode(0.85));
+    };
+    img.src = objectUrl;
+  });
+}
 
 function ksh(val) {
   return `KSh ${Number(val).toLocaleString("en-KE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -23,7 +50,10 @@ export default function Expenses() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [editId, setEditId] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [scanning, setScanning] = useState(false);
+  const [scanError, setScanError] = useState("");
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const receiptInputRef = useRef(null);
 
   const load = async () => {
     setLoading(true);
@@ -35,11 +65,36 @@ export default function Expenses() {
 
   useEffect(() => { load(); }, [page, filterCat]);
 
-  const openAdd = () => { setForm(EMPTY_FORM); setEditId(null); setShowModal(true); };
+  const openAdd = () => { setForm(EMPTY_FORM); setEditId(null); setScanError(""); setShowModal(true); };
   const openEdit = (exp) => {
     setForm({ category: exp.category, description: exp.description, vendor: exp.vendor ?? "", amount: String(exp.amount), date: exp.date });
     setEditId(exp.id);
     setShowModal(true);
+  };
+
+  const handleScanReceipt = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = "";
+    setScanning(true);
+    setScanError("");
+    try {
+      const { base64, mediaType } = await compressImage(file);
+      const { data } = await categorizeExpense(base64, mediaType);
+      const r = data;
+      setForm((prev) => ({
+        ...prev,
+        category: r.category || prev.category,
+        description: r.description || prev.description,
+        vendor: r.vendor || prev.vendor,
+        amount: r.amount != null ? String(r.amount) : prev.amount,
+        date: r.date || prev.date,
+      }));
+    } catch (err) {
+      setScanError(err.response?.data?.detail ?? "Receipt scan failed. Try again.");
+    } finally {
+      setScanning(false);
+    }
   };
 
   const handleSave = async () => {
@@ -145,6 +200,28 @@ export default function Expenses() {
       {/* Add/Edit Modal */}
       <Modal open={showModal} onClose={() => setShowModal(false)} title={editId ? "Edit Expense" : "Add Expense"} size="sm">
         <div className="space-y-4">
+          {!editId && (
+            <div>
+              <input
+                ref={receiptInputRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                className="hidden"
+                onChange={handleScanReceipt}
+              />
+              <button
+                type="button"
+                onClick={() => receiptInputRef.current?.click()}
+                disabled={scanning}
+                className="w-full flex items-center justify-center gap-2 text-sm text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded-lg px-4 py-2.5 font-medium transition-colors disabled:opacity-50"
+              >
+                <ScanLine size={16} />
+                {scanning ? "Scanning receipt…" : "Scan Receipt with AI"}
+              </button>
+              {scanError && <p className="text-xs text-red-600 mt-1">{scanError}</p>}
+            </div>
+          )}
           <div>
             <label className="label">Category</label>
             <select className="input capitalize" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>

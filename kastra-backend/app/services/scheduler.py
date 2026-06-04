@@ -330,6 +330,7 @@ async def _reset_monthly_counters():
                     org.invoices_this_month = 0
                     org.quotations_this_month = 0
                     org.ocr_scans_this_month = 0
+                    org.ai_calls_this_month = 0
                     org.counters_reset_at = now
                     reset_count += 1
             await db.commit()

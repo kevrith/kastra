@@ -45,6 +45,7 @@ class Organization(Base):
     invoices_this_month: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     quotations_this_month: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     ocr_scans_this_month: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    ai_calls_this_month: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     counters_reset_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     pending_plan: Mapped[str | None] = mapped_column(String(20), nullable=True)
     sub_mpesa_checkout_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
