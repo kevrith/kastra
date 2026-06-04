@@ -78,7 +78,7 @@ export default function Reports() {
                 <XAxis dataKey="month" tick={{ fontSize: 11 }} />
                 <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
                 <Tooltip formatter={(v) => ksh(v)} />
-                <Bar dataKey="total" fill="#16a34a" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="total" fill="#16a34a" radius={4} />
               </BarChart>
             </ResponsiveContainer>
           </div>
