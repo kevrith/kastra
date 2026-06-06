@@ -5,6 +5,7 @@ import { getOrganization, updateOrganization } from "../api/organization";
 import { testEtimsConnection } from "../api/invoices";
 import { getMyPlan, upgradePlan } from "../api/subscriptions";
 import { Building2, User, Lock, Upload, X, Palette, ShieldCheck, Eye, EyeOff, Loader, Package, ArrowRight, CreditCard, Smartphone, CheckCircle, Zap, Phone } from "lucide-react";
+import ConfirmDialog from "../components/ui/ConfirmDialog";
 import { Link, useSearchParams } from "react-router-dom";
 
 const TEMPLATES = [
@@ -201,6 +202,7 @@ export default function Settings() {
 
   const [planInfo, setPlanInfo] = useState(null);
   const [upgradeModal, setUpgradeModal] = useState(null); // { plan, price }
+  const [confirmDowngrade, setConfirmDowngrade] = useState(false);
   const [payMethod, setPayMethod] = useState("mpesa"); // "mpesa" | "card"
   const [mpesaPhone, setMpesaPhone] = useState("");
   const [upgrading, setUpgrading] = useState(false);
@@ -251,7 +253,6 @@ export default function Settings() {
   };
 
   const handleDowngradeToFree = async () => {
-    if (!window.confirm("Downgrade to the Free plan? Your current plan features will be removed at end of billing cycle.")) return;
     setUpgrading(true);
     try {
       await api.post("/api/subscriptions/upgrade/free");
@@ -511,7 +512,7 @@ export default function Settings() {
                 {planInfo.plan !== "free" && (
                   <button
                     type="button"
-                    onClick={handleDowngradeToFree}
+                    onClick={() => setConfirmDowngrade(true)}
                     disabled={upgrading}
                     className="mt-2 text-xs text-gray-400 hover:text-gray-600 underline"
                   >
@@ -1036,6 +1037,15 @@ export default function Settings() {
           <Package size={15} /> Manage Products <ArrowRight size={13} />
         </Link>
       </Section>
+
+      <ConfirmDialog
+        open={confirmDowngrade}
+        onClose={() => setConfirmDowngrade(false)}
+        onConfirm={handleDowngradeToFree}
+        title="Downgrade to Free Plan"
+        message="Your current plan features will be removed at the end of this billing cycle. You can upgrade again at any time."
+        danger
+      />
     </div>
   );
 }

@@ -3,6 +3,7 @@ import { Users, UserPlus, Shield, Eye, Briefcase, HardHat, Trash2, Power, KeyRou
 import { listTeamMembers, inviteUser, updateTeamMember, removeTeamMember, resetTeamMemberPassword, getMemberPermissions, setMemberPermissions } from '../api/team';
 import Modal from '../components/ui/Modal';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
+import Toast from '../components/ui/Toast';
 
 const ROLE_ICONS = {
   admin: Shield,
@@ -35,6 +36,7 @@ export default function TeamManagement() {
   const [inviteLink, setInviteLink] = useState('');
   const [copied, setCopied] = useState(false);
   const [confirmDialog, setConfirmDialog] = useState(null);
+  const [toast, setToast] = useState(null);
   const [permMember, setPermMember] = useState(null); // member being edited
   const [perms, setPerms] = useState(null);
   const [permSaving, setPermSaving] = useState(false);
@@ -114,7 +116,7 @@ export default function TeamManagement() {
       setPermMember(null);
       setPerms(null);
     } catch (err) {
-      alert(err.response?.data?.detail || 'Failed to save permissions');
+      setToast({ message: err.response?.data?.detail || 'Failed to save permissions', type: 'error' });
     } finally {
       setPermSaving(false);
     }
@@ -125,41 +127,38 @@ export default function TeamManagement() {
       await updateTeamMember(member.id, { is_active: !member.is_active });
       loadMembers();
     } catch (err) {
-      alert('Failed to update member status');
+      setToast({ message: 'Failed to update member status', type: 'error' });
     }
   };
 
-const handleRemove = async (member) => {
+  const handleRemove = (member) => {
     setConfirmDialog({
       title: 'Remove Team Member',
       message: `Are you sure you want to remove ${member.display_name}? This action cannot be undone.`,
+      danger: true,
       onConfirm: async () => {
         try {
           await removeTeamMember(member.id);
           loadMembers();
-          setConfirmDialog(null);
         } catch (err) {
-          alert('Failed to remove member');
+          setToast({ message: 'Failed to remove member', type: 'error' });
         }
       },
-      onCancel: () => setConfirmDialog(null),
     });
   };
 
-  const handleResetPassword = async (member) => {
+  const handleResetPassword = (member) => {
     setConfirmDialog({
       title: 'Reset Password',
       message: `Send a password reset link to ${member.email}?`,
       onConfirm: async () => {
         try {
           await resetTeamMemberPassword(member.id);
-          alert('Password reset link sent!');
-          setConfirmDialog(null);
+          setToast({ message: 'Password reset link sent!', type: 'success' });
         } catch (err) {
-          alert('Failed to send reset link');
+          setToast({ message: 'Failed to send reset link', type: 'error' });
         }
       },
-      onCancel: () => setConfirmDialog(null),
     });
   };
 
@@ -434,14 +433,16 @@ const handleRemove = async (member) => {
         </Modal>
       )}
 
-      {confirmDialog && (
-        <ConfirmDialog
-          title={confirmDialog.title}
-          message={confirmDialog.message}
-          onConfirm={confirmDialog.onConfirm}
-          onCancel={confirmDialog.onCancel}
-        />
-      )}
+      <ConfirmDialog
+        open={!!confirmDialog}
+        onClose={() => setConfirmDialog(null)}
+        onConfirm={confirmDialog?.onConfirm ?? (() => {})}
+        title={confirmDialog?.title}
+        message={confirmDialog?.message}
+        danger={confirmDialog?.danger}
+      />
+
+      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
     </div>
   );
 }

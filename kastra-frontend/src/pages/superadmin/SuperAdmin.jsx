@@ -214,6 +214,7 @@ export default function SuperAdmin() {
   const [compForm, setCompForm] = useState({ plan: "starter", reason: "", days: "" });
   const [userActionModal, setUserActionModal] = useState(null); // { type, user }
   const [roleChangeForm, setRoleChangeForm] = useState("");
+  const [confirmModal, setConfirmModal] = useState(null); // { title, message, onConfirm }
 
   const isAuthed = Boolean(token);
 
@@ -403,13 +404,18 @@ export default function SuperAdmin() {
     } catch (e) { flash(e.response?.data?.detail ?? "Error changing plan", "error"); }
   };
 
-  const suspendOrg = async (orgId) => {
-    if (!window.confirm("Suspend this organisation?")) return;
-    try {
-      await superadminSuspendOrg(token, orgId);
-      flash("Organisation suspended");
-      await loadOrgDetail(orgId);
-    } catch { flash("Error suspending org", "error"); }
+  const suspendOrg = (orgId) => {
+    setConfirmModal({
+      title: "Suspend Organisation",
+      message: "Suspending blocks the organisation from accessing Kastra until reactivated. Continue?",
+      onConfirm: async () => {
+        try {
+          await superadminSuspendOrg(token, orgId);
+          flash("Organisation suspended");
+          await loadOrgDetail(orgId);
+        } catch { flash("Error suspending org", "error"); }
+      },
+    });
   };
 
   const unsuspendOrg = async (orgId) => {
@@ -443,13 +449,18 @@ export default function SuperAdmin() {
     } catch (e) { flash(e.response?.data?.detail ?? "Error granting access", "error"); }
   };
 
-  const doRevokeComplimentary = async () => {
-    if (!window.confirm("Revoke complimentary access? The org will move to the free plan.")) return;
-    try {
-      await superadminRevokeComplimentary(token, selectedOrg.id);
-      flash("Complimentary access revoked");
-      await loadOrgDetail(selectedOrg.id);
-    } catch { flash("Error revoking access", "error"); }
+  const doRevokeComplimentary = () => {
+    setConfirmModal({
+      title: "Revoke Complimentary Access",
+      message: "The organisation will move to the free plan immediately. Continue?",
+      onConfirm: async () => {
+        try {
+          await superadminRevokeComplimentary(token, selectedOrg.id);
+          flash("Complimentary access revoked");
+          await loadOrgDetail(selectedOrg.id);
+        } catch { flash("Error revoking access", "error"); }
+      },
+    });
   };
 
   const doRecordPayment = async () => {
@@ -461,23 +472,33 @@ export default function SuperAdmin() {
     } catch (e) { flash(e.response?.data?.detail ?? "Error recording payment", "error"); }
   };
 
-  const doResetUserPassword = async (userId) => {
-    if (!window.confirm("Reset this user's password? A temporary password will be emailed to them.")) return;
-    try {
-      await superadminResetUserPassword(token, userId);
-      flash("Password reset. Temporary password sent via email.");
-      setUserActionModal(null);
-    } catch (e) { flash(e.response?.data?.detail ?? "Error resetting password", "error"); }
+  const doResetUserPassword = (userId) => {
+    setConfirmModal({
+      title: "Reset User Password",
+      message: "A temporary password will be emailed to this user. Continue?",
+      onConfirm: async () => {
+        try {
+          await superadminResetUserPassword(token, userId);
+          flash("Password reset. Temporary password sent via email.");
+          setUserActionModal(null);
+        } catch (e) { flash(e.response?.data?.detail ?? "Error resetting password", "error"); }
+      },
+    });
   };
 
-  const doDeactivateUser = async (userId) => {
-    if (!window.confirm("Deactivate this user? They will be logged out immediately.")) return;
-    try {
-      await superadminDeactivateUser(token, userId);
-      flash("User deactivated");
-      setUserActionModal(null);
-      await loadOrgDetail(selectedOrg.id);
-    } catch (e) { flash(e.response?.data?.detail ?? "Error deactivating user", "error"); }
+  const doDeactivateUser = (userId) => {
+    setConfirmModal({
+      title: "Deactivate User",
+      message: "This user will be logged out immediately and unable to sign back in until reactivated. Continue?",
+      onConfirm: async () => {
+        try {
+          await superadminDeactivateUser(token, userId);
+          flash("User deactivated");
+          setUserActionModal(null);
+          await loadOrgDetail(selectedOrg.id);
+        } catch (e) { flash(e.response?.data?.detail ?? "Error deactivating user", "error"); }
+      },
+    });
   };
 
   const doReactivateUser = async (userId) => {
@@ -1604,6 +1625,27 @@ export default function SuperAdmin() {
                 </div>
               </div>
             )}
+          </div>
+        </Modal>
+      )}
+
+      {/* Confirm action modal */}
+      {confirmModal && (
+        <Modal title={confirmModal.title} onClose={() => setConfirmModal(null)}>
+          <p className="text-sm text-gray-300">{confirmModal.message}</p>
+          <div className="flex gap-2 mt-5">
+            <button
+              onClick={() => setConfirmModal(null)}
+              className="flex-1 py-2 rounded-lg border border-gray-700 text-gray-400 hover:bg-gray-700 text-sm transition"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => { confirmModal.onConfirm(); setConfirmModal(null); }}
+              className="flex-1 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-white text-sm font-semibold transition"
+            >
+              Confirm
+            </button>
           </div>
         </Modal>
       )}

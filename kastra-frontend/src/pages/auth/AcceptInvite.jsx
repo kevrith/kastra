@@ -9,6 +9,7 @@ export default function AcceptInvite() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [accepted, setAccepted] = useState(false);
   const token = searchParams.get('token');
 
   useEffect(() => {
@@ -34,8 +35,8 @@ export default function AcceptInvite() {
     setLoading(true);
     try {
       await acceptInvite({ token, password });
-      alert('Invitation accepted! You can now log in.');
-      navigate('/auth/login');
+      setAccepted(true);
+      setTimeout(() => navigate('/auth/login'), 1800);
     } catch (err) {
       setError(err.response?.data?.detail || 'Failed to accept invitation');
     } finally {
@@ -49,6 +50,17 @@ export default function AcceptInvite() {
         <div className="max-w-md w-full bg-white p-8 rounded-lg shadow">
           <h1 className="text-2xl font-bold text-red-600 mb-4">Invalid Invite Link</h1>
           <p className="text-gray-600">This invitation link is invalid or has expired.</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (accepted) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="max-w-md w-full bg-white p-8 rounded-lg shadow text-center">
+          <h1 className="text-2xl font-bold text-green-700 mb-2">Invitation Accepted</h1>
+          <p className="text-gray-600">Your account is ready. Redirecting you to log in…</p>
         </div>
       </div>
     );
