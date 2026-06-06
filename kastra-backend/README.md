@@ -17,7 +17,7 @@ FastAPI + PostgreSQL backend for the Kastra business operations platform. Multi-
 | Scheduling | APScheduler (nightly overdue + expiry jobs) |
 | Rate Limiting | SlowAPI |
 | Error Tracking | Sentry (graceful, no-op if DSN not set) |
-| Tests | pytest-asyncio, 77 tests |
+| Tests | pytest-asyncio, 120 tests |
 | CI | GitHub Actions |
 
 ---
@@ -94,7 +94,7 @@ pytest -v -s
 
 **Test database URL** defaults to `postgresql+asyncpg://kastra_user:REMOVED_SEE_GITHUB_SECRETS@localhost:5432/kastra_test`. Override via `TEST_DATABASE_URL` env var.
 
-The test suite wipes and recreates the public schema on each run. 77 tests covering auth, clients, quotations, and invoices.
+The test suite wipes and recreates the public schema on each run. 120 tests covering auth, clients, quotations, invoices, payroll, and currency.
 
 ---
 

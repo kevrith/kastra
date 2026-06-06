@@ -134,7 +134,12 @@ async def create_run(
         ))
 
     await db.flush()
-    run = await _get_run(db, run.id, current_user.organization_id)
+    # `run` is already in the session identity map (we just `db.add`-ed it), so
+    # `db.get(..., options=[selectinload(...)])` would return the cached instance
+    # without applying the eager-load option, leaving `payslips` to lazy-load
+    # during response serialization (outside the async greenlet -> 500). Refresh
+    # the relationship explicitly instead of re-fetching the whole row.
+    await db.refresh(run, attribute_names=["payslips"])
     return Response(data=run)
 
 
