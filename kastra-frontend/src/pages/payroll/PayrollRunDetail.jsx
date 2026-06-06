@@ -126,6 +126,11 @@ export default function PayrollRunDetail() {
         </div>
       </div>
 
+      <div className="card p-4 bg-blue-50 border-blue-200 text-sm text-blue-800">
+        Kastra generates payslips and a payroll register — it does not move money. Export the CSV register
+        below and pay your staff via your own bank or M-Pesa.
+      </div>
+
       {run.status !== "finalized" && (
         <div className="card p-4 bg-orange-50 border-orange-200 text-sm text-orange-800">
           This run is in <strong>draft</strong>. Review the payslips below, then finalize once you're ready —
