@@ -24,6 +24,7 @@ class PublicInvoiceOut(BaseModel):
     business_name: str
     client_name: str
     client_email: str | None
+    currency: str
     grand_total: Decimal
     amount_paid: Decimal
     balance_due: Decimal
@@ -54,19 +55,21 @@ async def get_public_invoice(invoice_id: str, db: AsyncSession = Depends(get_db)
     balance_due = Decimal(str(inv.grand_total)) - amount_paid
 
     org = inv.organization
+    is_kes = inv.currency == "KES"
     return PublicInvoiceOut(
         id=inv.id,
         business_name=org.name,
         client_name=inv.client.name,
         client_email=inv.client.email,
+        currency=inv.currency,
         grand_total=inv.grand_total,
         amount_paid=amount_paid,
         balance_due=balance_due,
         payment_status=inv.payment_status,
         due_date=inv.due_date,
         created_at=inv.created_at,
-        mpesa_configured=bool(org.mpesa_consumer_key and org.mpesa_shortcode and org.mpesa_passkey),
-        paystack_configured=bool(getattr(org, "paystack_secret_key", None)),
+        mpesa_configured=is_kes and bool(org.mpesa_consumer_key and org.mpesa_shortcode and org.mpesa_passkey),
+        paystack_configured=is_kes and bool(getattr(org, "paystack_secret_key", None)),
     )
 
 
@@ -84,6 +87,8 @@ async def public_mpesa_pay(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invoice not found")
     if inv.payment_status == "paid":
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invoice is already paid")
+    if inv.currency != "KES":
+        raise HTTPException(status_code=400, detail="M-Pesa payments are only available for invoices in KES.")
 
     org = inv.organization
     if not (org.mpesa_consumer_key and org.mpesa_shortcode and org.mpesa_passkey):

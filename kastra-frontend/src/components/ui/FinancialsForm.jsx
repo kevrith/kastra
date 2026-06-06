@@ -1,5 +1,9 @@
-import { Plus, Trash2 } from "lucide-react";
-import { ksh } from "../../utils/formatters";
+import { useState } from "react";
+import { Plus, Trash2, RefreshCw } from "lucide-react";
+import { money } from "../../utils/formatters";
+import { getExchangeRate } from "../../api/currency";
+
+const CURRENCIES = ["KES", "USD", "EUR", "GBP", "UGX", "TZS", "ZAR", "CNY", "INR", "AED"];
 
 const emptyCharge = () => ({ description: "", amount: "", vat_exempt: false });
 
@@ -31,7 +35,28 @@ export default function FinancialsForm({
   depositAmount,
   setDepositAmount,
   showDeposit = false,
+  currency = "KES",
+  setCurrency,
+  exchangeRate = "1",
+  setExchangeRate,
 }) {
+  const [fetchingRate, setFetchingRate] = useState(false);
+  const [rateError, setRateError] = useState("");
+  const showCurrency = setCurrency !== undefined && setExchangeRate !== undefined;
+
+  const fetchLiveRate = async () => {
+    setFetchingRate(true);
+    setRateError("");
+    try {
+      const { data } = await getExchangeRate(currency);
+      setExchangeRate(String(data.rate_to_kes));
+    } catch (err) {
+      setRateError(err.response?.data?.detail ?? "Could not fetch live rate. Enter it manually.");
+    } finally {
+      setFetchingRate(false);
+    }
+  };
+
   const setItem = (i, field, value) =>
     setItems((prev) => prev.map((item, idx) => (idx === i ? { ...item, [field]: value } : item)));
 
@@ -86,7 +111,7 @@ export default function FinancialsForm({
               <p className="text-xs text-gray-400 mt-1">Calculated on items subtotal before discounts</p>
             </div>
             {labourAmount > 0 && (
-              <div className="pb-6 text-sm font-medium text-gray-700">= {ksh(labourAmount)}</div>
+              <div className="pb-6 text-sm font-medium text-gray-700">= {money(labourAmount, currency)}</div>
             )}
             {setLabourVatExempt && (
               <div className="pb-6" title={labourVatExempt ? "VAT exempt" : "VAT applies (16%)"}>
@@ -99,6 +124,49 @@ export default function FinancialsForm({
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {/* Currency */}
+      {showCurrency && (
+        <div className="card p-4 space-y-3">
+          <h2 className="text-sm font-semibold text-gray-700">Currency</h2>
+          <div className={`grid gap-4 ${currency !== "KES" ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-1"}`}>
+            <div>
+              <label className="label">Document Currency</label>
+              <select className="input" value={currency}
+                onChange={(e) => {
+                  const next = e.target.value;
+                  setCurrency(next);
+                  if (next === "KES") setExchangeRate("1");
+                  setRateError("");
+                }}>
+                {CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
+              </select>
+              <p className="text-xs text-gray-400 mt-1">Issue this document in a foreign currency for export/diaspora/NGO clients</p>
+            </div>
+            {currency !== "KES" && (
+              <div>
+                <label className="label">Exchange Rate (1 {currency} = ? KES)</label>
+                <div className="flex gap-2">
+                  <input className="input" type="number" min="0" step="any" placeholder="e.g. 129.50"
+                    value={exchangeRate} onChange={(e) => setExchangeRate(e.target.value)} required />
+                  <button type="button" onClick={fetchLiveRate} disabled={fetchingRate}
+                    className="btn-secondary text-xs whitespace-nowrap shrink-0" title="Fetch live rate">
+                    <RefreshCw size={13} className={fetchingRate ? "animate-spin" : ""} />
+                    {fetchingRate ? "Fetching…" : "Live Rate"}
+                  </button>
+                </div>
+                {rateError && <p className="text-xs text-red-500 mt-1">{rateError}</p>}
+                {!rateError && <p className="text-xs text-gray-400 mt-1">Used to report this document's KES equivalent</p>}
+              </div>
+            )}
+          </div>
+          {currency !== "KES" && (
+            <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+              Online payment (M-Pesa / card) is only available for KES documents. Foreign-currency clients should be settled by bank transfer or wire.
+            </p>
+          )}
         </div>
       )}
 
@@ -176,35 +244,35 @@ export default function FinancialsForm({
       {/* Live totals preview */}
       <div className="card p-4">
         <div className="space-y-1.5 text-sm">
-          <div className="flex justify-between text-gray-600"><span>Items subtotal</span><span>{ksh(itemsGross)}</span></div>
+          <div className="flex justify-between text-gray-600"><span>Items subtotal</span><span>{money(itemsGross, currency)}</span></div>
           {totalDiscount > 0 && (
-            <div className="flex justify-between text-red-500"><span>Total discount</span><span>- {ksh(totalDiscount)}</span></div>
+            <div className="flex justify-between text-red-500"><span>Total discount</span><span>- {money(totalDiscount, currency)}</span></div>
           )}
           {labourAmount > 0 && (
-            <div className="flex justify-between text-gray-600"><span>Labour ({labourPct}%)</span><span>{ksh(labourAmount)}</span></div>
+            <div className="flex justify-between text-gray-600"><span>Labour ({labourPct}%)</span><span>{money(labourAmount, currency)}</span></div>
           )}
           {chargesTotal > 0 && (
-            <div className="flex justify-between text-gray-600"><span>Other charges</span><span>{ksh(chargesTotal)}</span></div>
+            <div className="flex justify-between text-gray-600"><span>Other charges</span><span>{money(chargesTotal, currency)}</span></div>
           )}
           {vat > 0 && (
-            <div className="flex justify-between text-gray-600"><span>VAT (16%)</span><span>{ksh(vat)}</span></div>
+            <div className="flex justify-between text-gray-600"><span>VAT (16%)</span><span>{money(vat, currency)}</span></div>
           )}
           <div className="flex justify-between font-bold text-gray-900 text-base border-t pt-2">
-            <span>Grand Total</span><span>{ksh(grandTotal)}</span>
+            <span>Grand Total</span><span>{money(grandTotal, currency)}</span>
           </div>
           {whtAmount > 0 && (
             <div className="flex justify-between text-amber-600 text-xs">
-              <span>WHT ({whtPct}%) — deducted by client</span><span>- {ksh(whtAmount)}</span>
+              <span>WHT ({whtPct}%) — deducted by client</span><span>- {money(whtAmount, currency)}</span>
             </div>
           )}
           {depositAmt > 0 && (
             <div className="flex justify-between text-green-600 text-xs">
-              <span>Deposit received</span><span>- {ksh(depositAmt)}</span>
+              <span>Deposit received</span><span>- {money(depositAmt, currency)}</span>
             </div>
           )}
           {(whtAmount > 0 || depositAmt > 0) && (
             <div className="flex justify-between font-bold text-gray-900 border-t pt-2">
-              <span>Amount Payable</span><span>{ksh(amountPayable)}</span>
+              <span>Amount Payable</span><span>{money(amountPayable, currency)}</span>
             </div>
           )}
         </div>

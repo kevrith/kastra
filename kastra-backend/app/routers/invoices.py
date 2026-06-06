@@ -169,6 +169,8 @@ async def create_invoice(
         discount_pct=payload.discount_pct,
         wht_pct=payload.wht_pct,
         deposit_amount=payload.deposit_amount,
+        currency=payload.currency,
+        exchange_rate=payload.exchange_rate,
         due_date=due_date,
         **totals,
     )
@@ -285,6 +287,8 @@ async def mpesa_pay(
         raise HTTPException(status_code=404, detail="Invoice not found")
     if inv.payment_status == "paid":
         raise HTTPException(status_code=400, detail="Invoice already paid")
+    if inv.currency != "KES":
+        raise HTTPException(status_code=400, detail="M-Pesa payments are only available for invoices in KES. Foreign-currency invoices should be settled by bank transfer.")
 
     checkout_request_id = await initiate_stk_push(
         phone=payload.phone_number,

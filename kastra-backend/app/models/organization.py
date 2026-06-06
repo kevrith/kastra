@@ -70,3 +70,5 @@ class Organization(Base):
     projects: Mapped[list["Project"]] = relationship(back_populates="organization")  # noqa: F821
     suppliers: Mapped[list["Supplier"]] = relationship(back_populates="organization")  # noqa: F821
     supplier_requests: Mapped[list["SupplierRequest"]] = relationship(back_populates="organization")  # noqa: F821
+    employees: Mapped[list["Employee"]] = relationship(back_populates="organization")  # noqa: F821
+    payroll_runs: Mapped[list["PayrollRun"]] = relationship(back_populates="organization")  # noqa: F821

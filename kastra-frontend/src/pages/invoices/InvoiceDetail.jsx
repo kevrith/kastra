@@ -4,7 +4,7 @@ import { getInvoice, markPaid, mpesaPay, sendReminder, submitEtims, sendInvoiceE
 import { getOrganization } from "../../api/organization";
 import { getInvoicePayments, recordPayment, deletePayment } from "../../api/invoice_payments";
 import { createInvoiceExpense, updateInvoiceExpense, deleteInvoiceExpense } from "../../api/expenses";
-import { ksh, date, phone, statusBadgeClass, normalizePhone } from "../../utils/formatters";
+import { ksh, money, date, phone, statusBadgeClass, normalizePhone } from "../../utils/formatters";
 import { publicOrigin } from "../../utils/publicUrl";
 import {
   ArrowLeft, MessageCircle, Smartphone, CheckCircle, FileDown, ShieldCheck,
@@ -173,8 +173,12 @@ function JobExpensesSection({ invoiceId, expenses, onRefresh }) {
 }
 
 function ProfitabilityCard({ invoice }) {
-  const revenue = Number(invoice.grand_total);
-  const cogs = Number(invoice.total_cogs ?? 0);
+  const isForeign = (invoice.currency ?? "KES") !== "KES";
+  const rate = Number(invoice.exchange_rate ?? 1);
+  // Job expenses are always tracked in KES, so revenue/COGS are converted to their
+  // KES equivalent here too — keeps the whole breakdown on one currency basis.
+  const revenue = Number(invoice.grand_total) * rate;
+  const cogs = Number(invoice.total_cogs ?? 0) * rate;
   const jobExpenses = Number(invoice.total_job_expenses ?? 0);
   const profit = Number(invoice.gross_profit ?? revenue - cogs - jobExpenses);
   const isProfitable = profit >= 0;
@@ -191,6 +195,7 @@ function ProfitabilityCard({ invoice }) {
           ? <TrendingUp size={16} className="text-emerald-600" />
           : <TrendingDown size={16} className="text-red-600" />}
         <h2 className="text-sm font-semibold text-gray-800">Job Profitability</h2>
+        {isForeign && <span className="text-xs font-normal text-gray-400">(KES basis)</span>}
         <span className={`ml-auto text-xs font-semibold px-2 py-0.5 rounded-full ${isProfitable ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"}`}>
           {isProfitable ? "Profit" : "Loss"} · {Math.abs(Number(margin))}% margin
         </span>
@@ -258,7 +263,7 @@ function RecordPaymentForm({ invoice, paymentsData, onSave, onClose }) {
       {error && <div className="bg-red-50 text-red-700 text-sm px-3 py-2 rounded-lg">{error}</div>}
       <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg text-sm text-blue-800">
         <CreditCard size={16} className="shrink-0" />
-        Balance due: <strong>{ksh(balance)}</strong>
+        Balance due: <strong>{money(balance, invoice.currency)}</strong>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
@@ -361,6 +366,8 @@ function MpesaForm({ invoice, onClose }) {
 }
 
 function RequestPaymentForm({ invoice, paymentsData, onClose }) {
+  const isKes = invoice.currency === "KES";
+  const fmt = (amt) => money(amt, invoice.currency);
   const balance = paymentsData ? paymentsData.balance_due : Number(invoice.grand_total);
   const [amount, setAmount] = useState(String(balance.toFixed(2)));
   const [copied, setCopied] = useState(false);
@@ -384,7 +391,7 @@ function RequestPaymentForm({ invoice, paymentsData, onClose }) {
   const handleWhatsApp = () => {
     if (!link) return;
     const clientPhone = normalizePhone(invoice.client?.phone);
-    const amtLabel = isPartial ? `*KSh ${amountNum.toLocaleString()}* (partial)` : `*${ksh(invoice.grand_total)}*`;
+    const amtLabel = isPartial ? `*${fmt(amountNum)}* (partial)` : `*${fmt(invoice.grand_total)}*`;
     const msg = [
       `Hello ${invoice.client?.name ?? ""},`,
       ``,
@@ -401,11 +408,11 @@ function RequestPaymentForm({ invoice, paymentsData, onClose }) {
     <div className="space-y-4">
       <div className="flex items-start gap-3 p-3 bg-blue-50 rounded-lg text-sm text-blue-800">
         <Link2 size={16} className="mt-0.5 shrink-0 text-blue-600" />
-        <p>Set the agreed amount, then share the payment link with your client. They can pay via M-Pesa or card.</p>
+        <p>Set the agreed amount, then share the payment link with your client. {isKes ? "They can pay via M-Pesa or card." : "Foreign-currency invoices are settled by bank transfer — the link shows your payment details."}</p>
       </div>
 
       <div>
-        <label className="label">Amount to Request (KSh)</label>
+        <label className="label">Amount to Request ({invoice.currency})</label>
         <input
           className="input"
           type="number"
@@ -416,7 +423,7 @@ function RequestPaymentForm({ invoice, paymentsData, onClose }) {
           onChange={(e) => setAmount(e.target.value)}
         />
         <p className="text-xs text-gray-400 mt-1">
-          Balance due: <strong>{ksh(balance)}</strong>
+          Balance due: <strong>{fmt(balance)}</strong>
           {isPartial && isValid && (
             <span className="ml-2 text-indigo-600 font-medium">· Partial payment</span>
           )}
@@ -425,7 +432,7 @@ function RequestPaymentForm({ invoice, paymentsData, onClose }) {
 
       {!isValid && amount && (
         <div className="bg-red-50 text-red-700 text-sm px-3 py-2 rounded-lg">
-          Amount must be between KSh 1 and {ksh(balance)}.
+          Amount must be between {invoice.currency} 1 and {fmt(balance)}.
         </div>
       )}
 
@@ -531,7 +538,7 @@ export default function InvoiceDetail() {
   const handleShareWhatsApp = () => {
     if (!invoice) return;
     const payLink = `${publicOrigin()}/pay/${id}`;
-    const msg = [`Hello ${invoice.client?.name ?? ""},`, ``, `Please find your invoice *${id}* for *${ksh(invoice.grand_total)}*.`, ``, `Pay online here: ${payLink}`, ``, `Thank you.`].join("\n");
+    const msg = [`Hello ${invoice.client?.name ?? ""},`, ``, `Please find your invoice *${id}* for *${money(invoice.grand_total, invoice.currency)}*.`, ``, `Pay online here: ${payLink}`, ``, `Thank you.`].join("\n");
     window.open(`https://wa.me/${normalizePhone(invoice.client?.phone)}?text=${encodeURIComponent(msg)}`, "_blank");
   };
 
@@ -575,6 +582,7 @@ export default function InvoiceDetail() {
   if (loading) return <div className="flex h-96 items-center justify-center"><Spinner size="lg" /></div>;
   if (!invoice) return null;
 
+  const fmt = (amt) => money(amt, invoice.currency);
   const statusCls = PAYMENT_STATUS_COLORS[invoice.payment_status] ?? "bg-gray-100 text-gray-600";
   const isFullyPaid = invoice.payment_status === "paid";
   const isPartial = invoice.payment_status === "partial";
@@ -619,7 +627,7 @@ export default function InvoiceDetail() {
               <button className="btn-secondary" onClick={() => setShowRequestPayment(true)}>
                 <Link2 size={15} /> Request Payment
               </button>
-              {org?.mpesa_configured && (
+              {org?.mpesa_configured && invoice.currency === "KES" && (
                 <button className="btn-secondary" onClick={() => setShowMpesa(true)}>
                   <Smartphone size={15} /> M-Pesa
                 </button>
@@ -643,7 +651,7 @@ export default function InvoiceDetail() {
         <div className="card p-4 bg-blue-50 border-blue-200 space-y-2">
           <div className="flex justify-between text-sm font-medium text-blue-800">
             <span>Partial Payment</span>
-            <span>{ksh(paymentsData.amount_paid)} of {ksh(paymentsData.grand_total)}</span>
+            <span>{money(paymentsData.amount_paid, invoice.currency)} of {money(paymentsData.grand_total, invoice.currency)}</span>
           </div>
           <div className="h-2 bg-blue-100 rounded-full overflow-hidden">
             <div
@@ -651,7 +659,7 @@ export default function InvoiceDetail() {
               style={{ width: `${Math.min(100, (paymentsData.amount_paid / paymentsData.grand_total) * 100)}%` }}
             />
           </div>
-          <p className="text-xs text-blue-600">Balance due: <strong>{ksh(paymentsData.balance_due)}</strong></p>
+          <p className="text-xs text-blue-600">Balance due: <strong>{money(paymentsData.balance_due, invoice.currency)}</strong></p>
         </div>
       )}
 
@@ -742,8 +750,8 @@ export default function InvoiceDetail() {
               <tr key={item.id}>
                 <td className="px-4 py-3">{item.description}</td>
                 <td className="px-4 py-3 text-right text-gray-600">{item.quantity}</td>
-                <td className="px-4 py-3 text-right text-gray-600 hidden sm:table-cell">{ksh(item.unit_price)}</td>
-                <td className="px-4 py-3 text-right font-medium">{ksh(item.line_total)}</td>
+                <td className="px-4 py-3 text-right text-gray-600 hidden sm:table-cell">{fmt(item.unit_price)}</td>
+                <td className="px-4 py-3 text-right font-medium">{fmt(item.line_total)}</td>
               </tr>
             ))}
           </tbody>
@@ -753,15 +761,15 @@ export default function InvoiceDetail() {
             <p className="text-xs text-gray-400 uppercase tracking-wide mb-1.5">Other Charges</p>
             {invoice.charges.map((c) => (
               <div key={c.id} className="flex justify-between text-sm text-gray-600 py-0.5">
-                <span>{c.description}</span><span>{ksh(c.amount)}</span>
+                <span>{c.description}</span><span>{fmt(c.amount)}</span>
               </div>
             ))}
           </div>
         )}
         <div className="px-4 py-3 border-t border-gray-100 space-y-1.5 text-sm">
-          <div className="flex justify-between text-gray-600"><span>Items subtotal</span><span>{ksh(invoice.subtotal)}</span></div>
+          <div className="flex justify-between text-gray-600"><span>Items subtotal</span><span>{fmt(invoice.subtotal)}</span></div>
           {Number(invoice.total_discount) > 0 && (
-            <div className="flex justify-between text-red-500"><span>Total discount</span><span>− {ksh(invoice.total_discount)}</span></div>
+            <div className="flex justify-between text-red-500"><span>Total discount</span><span>− {fmt(invoice.total_discount)}</span></div>
           )}
           {(() => {
             const labour = invoice.charges?.find((c) => c.description === "Labour");
@@ -771,37 +779,43 @@ export default function InvoiceDetail() {
                 {labour && (
                   <div className="flex justify-between text-gray-600">
                     <span>Labour ({Number(invoice.subtotal) > 0 ? Math.round(Number(labour.amount) / Number(invoice.subtotal) * 10000) / 100 : 0}%)</span>
-                    <span>{ksh(labour.amount)}</span>
+                    <span>{fmt(labour.amount)}</span>
                   </div>
                 )}
                 {otherTotal > 0 && (
-                  <div className="flex justify-between text-gray-600"><span>Other charges</span><span>{ksh(otherTotal)}</span></div>
+                  <div className="flex justify-between text-gray-600"><span>Other charges</span><span>{fmt(otherTotal)}</span></div>
                 )}
               </>
             );
           })()}
           {Number(invoice.vat_amount) > 0 && (
-            <div className="flex justify-between text-gray-600"><span>VAT (16%)</span><span>{ksh(invoice.vat_amount)}</span></div>
+            <div className="flex justify-between text-gray-600"><span>VAT (16%)</span><span>{fmt(invoice.vat_amount)}</span></div>
           )}
           <div className="flex justify-between font-bold text-gray-900 text-base border-t pt-2">
-            <span>Grand Total</span><span>{ksh(invoice.grand_total)}</span>
+            <span>Grand Total</span><span>{fmt(invoice.grand_total)}</span>
           </div>
+          {invoice.currency !== "KES" && (
+            <div className="flex justify-between text-gray-400 text-xs">
+              <span>≈ KES equivalent (rate {Number(invoice.exchange_rate).toLocaleString()})</span>
+              <span>{ksh(invoice.kes_equivalent)}</span>
+            </div>
+          )}
           {Number(invoice.wht_amount) > 0 && (
             <div className="flex justify-between text-amber-600 text-xs">
               <span>WHT ({invoice.wht_pct}%) — deducted by client</span>
-              <span>− {ksh(invoice.wht_amount)}</span>
+              <span>− {fmt(invoice.wht_amount)}</span>
             </div>
           )}
           {Number(invoice.deposit_amount) > 0 && (
             <div className="flex justify-between text-green-600 text-xs">
               <span>Deposit received</span>
-              <span>− {ksh(invoice.deposit_amount)}</span>
+              <span>− {fmt(invoice.deposit_amount)}</span>
             </div>
           )}
           {(Number(invoice.wht_amount) > 0 || Number(invoice.deposit_amount) > 0) && (
             <div className="flex justify-between font-bold text-gray-900 border-t pt-2">
               <span>Amount Payable</span>
-              <span>{ksh(Number(invoice.grand_total) - Number(invoice.wht_amount) - Number(invoice.deposit_amount))}</span>
+              <span>{fmt(Number(invoice.grand_total) - Number(invoice.wht_amount) - Number(invoice.deposit_amount))}</span>
             </div>
           )}
         </div>
@@ -829,7 +843,7 @@ export default function InvoiceDetail() {
                   <td className="px-4 py-2.5 text-gray-600">{date(p.paid_at)}</td>
                   <td className="px-4 py-2.5 capitalize">{p.method}</td>
                   <td className="px-4 py-2.5 text-gray-400 hidden sm:table-cell font-mono text-xs">{p.reference || "—"}</td>
-                  <td className="px-4 py-2.5 text-right font-semibold text-green-700">{ksh(p.amount)}</td>
+                  <td className="px-4 py-2.5 text-right font-semibold text-green-700">{fmt(p.amount)}</td>
                   <td className="px-4 py-2.5">
                     {!isFullyPaid && (
                       <button onClick={() => setDeletePaymentTarget(p)} className="p-1 text-gray-300 hover:text-red-500">
@@ -888,7 +902,7 @@ export default function InvoiceDetail() {
         onClose={() => setDeletePaymentTarget(null)}
         onConfirm={handleDeletePayment}
         title="Delete Payment"
-        message={`Remove payment of ${ksh(deletePaymentTarget?.amount ?? 0)}? The invoice balance will be updated.`}
+        message={`Remove payment of ${fmt(deletePaymentTarget?.amount ?? 0)}? The invoice balance will be updated.`}
         danger
       />
     </div>

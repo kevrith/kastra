@@ -13,6 +13,8 @@ from app.models.invoice_payment import InvoicePayment
 from app.models.client_price import ClientPrice
 from app.models.project import Project
 from app.models.supplier import Supplier, SupplierRequest, SupplierRequestInvite, SupplierRequestItem, SupplierResponseItem
+from app.models.employee import Employee
+from app.models.payroll import PayrollRun, Payslip
 
 __all__ = [
     "Organization",
@@ -40,4 +42,7 @@ __all__ = [
     "SupplierRequestItem",
     "SupplierRequestInvite",
     "SupplierResponseItem",
+    "Employee",
+    "PayrollRun",
+    "Payslip",
 ]

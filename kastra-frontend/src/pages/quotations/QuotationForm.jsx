@@ -8,6 +8,9 @@ import { generateDescription } from "../../api/ai";
 import { Plus, Trash2, ArrowLeft, ScanLine, X, Camera, Sparkles } from "lucide-react";
 import ProductAutocomplete from "../../components/ui/ProductAutocomplete";
 import FinancialsForm from "../../components/ui/FinancialsForm";
+import PriceConverter from "../../components/ui/PriceConverter";
+
+const CONVERTED_NOTE_RE = /\s*\(≈ [^()]*\)\s*$/;
 
 const emptyItem = () => ({ description: "", quantity: "1", unit_price: "", discount_pct: "0", vat_exempt: false });
 
@@ -52,6 +55,8 @@ export default function QuotationForm() {
   const [charges, setCharges] = useState([]);
   const [discountPct, setDiscountPct] = useState("0");
   const [whtPct, setWhtPct] = useState("0");
+  const [currency, setCurrency] = useState("KES");
+  const [exchangeRate, setExchangeRate] = useState("1");
   const [labourPct, setLabourPct] = useState("0");
   const [labourVatExempt, setLabourVatExempt] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -96,6 +101,8 @@ export default function QuotationForm() {
         setCharges(otherCharges.map((c) => ({ description: c.description, amount: String(c.amount), vat_exempt: c.vat_exempt })));
         setDiscountPct(String(q.discount_pct ?? 0));
         setWhtPct(String(q.wht_pct ?? 0));
+        setCurrency(q.currency ?? "KES");
+        setExchangeRate(String(q.exchange_rate ?? 1));
       });
     } else {
       getOrganization().then(({ data }) => {
@@ -113,6 +120,19 @@ export default function QuotationForm() {
   const removeItem = (i) => setItems((prev) => prev.filter((_, idx) => idx !== i));
   const addItem = () => setItems((prev) => [...prev, emptyItem()]);
 
+  const applyConvertedPrice = (i, { kesAmount, originalAmount, currency, rate }) => {
+    setItems((prev) => prev.map((item, idx) => {
+      if (idx !== i) return item;
+      const note = `(≈ ${currency} ${originalAmount.toLocaleString()} @ ${rate.toLocaleString()})`;
+      const baseDesc = item.description.replace(CONVERTED_NOTE_RE, "").trim();
+      return {
+        ...item,
+        unit_price: String(kesAmount),
+        description: baseDesc ? `${baseDesc} ${note}` : item.description,
+      };
+    }));
+  };
+
   const buildPayload = (isDraft = false) => {
     const validItems = items.filter((it) => it.description.trim() && parseFloat(it.quantity) > 0 && parseFloat(it.unit_price) > 0);
     const itemsGross = validItems.reduce((s, it) => s + parseFloat(it.quantity) * parseFloat(it.unit_price), 0);
@@ -123,6 +143,8 @@ export default function QuotationForm() {
       expires_at: expiresAt ? new Date(expiresAt).toISOString() : null,
       discount_pct: parseFloat(discountPct) || 0,
       wht_pct: parseFloat(whtPct) || 0,
+      currency,
+      exchange_rate: parseFloat(exchangeRate) || 1,
       status: isDraft ? "draft" : "pending",
       items: validItems.map((item, i) => ({
         description: item.description,
@@ -372,8 +394,13 @@ export default function QuotationForm() {
                   value={item.quantity} onChange={(e) => setItem(i, "quantity", e.target.value)} required />
               </div>
               <div className="col-span-4 sm:col-span-2">
-                <input className="input" type="number" placeholder="Unit Price" min="0" step="any"
-                  value={item.unit_price} onChange={(e) => setItem(i, "unit_price", e.target.value)} required />
+                <div className="relative">
+                  <input className="input pr-7" type="number" placeholder="Unit Price" min="0" step="any"
+                    value={item.unit_price} onChange={(e) => setItem(i, "unit_price", e.target.value)} required />
+                  <div className="absolute right-1 top-1/2 -translate-y-1/2">
+                    <PriceConverter onApply={(conversion) => applyConvertedPrice(i, conversion)} />
+                  </div>
+                </div>
               </div>
               <div className="col-span-3 sm:col-span-2">
                 <div className="relative">
@@ -413,6 +440,10 @@ export default function QuotationForm() {
           setDiscountPct={setDiscountPct}
           whtPct={whtPct}
           setWhtPct={setWhtPct}
+          currency={currency}
+          setCurrency={setCurrency}
+          exchangeRate={exchangeRate}
+          setExchangeRate={setExchangeRate}
           labourPct={labourPct}
           setLabourPct={setLabourPct}
           labourVatExempt={labourVatExempt}

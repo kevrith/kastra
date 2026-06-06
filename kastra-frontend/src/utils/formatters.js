@@ -1,6 +1,18 @@
 export const ksh = (amount) =>
   `KSh ${Number(amount).toLocaleString("en-KE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
+export const CURRENCY_SYMBOLS = {
+  KES: "KSh", USD: "$", EUR: "€", GBP: "£", UGX: "USh",
+  TZS: "TSh", ZAR: "R", CNY: "¥", INR: "₹", AED: "AED",
+};
+
+// Generic currency formatter — defaults to KES (KSh) when no code given
+export const money = (amount, currency = "KES") => {
+  const code = (currency || "KES").toUpperCase();
+  const symbol = CURRENCY_SYMBOLS[code] ?? code;
+  return `${symbol} ${Number(amount).toLocaleString("en-KE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+};
+
 export const date = (iso) =>
   new Date(iso).toLocaleDateString("en-GB"); // DD/MM/YYYY
 

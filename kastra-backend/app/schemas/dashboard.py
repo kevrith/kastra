@@ -33,6 +33,7 @@ class RecentQuotation(BaseModel):
     id: str
     client_name: str
     status: str
+    currency: str = "KES"
     grand_total: Decimal
     created_at: str
 
@@ -41,6 +42,7 @@ class RecentInvoice(BaseModel):
     id: str
     client_name: str
     payment_status: str
+    currency: str = "KES"
     grand_total: Decimal
     created_at: str
 

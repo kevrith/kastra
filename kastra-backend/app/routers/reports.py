@@ -1,6 +1,7 @@
 import csv
 import io
 import uuid
+from decimal import Decimal
 
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import StreamingResponse
@@ -27,7 +28,7 @@ async def income_report(
 ):
     q = select(
         extract("month", Invoice.created_at).label("month"),
-        func.sum(Invoice.grand_total).label("total"),
+        func.sum(Invoice.grand_total * Invoice.exchange_rate).label("total"),
         func.count(Invoice.id).label("count"),
     ).where(
         Invoice.organization_id == current_user.organization_id,
@@ -54,14 +55,14 @@ async def client_revenue_report(
         select(
             Client.id,
             Client.name,
-            func.coalesce(func.sum(Invoice.grand_total), 0).label("total_billed"),
+            func.coalesce(func.sum(Invoice.grand_total * Invoice.exchange_rate), 0).label("total_billed"),
             func.count(Invoice.id).label("invoice_count"),
             func.count(Invoice.id).filter(Invoice.payment_status == "paid").label("paid_count"),
         )
         .join(Invoice, Invoice.client_id == Client.id, isouter=True)
         .where(Client.organization_id == current_user.organization_id)
         .group_by(Client.id, Client.name)
-        .order_by(func.coalesce(func.sum(Invoice.grand_total), 0).desc())
+        .order_by(func.coalesce(func.sum(Invoice.grand_total * Invoice.exchange_rate), 0).desc())
     )
     rows = result.all()
     return {
@@ -98,16 +99,18 @@ async def export_csv(
 
     output = io.StringIO()
     writer = csv.writer(output)
-    writer.writerow(["Invoice ID", "Client", "Status", "Subtotal", "VAT", "Grand Total", "Due Date", "Date"])
+    writer.writerow(["Invoice ID", "Client", "Status", "Currency", "Subtotal", "VAT", "Grand Total", "KES Equivalent", "Due Date", "Date"])
     for row in rows:
         inv = row.Invoice
         writer.writerow([
             inv.id,
             row.client_name,
             inv.payment_status,
+            inv.currency,
             inv.subtotal,
             inv.vat_amount,
             inv.grand_total,
+            (inv.grand_total * inv.exchange_rate).quantize(Decimal("0.01")),
             inv.due_date.strftime("%d/%m/%Y") if inv.due_date else "",
             inv.created_at.strftime("%d/%m/%Y"),
         ])

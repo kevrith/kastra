@@ -159,6 +159,8 @@ async def create_quotation(
         expires_at=payload.expires_at,
         discount_pct=payload.discount_pct,
         wht_pct=payload.wht_pct,
+        currency=payload.currency,
+        exchange_rate=payload.exchange_rate,
         status=payload.status,
         **totals,
     )
@@ -248,6 +250,10 @@ async def update_quotation(
         qt.discount_pct = payload.discount_pct
     if payload.wht_pct is not None:
         qt.wht_pct = payload.wht_pct
+    if payload.currency is not None:
+        qt.currency = payload.currency.upper().strip()
+    if payload.exchange_rate is not None:
+        qt.exchange_rate = payload.exchange_rate
 
     # Determine current items/charges for recalculation
     new_items = payload.items
@@ -369,6 +375,8 @@ async def convert_to_invoice(
         lpo_number=payload.lpo_number,
         discount_pct=qt.discount_pct,
         wht_pct=qt.wht_pct,
+        currency=qt.currency,
+        exchange_rate=qt.exchange_rate,
         due_date=due_date,
         **totals,
     )

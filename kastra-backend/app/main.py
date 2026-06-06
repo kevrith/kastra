@@ -18,6 +18,8 @@ from app.routers import expenses, products, notifications, search, invoice_payme
 from app.routers import ocr, subscriptions, superadmin, team, projects
 from app.routers import suppliers, supplier_portal
 from app.routers import ai as ai_router
+from app.routers import currency
+from app.routers import employees, payroll
 from app.services.scheduler import start_scheduler, stop_scheduler
 from app.utils.rate_limit import limiter
 
@@ -185,6 +187,9 @@ app.include_router(search.router)
 app.include_router(recurring_invoices.router)
 app.include_router(ocr.router)
 app.include_router(ai_router.router)
+app.include_router(currency.router)
+app.include_router(employees.router)
+app.include_router(payroll.router)
 app.include_router(subscriptions.router)
 app.include_router(superadmin.router)
 

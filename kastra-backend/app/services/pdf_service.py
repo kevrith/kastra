@@ -29,6 +29,21 @@ def _ksh_filter(val) -> str:
         return "KSh 0.00"
 
 
+_CURRENCY_SYMBOLS = {
+    "KES": "KSh", "USD": "$", "EUR": "€", "GBP": "£", "UGX": "USh",
+    "TZS": "TSh", "ZAR": "R", "CNY": "¥", "INR": "₹", "AED": "AED",
+}
+
+
+def _money_filter(val, currency="KES") -> str:
+    code = (currency or "KES").upper()
+    symbol = _CURRENCY_SYMBOLS.get(code, code)
+    try:
+        return f"{symbol} {float(val):,.2f}"
+    except (TypeError, ValueError):
+        return f"{symbol} 0.00"
+
+
 def _fmtdate_filter(val) -> str:
     if val is None:
         return "—"
@@ -42,6 +57,7 @@ def _fmtdate_filter(val) -> str:
 
 
 _jinja_env.filters["ksh"] = _ksh_filter
+_jinja_env.filters["money"] = _money_filter
 _jinja_env.filters["fmtdate"] = _fmtdate_filter
 
 
@@ -98,6 +114,8 @@ def _build_context(doc_type: str, doc: dict, org: dict) -> dict:
         except Exception:
             pass
 
+    currency = (doc.get("currency") or "KES").upper()
+
     return {
         "doc_type": doc_type,
         "doc": doc,
@@ -108,6 +126,8 @@ def _build_context(doc_type: str, doc: dict, org: dict) -> dict:
         "balance_due": balance_due,
         "paid_pct": paid_pct,
         "qr_svg": qr_svg,
+        "currency": currency,
+        "is_foreign_currency": currency != "KES",
     }
 
 
@@ -125,4 +145,26 @@ async def html_to_pdf(html: str) -> bytes:
 
 async def generate_pdf(doc_type: str, doc: dict, org: dict) -> bytes:
     html = render_html(doc_type, doc, org)
+    return await html_to_pdf(html)
+
+
+_MONTH_NAMES = [
+    "", "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December",
+]
+
+
+def render_payslip_html(payslip: dict, run: dict, org: dict) -> str:
+    template = _jinja_env.get_template("payslip.html")
+    return template.render(
+        payslip=payslip,
+        run=run,
+        org=org,
+        org_initials=_org_initials(org.get("name", "")),
+        period_label=f"{_MONTH_NAMES[run['period_month']]} {run['period_year']}",
+    )
+
+
+async def generate_payslip_pdf(payslip: dict, run: dict, org: dict) -> bytes:
+    html = render_payslip_html(payslip, run, org)
     return await html_to_pdf(html)

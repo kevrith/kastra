@@ -5,7 +5,7 @@ import { getQuotation, updateQuotationStatus, convertToInvoice, emailQuotation, 
 import { getInvoices } from "../../api/invoices";
 import { getOrganization } from "../../api/organization";
 import { createProject, listProjects } from "../../api/projects";
-import { ksh, date, phone, statusBadgeClass, normalizePhone } from "../../utils/formatters";
+import { ksh, money, date, phone, statusBadgeClass, normalizePhone } from "../../utils/formatters";
 import { ArrowLeft, Edit2, RefreshCw, MessageCircle, FileDown, Copy, Mail, Receipt, StickyNote, Send, Briefcase } from "lucide-react";
 import Spinner from "../../components/ui/Spinner";
 import Modal from "../../components/ui/Modal";
@@ -131,7 +131,7 @@ export default function QuotationDetail() {
       `Hello ${quotation.client.name},`,
       ``,
       ...(quotation.project_description ? [`Project: *${quotation.project_description}*`, ``] : []),
-      `Please find quotation *${quotation.id}* for *${ksh(quotation.grand_total)}*.`,
+      `Please find quotation *${quotation.id}* for *${money(quotation.grand_total, quotation.currency)}*.`,
       ``,
       `View and respond here: ${portalLink}`,
       ``,
@@ -172,6 +172,7 @@ export default function QuotationDetail() {
   if (loading) return <div className="flex h-96 items-center justify-center"><Spinner size="lg" /></div>;
   if (!quotation) return null;
 
+  const fmt = (amt) => money(amt, quotation.currency);
   const canEdit = ["draft", "pending", "declined"].includes(quotation.status);
   const canConvert = quotation.status === "accepted";
   const nextStatuses = { draft: ["pending"], pending: ["accepted", "declined"], accepted: [], declined: ["pending"] }[quotation.status] ?? [];
@@ -303,8 +304,8 @@ export default function QuotationDetail() {
               <tr key={item.id}>
                 <td className="px-4 py-3 text-gray-900">{item.description}</td>
                 <td className="px-4 py-3 text-right text-gray-600">{item.quantity}</td>
-                <td className="px-4 py-3 text-right text-gray-600">{ksh(item.unit_price)}</td>
-                <td className="px-4 py-3 text-right font-medium">{ksh(item.line_total)}</td>
+                <td className="px-4 py-3 text-right text-gray-600">{fmt(item.unit_price)}</td>
+                <td className="px-4 py-3 text-right font-medium">{fmt(item.line_total)}</td>
               </tr>
             ))}
           </tbody>
@@ -315,15 +316,15 @@ export default function QuotationDetail() {
             <p className="text-xs text-gray-400 uppercase tracking-wide mb-1.5">Charges</p>
             {quotation.charges.map((c) => (
               <div key={c.id} className="flex justify-between text-sm text-gray-600 py-0.5">
-                <span>{c.description}</span><span>{ksh(c.amount)}</span>
+                <span>{c.description}</span><span>{fmt(c.amount)}</span>
               </div>
             ))}
           </div>
         )}
         <div className="px-4 py-3 border-t border-gray-100 space-y-1.5 text-sm">
-          <div className="flex justify-between text-gray-600"><span>Items subtotal</span><span>{ksh(quotation.subtotal)}</span></div>
+          <div className="flex justify-between text-gray-600"><span>Items subtotal</span><span>{fmt(quotation.subtotal)}</span></div>
           {Number(quotation.total_discount) > 0 && (
-            <div className="flex justify-between text-red-500"><span>Total discount</span><span>− {ksh(quotation.total_discount)}</span></div>
+            <div className="flex justify-between text-red-500"><span>Total discount</span><span>− {fmt(quotation.total_discount)}</span></div>
           )}
           {(() => {
             const labourCharge = quotation.charges?.find((c) => c.description === "Labour");
@@ -331,30 +332,36 @@ export default function QuotationDetail() {
             return (
               <>
                 {labourCharge && (
-                  <div className="flex justify-between text-gray-600"><span>Labour ({Number(quotation.subtotal) > 0 ? Math.round(Number(labourCharge.amount) / Number(quotation.subtotal) * 10000) / 100 : 0}%)</span><span>{ksh(labourCharge.amount)}</span></div>
+                  <div className="flex justify-between text-gray-600"><span>Labour ({Number(quotation.subtotal) > 0 ? Math.round(Number(labourCharge.amount) / Number(quotation.subtotal) * 10000) / 100 : 0}%)</span><span>{fmt(labourCharge.amount)}</span></div>
                 )}
                 {otherChargesTotal > 0 && (
-                  <div className="flex justify-between text-gray-600"><span>Other charges</span><span>{ksh(otherChargesTotal)}</span></div>
+                  <div className="flex justify-between text-gray-600"><span>Other charges</span><span>{fmt(otherChargesTotal)}</span></div>
                 )}
               </>
             );
           })()}
           {Number(quotation.vat_amount) > 0 && (
-            <div className="flex justify-between text-gray-600"><span>VAT (16%)</span><span>{ksh(quotation.vat_amount)}</span></div>
+            <div className="flex justify-between text-gray-600"><span>VAT (16%)</span><span>{fmt(quotation.vat_amount)}</span></div>
           )}
           <div className="flex justify-between font-bold text-gray-900 text-base border-t pt-2">
-            <span>Grand Total</span><span>{ksh(quotation.grand_total)}</span>
+            <span>Grand Total</span><span>{fmt(quotation.grand_total)}</span>
           </div>
+          {quotation.currency !== "KES" && (
+            <div className="flex justify-between text-gray-400 text-xs">
+              <span>≈ KES equivalent (rate {Number(quotation.exchange_rate).toLocaleString()})</span>
+              <span>{ksh(quotation.kes_equivalent)}</span>
+            </div>
+          )}
           {Number(quotation.wht_amount) > 0 && (
             <div className="flex justify-between text-amber-600 text-xs">
               <span>WHT ({quotation.wht_pct}%) — deducted by client</span>
-              <span>− {ksh(quotation.wht_amount)}</span>
+              <span>− {fmt(quotation.wht_amount)}</span>
             </div>
           )}
           {Number(quotation.wht_amount) > 0 && (
             <div className="flex justify-between font-bold text-gray-900 border-t pt-2">
               <span>Amount Payable</span>
-              <span>{ksh(Number(quotation.grand_total) - Number(quotation.wht_amount))}</span>
+              <span>{fmt(Number(quotation.grand_total) - Number(quotation.wht_amount))}</span>
             </div>
           )}
         </div>
@@ -526,7 +533,7 @@ export default function QuotationDetail() {
                           onChange={(e) => setLpoQtys((prev) => ({ ...prev, [item.sort_order]: e.target.value }))}
                         />
                       </td>
-                      <td className="px-3 py-2 text-right text-gray-500 text-xs">{ksh(item.unit_price)}</td>
+                      <td className="px-3 py-2 text-right text-gray-500 text-xs">{fmt(item.unit_price)}</td>
                     </tr>
                   ))}
                 </tbody>

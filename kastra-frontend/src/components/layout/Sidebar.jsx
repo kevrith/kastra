@@ -2,6 +2,7 @@ import { NavLink, useNavigate } from "react-router-dom";
 import {
   BarChart2, FileText, Home, LogOut, Settings, Users, Receipt,
   TrendingDown, RefreshCw, Package, Kanban, UserCog, FolderKanban, Truck,
+  UserCheck, Wallet,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import GlobalSearch from "../ui/GlobalSearch";
@@ -16,6 +17,8 @@ const links = [
   { to: "/clients", icon: Users, label: "Clients" },
   { to: "/products", icon: Package, label: "Products" },
   { to: "/suppliers", icon: Truck, label: "Suppliers" },
+  { to: "/employees", icon: UserCheck, label: "Employees" },
+  { to: "/payroll", icon: Wallet, label: "Payroll" },
   { to: "/expenses", icon: TrendingDown, label: "Expenses" },
   { to: "/recurring", icon: RefreshCw, label: "Recurring" },
   { to: "/reports", icon: BarChart2, label: "Reports" },

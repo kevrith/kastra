@@ -49,7 +49,7 @@ async def dashboard_stats(
         )
     )
     monthly_rev = await db.scalar(
-        select(func.coalesce(func.sum(Invoice.grand_total), 0)).where(
+        select(func.coalesce(func.sum(Invoice.grand_total * Invoice.exchange_rate), 0)).where(
             Invoice.organization_id == org_id,
             Invoice.payment_status == "paid",
             extract("year", Invoice.created_at) == now.year,
@@ -96,7 +96,7 @@ async def dashboard_stats(
             month_offset += 12
             year -= 1
         rev = await db.scalar(
-            select(func.coalesce(func.sum(Invoice.grand_total), 0)).where(
+            select(func.coalesce(func.sum(Invoice.grand_total * Invoice.exchange_rate), 0)).where(
                 Invoice.organization_id == org_id,
                 Invoice.payment_status == "paid",
                 extract("year", Invoice.created_at) == year,
@@ -109,7 +109,7 @@ async def dashboard_stats(
     yearly_trend = []
     for y in range(now.year - 2, now.year + 1):
         rev = await db.scalar(
-            select(func.coalesce(func.sum(Invoice.grand_total), 0)).where(
+            select(func.coalesce(func.sum(Invoice.grand_total * Invoice.exchange_rate), 0)).where(
                 Invoice.organization_id == org_id,
                 Invoice.payment_status == "paid",
                 extract("year", Invoice.created_at) == y,
@@ -122,13 +122,13 @@ async def dashboard_stats(
         select(
             Client.id,
             Client.name,
-            func.coalesce(func.sum(Invoice.grand_total), 0).label("total_billed"),
+            func.coalesce(func.sum(Invoice.grand_total * Invoice.exchange_rate), 0).label("total_billed"),
             func.count(Invoice.id).label("invoice_count"),
         )
         .join(Invoice, Invoice.client_id == Client.id, isouter=True)
         .where(Client.organization_id == org_id)
         .group_by(Client.id, Client.name)
-        .order_by(func.coalesce(func.sum(Invoice.grand_total), 0).desc())
+        .order_by(func.coalesce(func.sum(Invoice.grand_total * Invoice.exchange_rate), 0).desc())
         .limit(5)
     )
     top_clients = [
@@ -149,6 +149,7 @@ async def dashboard_stats(
             id=row.Quotation.id,
             client_name=row.client_name,
             status=row.Quotation.status,
+            currency=row.Quotation.currency,
             grand_total=row.Quotation.grand_total,
             created_at=row.Quotation.created_at.strftime("%d/%m/%Y"),
         )
@@ -168,6 +169,7 @@ async def dashboard_stats(
             id=row.Invoice.id,
             client_name=row.client_name,
             payment_status=row.Invoice.payment_status,
+            currency=row.Invoice.currency,
             grand_total=row.Invoice.grand_total,
             created_at=row.Invoice.created_at.strftime("%d/%m/%Y"),
         )

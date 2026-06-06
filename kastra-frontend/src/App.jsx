@@ -34,6 +34,9 @@ import SupplierPortal from "./pages/portal/SupplierPortal";
 import Suppliers from "./pages/suppliers/Suppliers";
 import NewSupplierRequest from "./pages/suppliers/NewSupplierRequest";
 import SupplierRequestDetail from "./pages/suppliers/SupplierRequestDetail";
+import Employees from "./pages/payroll/Employees";
+import PayrollRuns from "./pages/payroll/PayrollRuns";
+import PayrollRunDetail from "./pages/payroll/PayrollRunDetail";
 import PrivacyPolicy from "./pages/legal/PrivacyPolicy";
 import TermsOfService from "./pages/legal/TermsOfService";
 import Landing from "./pages/Landing";
@@ -97,6 +100,9 @@ export default function App() {
             <Route path="/suppliers" element={<Suppliers />} />
             <Route path="/suppliers/requests/new" element={<NewSupplierRequest />} />
             <Route path="/suppliers/requests/:id" element={<SupplierRequestDetail />} />
+            <Route path="/employees" element={<Employees />} />
+            <Route path="/payroll" element={<PayrollRuns />} />
+            <Route path="/payroll/runs/:id" element={<PayrollRunDetail />} />
           </Route>
 
           <Route path="*" element={<Navigate to="/" replace />} />

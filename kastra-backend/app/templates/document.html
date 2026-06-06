@@ -185,8 +185,8 @@
       <tr>
         <td>{{ item.description }}</td>
         <td class="right qty">{{ item.quantity }}</td>
-        <td class="right price">{{ item.unit_price | ksh }}</td>
-        <td class="right" style="font-weight:500">{{ item.line_total | ksh }}</td>
+        <td class="right price">{{ item.unit_price | money(currency) }}</td>
+        <td class="right" style="font-weight:500">{{ item.line_total | money(currency) }}</td>
       </tr>
       {% endfor %}
     </tbody>
@@ -195,14 +195,19 @@
   <!-- Totals -->
   <div class="totals">
     <div class="totals-inner">
-      <div class="total-row"><span>Subtotal</span><span>{{ doc.subtotal | ksh }}</span></div>
+      <div class="total-row"><span>Subtotal</span><span>{{ doc.subtotal | money(currency) }}</span></div>
       {% if doc.vat_amount | float > 0 %}
-      <div class="total-row vat"><span>VAT (16%)</span><span>{{ doc.vat_amount | ksh }}</span></div>
+      <div class="total-row vat"><span>VAT (16%)</span><span>{{ doc.vat_amount | money(currency) }}</span></div>
       {% endif %}
-      <div class="total-row grand"><span>Grand Total</span><span>{{ doc.grand_total | ksh }}</span></div>
+      <div class="total-row grand"><span>Grand Total</span><span>{{ doc.grand_total | money(currency) }}</span></div>
+      {% if is_foreign_currency %}
+      <div class="total-row" style="font-size:11px;color:#6b7280">
+        <span>≈ KES equivalent (rate {{ doc.exchange_rate }})</span><span>{{ doc.kes_equivalent | money("KES") }}</span>
+      </div>
+      {% endif %}
       {% if doc_type == "invoice" and doc.payment_status == "partial" %}
-      <div class="total-row paid-row"><span>Amount Paid</span><span>{{ doc.amount_paid | ksh }}</span></div>
-      <div class="total-row balance-row"><span>Balance Due</span><span>{{ balance_due | ksh }}</span></div>
+      <div class="total-row paid-row"><span>Amount Paid</span><span>{{ doc.amount_paid | money(currency) }}</span></div>
+      <div class="total-row balance-row"><span>Balance Due</span><span>{{ balance_due | money(currency) }}</span></div>
       {% endif %}
     </div>
   </div>
@@ -220,13 +225,13 @@
   <div class="block orange">
     <div class="block-label">Partial Payment Received</div>
     <div class="partial-row">
-      <div style="color:#15803d"><strong>Paid:</strong> {{ doc.amount_paid | ksh }}</div>
-      <div style="color:#b91c1c"><strong>Balance:</strong> {{ balance_due | ksh }}</div>
+      <div style="color:#15803d"><strong>Paid:</strong> {{ doc.amount_paid | money(currency) }}</div>
+      <div style="color:#b91c1c"><strong>Balance:</strong> {{ balance_due | money(currency) }}</div>
     </div>
     <div class="progress-track">
       <div class="progress-fill" style="width:{{ paid_pct }}%"></div>
     </div>
-    <div class="progress-label">{{ paid_pct }}% paid — balance of {{ balance_due | ksh }} outstanding</div>
+    <div class="progress-label">{{ paid_pct }}% paid — balance of {{ balance_due | money(currency) }} outstanding</div>
   </div>
   {% endif %}
 
@@ -252,7 +257,7 @@
     <div class="block-label">Payment Instructions</div>
     <p style="font-size:12px">
       {% if doc.payment_status == "partial" %}
-        Balance of <strong style="color:#b91c1c">{{ balance_due | ksh }}</strong> remaining.
+        Balance of <strong style="color:#b91c1c">{{ balance_due | money(currency) }}</strong> remaining.
         Pay via M-Pesa, Bank Transfer, or Cash. Reference: <strong style="font-family:monospace">{{ doc.id }}</strong>
       {% else %}
         Pay via M-Pesa, Bank Transfer, or Cash. Use reference: <strong style="font-family:monospace">{{ doc.id }}</strong>

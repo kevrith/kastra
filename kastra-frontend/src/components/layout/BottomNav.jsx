@@ -3,7 +3,7 @@ import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
   Home, FileText, Receipt, Users, Settings,
   TrendingDown, RefreshCw, BarChart2, Package, MoreHorizontal, X, Kanban,
-  FolderKanban, UserCog, LogOut, Truck,
+  FolderKanban, UserCog, LogOut, Truck, UserCheck, Wallet,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 
@@ -18,6 +18,8 @@ const PRIMARY = [
 const DRAWER_LINKS = [
   { to: "/projects", icon: FolderKanban, label: "Projects" },
   { to: "/suppliers", icon: Truck, label: "Suppliers" },
+  { to: "/employees", icon: UserCheck, label: "Employees" },
+  { to: "/payroll", icon: Wallet, label: "Payroll" },
   { to: "/expenses", icon: TrendingDown, label: "Expenses" },
   { to: "/recurring", icon: RefreshCw, label: "Recurring" },
   { to: "/reports", icon: BarChart2, label: "Reports" },

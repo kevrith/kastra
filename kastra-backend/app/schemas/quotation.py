@@ -76,6 +76,8 @@ class QuotationCreate(BaseModel):
     expires_at: datetime | None = None
     discount_pct: Decimal = Decimal("0")
     wht_pct: Decimal = Decimal("0")
+    currency: str = "KES"
+    exchange_rate: Decimal = Decimal("1")
     status: str = "draft"
 
     @field_validator("status")
@@ -83,6 +85,21 @@ class QuotationCreate(BaseModel):
     def valid_create_status(cls, v: str) -> str:
         if v not in ("draft", "pending"):
             raise ValueError("status must be draft or pending")
+        return v
+
+    @field_validator("currency")
+    @classmethod
+    def valid_currency(cls, v: str) -> str:
+        v = (v or "KES").upper().strip()
+        if len(v) != 3 or not v.isalpha():
+            raise ValueError("currency must be a 3-letter ISO code, e.g. KES, USD, EUR")
+        return v
+
+    @field_validator("exchange_rate")
+    @classmethod
+    def valid_exchange_rate(cls, v: Decimal) -> Decimal:
+        if v <= 0:
+            raise ValueError("exchange_rate must be greater than zero")
         return v
 
 
@@ -95,6 +112,8 @@ class QuotationUpdate(BaseModel):
     expires_at: datetime | None = None
     discount_pct: Decimal | None = None
     wht_pct: Decimal | None = None
+    currency: str | None = None
+    exchange_rate: Decimal | None = None
 
 
 class ConvertItemQty(BaseModel):
@@ -125,6 +144,8 @@ class QuotationOut(BaseModel):
     client: ClientOut | None
     created_by: uuid.UUID
     status: str
+    currency: str
+    exchange_rate: Decimal
     subtotal: Decimal
     total_discount: Decimal
     charges_total: Decimal
@@ -154,11 +175,17 @@ class QuotationOut(BaseModel):
             return False
         return self.expires_at < datetime.now(timezone.utc)
 
+    @computed_field
+    @property
+    def kes_equivalent(self) -> Decimal:
+        return (self.grand_total * self.exchange_rate).quantize(Decimal("0.01"))
+
 
 class QuotationListOut(BaseModel):
     id: str
     client: ClientOut | None
     status: str
+    currency: str
     grand_total: Decimal
     project_description: str | None
     expires_at: datetime | None

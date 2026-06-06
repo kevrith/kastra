@@ -7,6 +7,9 @@ import { suggestItems } from "../../api/ai";
 import { Plus, Trash2, ArrowLeft, Sparkles } from "lucide-react";
 import ProductAutocomplete from "../../components/ui/ProductAutocomplete";
 import FinancialsForm from "../../components/ui/FinancialsForm";
+import PriceConverter from "../../components/ui/PriceConverter";
+
+const CONVERTED_NOTE_RE = /\s*\(≈ [^()]*\)\s*$/;
 
 const emptyItem = () => ({ description: "", quantity: "1", unit_price: "", cost_price: "", discount_pct: "0", vat_exempt: false });
 
@@ -22,6 +25,8 @@ export default function InvoiceCreate() {
   const [charges, setCharges] = useState([]);
   const [discountPct, setDiscountPct] = useState("0");
   const [whtPct, setWhtPct] = useState("0");
+  const [currency, setCurrency] = useState("KES");
+  const [exchangeRate, setExchangeRate] = useState("1");
   const [depositAmount, setDepositAmount] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -43,6 +48,19 @@ export default function InvoiceCreate() {
 
   const removeItem = (i) => setItems((prev) => prev.filter((_, idx) => idx !== i));
   const addItem = () => setItems((prev) => [...prev, emptyItem()]);
+
+  const applyConvertedPrice = (i, { kesAmount, originalAmount, currency, rate }) => {
+    setItems((prev) => prev.map((item, idx) => {
+      if (idx !== i) return item;
+      const note = `(≈ ${currency} ${originalAmount.toLocaleString()} @ ${rate.toLocaleString()})`;
+      const baseDesc = item.description.replace(CONVERTED_NOTE_RE, "").trim();
+      return {
+        ...item,
+        unit_price: String(kesAmount),
+        description: baseDesc ? `${baseDesc} ${note}` : item.description,
+      };
+    }));
+  };
 
   const handleSuggestItems = async () => {
     if (!clientId) return;
@@ -82,6 +100,8 @@ export default function InvoiceCreate() {
         notes: notes || null,
         discount_pct: parseFloat(discountPct) || 0,
         wht_pct: parseFloat(whtPct) || 0,
+        currency,
+        exchange_rate: parseFloat(exchangeRate) || 1,
         deposit_amount: parseFloat(depositAmount) || 0,
         items: items.map((item, i) => ({
           description: item.description,
@@ -205,8 +225,13 @@ export default function InvoiceCreate() {
                   value={item.quantity} onChange={(e) => setItem(i, "quantity", e.target.value)} required />
               </div>
               <div className="col-span-4 sm:col-span-2">
-                <input className="input" type="number" placeholder="Sell Price" min="0" step="any"
-                  value={item.unit_price} onChange={(e) => setItem(i, "unit_price", e.target.value)} required />
+                <div className="relative">
+                  <input className="input pr-7" type="number" placeholder="Sell Price" min="0" step="any"
+                    value={item.unit_price} onChange={(e) => setItem(i, "unit_price", e.target.value)} required />
+                  <div className="absolute right-1 top-1/2 -translate-y-1/2">
+                    <PriceConverter onApply={(conversion) => applyConvertedPrice(i, conversion)} />
+                  </div>
+                </div>
               </div>
               <div className="col-span-4 sm:col-span-2">
                 <input className="input" type="number" placeholder="Cost Price" min="0" step="any"
@@ -254,6 +279,10 @@ export default function InvoiceCreate() {
           setDiscountPct={setDiscountPct}
           whtPct={whtPct}
           setWhtPct={setWhtPct}
+          currency={currency}
+          setCurrency={setCurrency}
+          exchangeRate={exchangeRate}
+          setExchangeRate={setExchangeRate}
           depositAmount={depositAmount}
           setDepositAmount={setDepositAmount}
           showDeposit={true}

@@ -172,6 +172,8 @@ async def initialize_payment(payload: PaystackInitRequest, db: AsyncSession = De
         raise HTTPException(status_code=404, detail="Invoice not found")
     if inv.payment_status == "paid":
         raise HTTPException(status_code=400, detail="Invoice is already paid")
+    if inv.currency != "KES":
+        raise HTTPException(status_code=400, detail="Card payments are only available for invoices in KES.")
 
     balance_due = float(inv.grand_total) - float(inv.amount_paid or 0)
     charge = payload.amount if payload.amount else balance_due

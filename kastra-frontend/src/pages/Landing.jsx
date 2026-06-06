@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import {
   FileText, Receipt, CreditCard, Users, BarChart2, Shield,
   CheckCircle, Smartphone, Zap, Globe, ArrowRight, Star,
-  TrendingUp, Clock, Lock, UserCog, FolderKanban, Camera, DollarSign, Truck, Sparkles,
+  TrendingUp, Clock, Lock, UserCog, FolderKanban, Camera, DollarSign, Truck, Sparkles, Wallet,
 } from "lucide-react";
 
 const features = [
@@ -72,9 +72,19 @@ const features = [
     desc: "Set up automatic recurring invoices for retainer clients. Never miss a billing cycle.",
   },
   {
+    icon: Globe,
+    title: "Multi-Currency Invoicing",
+    desc: "Bill export, diaspora, and NGO clients in USD, EUR, GBP and more — with live exchange rates and automatic KES-equivalent reporting alongside your local invoices.",
+  },
+  {
     icon: Sparkles,
     title: "AI Smart Features",
     desc: "Auto-suggest invoice line items from past history, scan receipts to categorise expenses, get a 30-day cash flow forecast, generate quotation descriptions from bullet points, and score client payment risk — all powered by Claude AI.",
+  },
+  {
+    icon: Wallet,
+    title: "Payroll & Payslips",
+    desc: "Keep employee records and run monthly payroll in a click — Kastra computes PAYE, NSSF, SHIF and the Affordable Housing Levy automatically, then generates payslips and a payroll register so you can pay your staff with confidence.",
   },
 ];
 

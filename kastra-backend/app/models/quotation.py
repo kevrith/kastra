@@ -23,6 +23,8 @@ class Quotation(Base):
     client_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("clients.id"), nullable=False)
     created_by: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="draft")  # draft|pending|accepted|declined
+    currency: Mapped[str] = mapped_column(String(3), nullable=False, default="KES")
+    exchange_rate: Mapped[Decimal] = mapped_column(Numeric(12, 6), nullable=False, default=1)
     subtotal: Mapped[Decimal] = mapped_column(Numeric(15, 2), nullable=False, default=0)
     vat_amount: Mapped[Decimal] = mapped_column(Numeric(15, 2), nullable=False, default=0)
     grand_total: Mapped[Decimal] = mapped_column(Numeric(15, 2), nullable=False, default=0)

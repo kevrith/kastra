@@ -2,7 +2,7 @@ import uuid
 from datetime import date, datetime, timezone
 from decimal import Decimal
 
-from pydantic import BaseModel, computed_field
+from pydantic import BaseModel, computed_field, field_validator
 
 from app.schemas.client import ClientOut
 
@@ -55,8 +55,25 @@ class InvoiceCreate(BaseModel):
     discount_pct: Decimal = Decimal("0")
     wht_pct: Decimal = Decimal("0")
     deposit_amount: Decimal = Decimal("0")
+    currency: str = "KES"
+    exchange_rate: Decimal = Decimal("1")
     items: list[InvoiceItemCreate]
     charges: list[InvoiceChargeCreate] = []
+
+    @field_validator("currency")
+    @classmethod
+    def valid_currency(cls, v: str) -> str:
+        v = (v or "KES").upper().strip()
+        if len(v) != 3 or not v.isalpha():
+            raise ValueError("currency must be a 3-letter ISO code, e.g. KES, USD, EUR")
+        return v
+
+    @field_validator("exchange_rate")
+    @classmethod
+    def valid_exchange_rate(cls, v: Decimal) -> Decimal:
+        if v <= 0:
+            raise ValueError("exchange_rate must be greater than zero")
+        return v
 
 
 class InvoiceItemOut(BaseModel):
@@ -113,6 +130,8 @@ class InvoiceOut(BaseModel):
     client: ClientOut
     payment_status: str
     payment_method: str | None
+    currency: str
+    exchange_rate: Decimal
     subtotal: Decimal
     total_discount: Decimal
     charges_total: Decimal
@@ -140,6 +159,11 @@ class InvoiceOut(BaseModel):
     updated_at: datetime
 
     model_config = {"from_attributes": True}
+
+    @computed_field
+    @property
+    def kes_equivalent(self) -> Decimal:
+        return (self.grand_total * self.exchange_rate).quantize(Decimal("0.01"))
 
     @computed_field
     @property
@@ -176,8 +200,15 @@ class InvoiceOut(BaseModel):
     @computed_field
     @property
     def gross_profit(self) -> Decimal:
-        """Revenue minus COGS and job expenses."""
-        return (self.grand_total - self.total_cogs - self.total_job_expenses).quantize(Decimal("0.01"))
+        """Revenue minus COGS and job expenses, expressed in KES.
+
+        Job expenses are always tracked in KES (real cash spent locally), so revenue
+        and COGS are converted to their KES equivalent before netting them out —
+        otherwise foreign-currency invoices would mix units and produce a nonsense figure.
+        """
+        revenue_kes = self.grand_total * self.exchange_rate
+        cogs_kes = self.total_cogs * self.exchange_rate
+        return (revenue_kes - cogs_kes - self.total_job_expenses).quantize(Decimal("0.01"))
 
     @computed_field
     @property
@@ -189,6 +220,7 @@ class InvoiceListOut(BaseModel):
     id: str
     client: ClientOut
     payment_status: str
+    currency: str
     grand_total: Decimal
     due_date: datetime | None
     lpo_number: str | None
