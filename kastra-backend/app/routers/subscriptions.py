@@ -1,6 +1,8 @@
 import logging
 from datetime import datetime, timedelta, timezone
 
+import asyncio
+
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -13,6 +15,7 @@ from app.dependencies import get_current_user
 from app.models.organization import Organization
 from app.models.user import User
 from app.schemas.common import Response
+from app.services.email_service import send_plan_activated_email
 from app.services.mpesa_service import initiate_stk_push
 from app.utils.plan_limits import PLAN_PRICES_KES, PLANS, VALID_PLANS, get_limits
 
@@ -241,6 +244,13 @@ async def verify_paystack_upgrade(
     _activate_plan(org, plan_from_meta)
     await db.commit()
     logger.info("Paystack subscription activated: org=%s plan=%s ref=%s", org.id, plan_from_meta, reference)
+
+    if org.email and org.next_billing_date:
+        asyncio.ensure_future(send_plan_activated_email(
+            org.email, org.name, org.plan,
+            PLAN_PRICES_KES.get(org.plan, 0),
+            org.next_billing_date,
+        ))
 
     return {
         "status": "success",

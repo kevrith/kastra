@@ -993,6 +993,12 @@ export default function SuperAdmin() {
                         <div className="space-y-1">
                           <Badge text={r.plan} colorClass={PLAN_COLORS[r.plan] || ""} />
                           {r.is_trial && <span className="block text-[10px] text-yellow-400">{r.days_left_trial}d trial left</span>}
+                          {!r.is_trial && r.days_until_renewal != null && r.days_until_renewal <= 5 && r.days_until_renewal >= 0 && (
+                            <span className="block text-[10px] text-orange-400">Renews in {r.days_until_renewal}d</span>
+                          )}
+                          {!r.is_trial && r.days_until_renewal != null && r.days_until_renewal < 0 && (
+                            <span className="block text-[10px] text-red-400">Overdue {Math.abs(r.days_until_renewal)}d</span>
+                          )}
                         </div>
                       )},
                       { key: "plan_status", label: "Status", render: (r) => <Badge text={r.plan_status} colorClass={STATUS_COLORS[r.plan_status] || ""} /> },

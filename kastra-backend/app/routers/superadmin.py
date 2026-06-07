@@ -447,6 +447,8 @@ async def list_organizations(
             "is_trial": o.is_trial,
             "trial_ends_at": o.trial_ends_at.isoformat() if o.trial_ends_at else None,
             "days_left_trial": max(0, (o.trial_ends_at - now).days) if o.is_trial and o.trial_ends_at else None,
+            "next_billing_date": o.next_billing_date.isoformat() if o.next_billing_date else None,
+            "days_until_renewal": (o.next_billing_date - now).days if o.next_billing_date and not o.is_trial else None,
             "invoices_this_month": o.invoices_this_month,
             "quotations_this_month": o.quotations_this_month,
             "ocr_scans_this_month": o.ocr_scans_this_month,

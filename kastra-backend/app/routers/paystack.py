@@ -24,7 +24,8 @@ from app.models.invoice import Invoice, PaymentDetail
 from app.models.invoice_payment import InvoicePayment
 from app.models.notification import Notification
 from app.services.audit_service import log_action
-from app.services.email_service import send_payment_received_email, send_receipt_email
+from app.services.email_service import send_payment_received_email, send_receipt_email, send_plan_activated_email
+from app.utils.plan_limits import PLAN_PRICES_KES
 from app.services.payment_events import publish as publish_payment_event
 from app.services.pdf_service import generate_pdf
 from app.services.sms_service import sms_payment_received
@@ -298,6 +299,15 @@ async def paystack_webhook(request: Request, db: AsyncSession = Depends(get_db))
     # Check if this is a subscription payment (reference starts with SUB-)
     meta = data.get("metadata", {})
     if reference.startswith("SUB-") or meta.get("type") == "subscription":
+        # Validate HMAC against Kastra's platform Paystack key before processing
+        if settings.paystack_secret_key and settings.paystack_secret_key not in ("", "sk_test_placeholder"):
+            expected = hmac.new(
+                settings.paystack_secret_key.encode("utf-8"),
+                body,
+                hashlib.sha512,
+            ).hexdigest()
+            if not hmac.compare_digest(expected, signature):
+                raise HTTPException(status_code=400, detail="Invalid webhook signature")
         import uuid
         from app.models.organization import Organization
         from datetime import timedelta
@@ -330,6 +340,12 @@ async def paystack_webhook(request: Request, db: AsyncSession = Depends(get_db))
                     }, performed_by="paystack_webhook")
                     await db.commit()
                     logger.info("Paystack subscription webhook: org=%s plan=%s ref=%s", org_id_str, plan, reference)
+                    if org.email and org.next_billing_date:
+                        asyncio.ensure_future(send_plan_activated_email(
+                            org.email, org.name, plan,
+                            paid_amount or PLAN_PRICES_KES.get(plan, 0),
+                            org.next_billing_date,
+                        ))
             except Exception:
                 logger.exception("Error processing Paystack subscription webhook for ref=%s", reference)
         return {"status": "ok"}

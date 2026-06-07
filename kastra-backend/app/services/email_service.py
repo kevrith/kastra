@@ -62,6 +62,48 @@ async def send_password_reset_email(email: str, reset_token: str) -> None:
     await _send(email, "Reset your Kastra password", html)
 
 
+async def send_plan_activated_email(
+    org_email: str,
+    org_name: str,
+    plan: str,
+    amount_kes: int,
+    next_billing_date: "datetime",
+) -> None:
+    """Confirmation sent to org admin immediately after a successful subscription payment."""
+    plan_label = plan.capitalize()
+    due_str = next_billing_date.strftime("%d %b %Y")
+    settings_url = f"{settings.frontend_url}/settings"
+    html = f"""
+    <div style="font-family:sans-serif;max-width:480px;color:#1f2937">
+      <div style="background:#0f172a;padding:24px 28px;border-radius:10px 10px 0 0">
+        <p style="color:#94a3b8;font-size:11px;text-transform:uppercase;letter-spacing:1.5px;margin:0 0 4px">Kastra</p>
+        <h2 style="color:#f8fafc;margin:0;font-size:20px">Plan Activated — {plan_label}</h2>
+      </div>
+      <div style="background:#fff;border:1px solid #e2e8f0;border-top:none;padding:24px 28px;border-radius:0 0 10px 10px">
+        <p style="margin:0 0 16px">Hi {org_name},</p>
+        <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:14px 16px;margin-bottom:20px">
+          <p style="margin:0;font-size:13px;color:#166534">
+            Your <strong>Kastra {plan_label}</strong> plan is now active.
+            Payment of <strong>KES {amount_kes:,}</strong> received.
+            Your next renewal date is <strong>{due_str}</strong>.
+          </p>
+        </div>
+        <p style="font-size:13px;color:#6b7280;margin:0 0 20px">
+          You now have full access to all {plan_label} features. Log in to your dashboard to get started.
+        </p>
+        <a href="{settings_url}"
+           style="display:inline-block;background:#16a34a;color:#fff;padding:10px 22px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px">
+          Go to Kastra
+        </a>
+        <p style="font-size:11px;color:#9ca3af;margin-top:24px">
+          Questions? Reply to this email and our team will help.
+        </p>
+      </div>
+    </div>
+    """
+    await _send(org_email, f"Kastra {plan_label} plan activated — payment confirmed", html)
+
+
 async def send_payment_received_email(
     org_email: str,
     invoice_id: str,

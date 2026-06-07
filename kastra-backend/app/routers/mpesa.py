@@ -14,8 +14,9 @@ from app.models.invoice_payment import InvoicePayment
 from app.models.notification import Notification
 from app.models.organization import Organization
 from app.services.audit_service import log_action
-from app.services.email_service import send_payment_received_email, send_receipt_email
+from app.services.email_service import send_payment_received_email, send_receipt_email, send_plan_activated_email
 from app.services.payment_events import publish as publish_payment_event
+from app.utils.plan_limits import PLAN_PRICES_KES
 from app.services.pdf_service import generate_pdf
 from app.services.sms_service import sms_payment_received
 
@@ -96,6 +97,12 @@ async def mpesa_callback(request: Request, db: AsyncSession = Depends(get_db)):
                 }, performed_by="mpesa_callback")
                 await db.commit()
                 logger.info("M-Pesa subscription activated: org=%s plan=%s", org.id, org.plan)
+                if org.email and org.next_billing_date:
+                    asyncio.ensure_future(send_plan_activated_email(
+                        org.email, org.name, activated_plan,
+                        paid_amount or PLAN_PRICES_KES.get(activated_plan, 0),
+                        org.next_billing_date,
+                    ))
         return {"ResultCode": 0, "ResultDesc": "Accepted"}
 
     if invoice and result_code == 0:
