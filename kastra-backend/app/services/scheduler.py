@@ -11,7 +11,13 @@ from app.models.invoice import Invoice, InvoiceItem
 from app.models.organization import Organization
 from app.models.quotation import Quotation
 from app.models.recurring_invoice import RecurringInvoice
-from app.services.email_service import send_due_soon_reminder_email, send_overdue_reminder_email
+from app.services.email_service import (
+    send_due_soon_reminder_email,
+    send_overdue_reminder_email,
+    send_subscription_renewal_reminder_email,
+    send_subscription_downgraded_email,
+)
+from app.utils.plan_limits import PLAN_PRICES_KES
 from app.services.sms_service import sms_due_soon, sms_overdue_reminder
 from app.utils.id_generator import next_id
 
@@ -313,6 +319,97 @@ async def _expire_complimentary():
             await db.rollback()
 
 
+async def _send_billing_reminders():
+    """
+    Nightly — sends a renewal reminder email exactly 5 days before next_billing_date.
+    Fires once per billing cycle since it targets the exact day-5 window.
+    """
+    now = datetime.now(timezone.utc)
+    target_date = (now + timedelta(days=5)).date()
+    async with AsyncSessionLocal() as db:
+        try:
+            result = await db.execute(
+                select(Organization)
+                .where(
+                    Organization.plan != "free",
+                    Organization.plan_status == "active",
+                    Organization.is_trial.is_(False),
+                    Organization.next_billing_date.isnot(None),
+                )
+                .options(selectinload(Organization.users))
+            )
+            orgs = result.scalars().all()
+            sent = 0
+            for org in orgs:
+                if not org.next_billing_date:
+                    continue
+                if org.next_billing_date.date() != target_date:
+                    continue
+                admin = next(
+                    (u for u in org.users if u.role == "admin" and u.is_active), None
+                )
+                if not admin:
+                    continue
+                price = PLAN_PRICES_KES.get(org.plan, 0)
+                try:
+                    await send_subscription_renewal_reminder_email(
+                        admin.email, org.name, org.plan, price, org.next_billing_date
+                    )
+                    sent += 1
+                    logger.info("[scheduler] Billing reminder sent: org=%s plan=%s due=%s", org.id, org.plan, org.next_billing_date.date())
+                except Exception:
+                    logger.exception("[scheduler] Failed to send billing reminder for org=%s", org.id)
+            logger.info("[scheduler] Billing reminders sent: %d.", sent)
+        except Exception:
+            logger.exception("[scheduler] Error in billing reminder job")
+
+
+async def _expire_subscriptions():
+    """
+    Nightly — auto-downgrades paid orgs that are more than 3 days past their next_billing_date
+    without having renewed. Sends a downgrade notification email to the org admin.
+    """
+    now = datetime.now(timezone.utc)
+    grace_cutoff = now - timedelta(days=3)
+    async with AsyncSessionLocal() as db:
+        try:
+            result = await db.execute(
+                select(Organization)
+                .where(
+                    Organization.plan != "free",
+                    Organization.plan_status == "active",
+                    Organization.is_trial.is_(False),
+                    Organization.next_billing_date.isnot(None),
+                    Organization.next_billing_date < grace_cutoff,
+                )
+                .options(selectinload(Organization.users))
+            )
+            expired = result.scalars().all()
+            if not expired:
+                logger.info("[scheduler] No subscriptions to expire.")
+                return
+            for org in expired:
+                old_plan = org.plan
+                org.plan = "free"
+                org.plan_status = "active"
+                org.billing_cycle_start = None
+                org.next_billing_date = None
+                logger.info("[scheduler] Subscription expired: org=%s plan=%s → free", org.id, old_plan)
+                admin = next(
+                    (u for u in org.users if u.role == "admin" and u.is_active), None
+                )
+                if admin:
+                    try:
+                        await send_subscription_downgraded_email(admin.email, org.name, old_plan)
+                    except Exception:
+                        logger.exception("[scheduler] Failed to send downgrade email for org=%s", org.id)
+            await db.commit()
+            logger.info("[scheduler] Expired %d subscription(s).", len(expired))
+        except Exception:
+            logger.exception("[scheduler] Error in subscription expiry job")
+            await db.rollback()
+
+
 async def _reset_monthly_counters():
     """
     Nightly job — resets invoice/quotation/OCR counters for any org whose
@@ -348,6 +445,8 @@ def start_scheduler():
     scheduler.add_job(_reset_monthly_counters, "cron", hour=21, minute=15, id="reset_monthly_counters")
     scheduler.add_job(_expire_trials, "cron", hour=21, minute=20, id="expire_trials")
     scheduler.add_job(_expire_complimentary, "cron", hour=21, minute=25, id="expire_complimentary")
+    scheduler.add_job(_send_billing_reminders, "cron", hour=21, minute=30, id="billing_reminders")
+    scheduler.add_job(_expire_subscriptions, "cron", hour=21, minute=35, id="expire_subscriptions")
     scheduler.start()
     logger.info("[scheduler] Started. Jobs run daily at 00:00 EAT.")
 

@@ -158,6 +158,86 @@ async def send_receipt_email(
     await _send(client_email, f"Payment confirmed — {invoice_id}", html)
 
 
+async def send_subscription_renewal_reminder_email(
+    org_email: str,
+    org_name: str,
+    plan: str,
+    amount_kes: int,
+    next_billing_date: "datetime",
+) -> None:
+    """Remind the org admin that their subscription renews in 5 days."""
+    due_str = next_billing_date.strftime("%d %b %Y")
+    plan_label = plan.capitalize()
+    settings_url = f"{settings.frontend_url}/settings"
+    html = f"""
+    <div style="font-family:sans-serif;max-width:480px;color:#1f2937">
+      <div style="background:#0f172a;padding:24px 28px;border-radius:10px 10px 0 0">
+        <p style="color:#94a3b8;font-size:11px;text-transform:uppercase;letter-spacing:1.5px;margin:0 0 4px">Kastra</p>
+        <h2 style="color:#f8fafc;margin:0;font-size:20px">Subscription Renewal Reminder</h2>
+      </div>
+      <div style="background:#fff;border:1px solid #e2e8f0;border-top:none;padding:24px 28px;border-radius:0 0 10px 10px">
+        <p style="margin:0 0 16px">Hi {org_name},</p>
+        <div style="background:#fefce8;border:1px solid #fde68a;border-radius:8px;padding:14px 16px;margin-bottom:20px">
+          <p style="margin:0;font-size:13px;color:#92400e">
+            Your <strong>Kastra {plan_label}</strong> plan is due for renewal on
+            <strong>{due_str}</strong> — <strong>KES {amount_kes:,} / month</strong>.
+          </p>
+        </div>
+        <p style="font-size:13px;color:#6b7280;margin:0 0 20px">
+          To keep uninterrupted access, please ensure your payment is processed before the renewal date.
+          Log in to Kastra and pay via M-Pesa or card from your Settings page.
+        </p>
+        <a href="{settings_url}"
+           style="display:inline-block;background:#16a34a;color:#fff;padding:10px 22px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px">
+          Renew on Kastra
+        </a>
+        <p style="font-size:11px;color:#9ca3af;margin-top:24px">
+          If you no longer need this plan, you can downgrade to Free from your Settings page.
+        </p>
+      </div>
+    </div>
+    """
+    await _send(org_email, f"Your Kastra {plan_label} plan renews on {due_str}", html)
+
+
+async def send_subscription_downgraded_email(
+    org_email: str,
+    org_name: str,
+    old_plan: str,
+) -> None:
+    """Notify the org admin their plan was downgraded to free due to non-renewal."""
+    old_plan_label = old_plan.capitalize()
+    settings_url = f"{settings.frontend_url}/settings"
+    html = f"""
+    <div style="font-family:sans-serif;max-width:480px;color:#1f2937">
+      <div style="background:#0f172a;padding:24px 28px;border-radius:10px 10px 0 0">
+        <p style="color:#94a3b8;font-size:11px;text-transform:uppercase;letter-spacing:1.5px;margin:0 0 4px">Kastra</p>
+        <h2 style="color:#f8fafc;margin:0;font-size:20px">Plan Downgraded to Free</h2>
+      </div>
+      <div style="background:#fff;border:1px solid #e2e8f0;border-top:none;padding:24px 28px;border-radius:0 0 10px 10px">
+        <p style="margin:0 0 16px">Hi {org_name},</p>
+        <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:14px 16px;margin-bottom:20px">
+          <p style="margin:0;font-size:13px;color:#991b1b">
+            Your <strong>Kastra {old_plan_label}</strong> subscription has expired and your account has been
+            moved to the <strong>Free plan</strong>. Your data is safe — no invoices, clients, or records have been deleted.
+          </p>
+        </div>
+        <p style="font-size:13px;color:#6b7280;margin:0 0 20px">
+          To restore full access, upgrade your plan from the Settings page at any time.
+        </p>
+        <a href="{settings_url}"
+           style="display:inline-block;background:#16a34a;color:#fff;padding:10px 22px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px">
+          Upgrade Now
+        </a>
+        <p style="font-size:11px;color:#9ca3af;margin-top:24px">
+          Questions? Reply to this email and our team will help.
+        </p>
+      </div>
+    </div>
+    """
+    await _send(org_email, f"Your Kastra {old_plan_label} plan has expired — account moved to Free", html)
+
+
 async def send_due_soon_reminder_email(
     client_email: str,
     invoice_id: str,
