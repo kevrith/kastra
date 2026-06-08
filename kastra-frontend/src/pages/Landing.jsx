@@ -154,7 +154,7 @@ const plans = [
     price: "KES 5,500",
     period: "/ month",
     desc: "Unlimited power for high-volume operations.",
-    features: ["Unlimited invoices", "Unlimited quotations", "15 team members", "100+ OCR scans / month", "Unlimited clients", "Unlimited projects", "Multi-currency invoicing", "Payroll & payslips", "Recurring invoices", "eTIMS / KRA compliance", "Audit logs", "SMS notifications", "White-label branding", "Priority support", "All 3 templates", "Full history reports", "Supplier price comparison", "Job profitability tracking", "Unlimited AI calls"],
+    features: ["Unlimited invoices", "Unlimited quotations", "15 team members", "100+ OCR scans / month", "Unlimited clients", "Unlimited projects", "Multi-currency invoicing", "Payroll & payslips", "Email invoices", "Client portal", "Project pipeline", "Field reporting", "Photo uploads", "Recurring invoices", "eTIMS / KRA compliance", "Audit logs", "SMS notifications", "White-label branding", "Priority support", "All 3 templates", "Full history reports", "Supplier price comparison", "Job profitability tracking", "Unlimited AI calls"],
     cta: "Go Premium",
     highlight: false,
   },
