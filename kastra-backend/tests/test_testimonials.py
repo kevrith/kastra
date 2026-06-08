@@ -35,12 +35,12 @@ async def _create_manual(client, sa_tok, **kwargs) -> dict:
     return resp.json()
 
 
-async def _request_testimonial(client, sa_tok, email="test@example.com", name="Test User", role_hint="") -> dict:
-    resp = await client.post("/api/superadmin/testimonials/request", json={"email": email, "name": name, "role_hint": role_hint}, headers=_h(sa_tok))
+async def _request_testimonial(client, sa_tok, email="test@example.com", name="Test User", role_hint="", phone="0700000001") -> dict:
+    resp = await client.post("/api/superadmin/testimonials/request", json={"email": email, "name": name, "role_hint": role_hint, "phone": phone}, headers=_h(sa_tok))
     assert resp.status_code == 200, resp.text
     # Retrieve the created entry from the list to get the token
     list_resp = await client.get("/api/superadmin/testimonials?status=pending", headers=_h(sa_tok))
-    pending = [t for t in list_resp.json() if t["requested_email"] == email]
+    pending = [t for t in list_resp.json() if t["name"] == name]
     assert pending, "pending testimonial not found"
     return pending[-1]
 
@@ -141,7 +141,7 @@ async def test_full_request_flow(client: AsyncClient, db_session):
     # 1. Send request
     req_resp = await client.post(
         "/api/superadmin/testimonials/request",
-        json={"email": "flow@ex.com", "name": "Flow User", "role_hint": "CFO"},
+        json={"email": "flow@ex.com", "name": "Flow User", "role_hint": "CFO", "phone": "0700000002"},
         headers=_h(sa),
     )
     assert req_resp.status_code == 200
@@ -208,7 +208,7 @@ async def test_form_cannot_be_submitted_twice(client: AsyncClient, db_session):
     sa = await _sa_token(client)
     req_resp = await client.post(
         "/api/superadmin/testimonials/request",
-        json={"email": "twice@ex.com", "name": "Twice User", "role_hint": ""},
+        json={"email": "twice@ex.com", "name": "Twice User", "role_hint": "", "phone": "0700000003"},
         headers=_h(sa),
     )
     t_id = req_resp.json()["id"]
@@ -233,7 +233,7 @@ async def test_form_requires_consent(client: AsyncClient, db_session):
     sa = await _sa_token(client)
     req_resp = await client.post(
         "/api/superadmin/testimonials/request",
-        json={"email": "noconsent@ex.com", "name": "No Consent", "role_hint": ""},
+        json={"email": "noconsent@ex.com", "name": "No Consent", "role_hint": "", "phone": "0700000004"},
         headers=_h(sa),
     )
     t_id = req_resp.json()["id"]
@@ -260,7 +260,7 @@ async def test_reject_flow(client: AsyncClient, db_session):
     sa = await _sa_token(client)
     req_resp = await client.post(
         "/api/superadmin/testimonials/request",
-        json={"email": "reject@ex.com", "name": "Reject User", "role_hint": ""},
+        json={"email": "reject@ex.com", "name": "Reject User", "role_hint": "", "phone": "0700000005"},
         headers=_h(sa),
     )
     t_id = req_resp.json()["id"]
