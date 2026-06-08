@@ -12,13 +12,14 @@ import {
   superadminSupplierRequestDetail,
   superadminGetTestimonials, superadminCreateTestimonial,
   superadminUpdateTestimonial, superadminDeleteTestimonial,
+  superadminRequestTestimonial, superadminApproveTestimonial, superadminRejectTestimonial,
 } from "../../api/subscriptions";
 import {
   LayoutDashboard, Building2, LogOut, Search, ChevronLeft, ChevronRight,
   TrendingUp, Users, FileText, RefreshCw, AlertCircle, CheckCircle2,
   CreditCard, Clock, Activity, DollarSign, BarChart2, ShieldAlert,
   PlusCircle, X, Gift, Menu, Key, UserX, UserCheck, Shield, Receipt, Truck, Package, Printer, Eye,
-  MessageSquare, Star, Edit2, Trash2, ToggleLeft, ToggleRight,
+  MessageSquare, Star, Edit2, Trash2, ToggleLeft, ToggleRight, Send, ThumbsUp, ThumbsDown,
 } from "lucide-react";
 
 // ── Colour maps ────────────────────────────────────────────────────────────────
@@ -224,6 +225,11 @@ export default function SuperAdmin() {
   const [testimonialLoading, setTestimonialLoading] = useState(false);
   const [testimonialModal, setTestimonialModal] = useState(null); // null | "create" | testimonial object
   const [testimonialForm, setTestimonialForm] = useState({ name: "", role: "", text: "", stars: 5, is_active: true, sort_order: 0 });
+  const [testimonialTab, setTestimonialTab] = useState("pending"); // "pending" | "approved" | "rejected"
+  const [requestModal, setRequestModal] = useState(false);
+  const [requestForm, setRequestForm] = useState({ email: "", name: "", role_hint: "" });
+  const [rejectModal, setRejectModal] = useState(null); // testimonial id
+  const [rejectReason, setRejectReason] = useState("");
 
   const isAuthed = Boolean(token);
 
@@ -395,7 +401,7 @@ export default function SuperAdmin() {
     if (!token) return;
     setTestimonialLoading(true);
     try {
-      const { data } = await superadminGetTestimonials(token);
+      const { data } = await superadminGetTestimonials(token); // all statuses
       setTestimonials(data);
     } catch { flash("Failed to load testimonials", "error"); }
     finally { setTestimonialLoading(false); }
@@ -589,7 +595,7 @@ export default function SuperAdmin() {
     { id: "suppliers",         label: "Suppliers",       icon: Truck },
     { id: "supplier_requests", label: "Price Requests",  icon: Package },
     { id: "audit",             label: "Audit Log",       icon: Activity },
-    { id: "testimonials",      label: "Testimonials",    icon: MessageSquare },
+    { id: "testimonials", label: "Testimonials", icon: MessageSquare, badge: testimonials.filter((t) => t.status === "pending" && t.submitted_at).length || null },
   ];
 
   return (
@@ -1461,77 +1467,142 @@ export default function SuperAdmin() {
           )}
 
           {/* ─── TESTIMONIALS ─── */}
-          {view === "testimonials" && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <SectionTitle title="Testimonials" onRefresh={loadTestimonials} />
-                <button
-                  onClick={() => {
-                    setTestimonialForm({ name: "", role: "", text: "", stars: 5, is_active: true, sort_order: testimonials.length });
-                    setTestimonialModal("create");
-                  }}
-                  className="flex items-center gap-1.5 bg-green-600 hover:bg-green-500 text-white text-xs font-semibold px-3 py-1.5 rounded-lg"
-                >
-                  <PlusCircle size={13} /> Add testimonial
-                </button>
-              </div>
-
-              <p className="text-xs text-gray-500">
-                These appear on the public landing page. Add real feedback received via WhatsApp, email, or other channels. Toggle visibility without deleting.
-              </p>
-
-              {testimonialLoading && <p className="text-gray-500 text-sm">Loading…</p>}
-              {!testimonialLoading && testimonials.length === 0 && (
-                <p className="text-gray-500 text-sm text-center py-10">No testimonials yet.</p>
-              )}
-
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {testimonials.map((t) => (
-                  <div key={t.id} className={`rounded-xl border p-4 space-y-3 ${t.is_active ? "bg-gray-800 border-gray-700" : "bg-gray-900 border-gray-800 opacity-60"}`}>
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className="text-sm font-semibold text-white truncate">{t.name}</p>
-                        <p className="text-xs text-gray-400 truncate">{t.role}</p>
-                      </div>
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        <button
-                          title={t.is_active ? "Hide" : "Show"}
-                          onClick={async () => {
-                            try {
-                              await superadminUpdateTestimonial(token, t.id, { ...t, is_active: !t.is_active });
-                              loadTestimonials();
-                            } catch { flash("Error updating testimonial", "error"); }
-                          }}
-                        >
-                          {t.is_active
-                            ? <ToggleRight size={18} className="text-green-400" />
-                            : <ToggleLeft size={18} className="text-gray-600" />}
-                        </button>
-                        <button title="Edit" onClick={() => { setTestimonialForm({ name: t.name, role: t.role, text: t.text, stars: t.stars, is_active: t.is_active, sort_order: t.sort_order }); setTestimonialModal(t); }} className="text-gray-500 hover:text-blue-400">
-                          <Edit2 size={14} />
-                        </button>
-                        <button title="Delete" onClick={() => setConfirmModal({ title: "Delete Testimonial", message: `Remove "${t.name}"'s testimonial?`, onConfirm: async () => { try { await superadminDeleteTestimonial(token, t.id); flash("Deleted"); loadTestimonials(); } catch { flash("Error", "error"); } } })} className="text-gray-500 hover:text-red-400">
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-                    </div>
-                    <div className="flex gap-0.5">
-                      {Array.from({ length: 5 }).map((_, i) => (
-                        <Star key={i} size={12} className={i < t.stars ? "fill-amber-400 text-amber-400" : "text-gray-700"} />
-                      ))}
-                    </div>
-                    <p className="text-xs text-gray-300 leading-relaxed line-clamp-4">"{t.text}"</p>
-                    <div className="flex items-center justify-between text-[10px] text-gray-600">
-                      <span>Order: {t.sort_order}</span>
-                      <span className={`px-1.5 py-0.5 rounded-full ${t.is_active ? "bg-green-900 text-green-400" : "bg-gray-800 text-gray-500"}`}>
-                        {t.is_active ? "visible" : "hidden"}
-                      </span>
-                    </div>
+          {view === "testimonials" && (() => {
+            const tabData = testimonials.filter((t) => t.status === testimonialTab);
+            const pendingCount = testimonials.filter((t) => t.status === "pending" && t.submitted_at).length;
+            return (
+              <div className="space-y-4">
+                {/* Header */}
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <SectionTitle title="Testimonials" onRefresh={loadTestimonials} />
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => { setRequestForm({ email: "", name: "", role_hint: "" }); setRequestModal(true); }}
+                      className="flex items-center gap-1.5 bg-green-600 hover:bg-green-500 text-white text-xs font-semibold px-3 py-1.5 rounded-lg"
+                    >
+                      <Send size={13} /> Request from customer
+                    </button>
+                    <button
+                      onClick={() => { setTestimonialForm({ name: "", role: "", text: "", stars: 5, is_active: true, sort_order: testimonials.length }); setTestimonialModal("create"); }}
+                      className="flex items-center gap-1.5 bg-gray-700 hover:bg-gray-600 text-white text-xs font-semibold px-3 py-1.5 rounded-lg"
+                    >
+                      <PlusCircle size={13} /> Add manually
+                    </button>
                   </div>
-                ))}
+                </div>
+
+                {/* Tabs */}
+                <div className="flex gap-1 bg-gray-800 p-1 rounded-xl w-fit">
+                  {[
+                    { key: "pending",  label: "Pending",  count: pendingCount },
+                    { key: "approved", label: "Approved", count: testimonials.filter((t) => t.status === "approved").length },
+                    { key: "rejected", label: "Rejected", count: testimonials.filter((t) => t.status === "rejected").length },
+                  ].map(({ key, label, count }) => (
+                    <button
+                      key={key}
+                      onClick={() => setTestimonialTab(key)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition ${testimonialTab === key ? "bg-gray-700 text-white" : "text-gray-500 hover:text-gray-300"}`}
+                    >
+                      {label}
+                      {count > 0 && (
+                        <span className={`text-[10px] w-4 h-4 rounded-full flex items-center justify-center font-bold ${key === "pending" ? "bg-amber-500 text-white" : "bg-gray-600 text-gray-300"}`}>
+                          {count}
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+
+                {testimonialLoading && <p className="text-gray-500 text-sm">Loading…</p>}
+
+                {!testimonialLoading && tabData.length === 0 && (
+                  <div className="text-center py-12 text-gray-500 text-sm">
+                    {testimonialTab === "pending"
+                      ? "No pending testimonials. Use \"Request from customer\" to send a link."
+                      : `No ${testimonialTab} testimonials.`}
+                  </div>
+                )}
+
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {tabData.map((t) => (
+                    <div key={t.id} className={`rounded-xl border p-4 space-y-3 ${
+                      t.status === "pending" && !t.submitted_at
+                        ? "bg-gray-900 border-dashed border-gray-700 opacity-70"
+                        : t.status === "approved"
+                        ? "bg-gray-800 border-gray-700"
+                        : "bg-gray-900 border-gray-800"
+                    }`}>
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-white truncate">{t.name}</p>
+                          <p className="text-xs text-gray-400 truncate">{t.role || <span className="italic text-gray-600">Role not set yet</span>}</p>
+                          {t.requested_email && (
+                            <p className="text-[10px] text-gray-600 truncate mt-0.5">{t.requested_email}</p>
+                          )}
+                        </div>
+
+                        {/* Actions per status */}
+                        {t.status === "pending" && t.submitted_at && (
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <button title="Approve" onClick={async () => { try { await superadminApproveTestimonial(token, t.id); flash("Approved — now live on landing page"); loadTestimonials(); } catch { flash("Error", "error"); } }} className="text-gray-500 hover:text-green-400"><ThumbsUp size={15} /></button>
+                            <button title="Reject" onClick={() => { setRejectReason(""); setRejectModal(t.id); }} className="text-gray-500 hover:text-red-400"><ThumbsDown size={15} /></button>
+                          </div>
+                        )}
+
+                        {t.status === "approved" && (
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <button title={t.is_active ? "Hide" : "Show"} onClick={async () => { try { await superadminUpdateTestimonial(token, t.id, { name: t.name, role: t.role || "", text: t.text || "", stars: t.stars || 5, is_active: !t.is_active, sort_order: t.sort_order }); loadTestimonials(); } catch { flash("Error", "error"); } }}>
+                              {t.is_active ? <ToggleRight size={18} className="text-green-400" /> : <ToggleLeft size={18} className="text-gray-600" />}
+                            </button>
+                            <button title="Edit" onClick={() => { setTestimonialForm({ name: t.name, role: t.role || "", text: t.text || "", stars: t.stars || 5, is_active: t.is_active, sort_order: t.sort_order }); setTestimonialModal(t); }} className="text-gray-500 hover:text-blue-400"><Edit2 size={14} /></button>
+                            <button title="Delete" onClick={() => setConfirmModal({ title: "Delete Testimonial", message: `Remove "${t.name}"'s testimonial?`, onConfirm: async () => { try { await superadminDeleteTestimonial(token, t.id); flash("Deleted"); loadTestimonials(); } catch { flash("Error", "error"); } } })} className="text-gray-500 hover:text-red-400"><Trash2 size={14} /></button>
+                          </div>
+                        )}
+
+                        {t.status === "rejected" && (
+                          <button title="Delete" onClick={() => setConfirmModal({ title: "Delete", message: `Delete this rejected testimonial?`, onConfirm: async () => { try { await superadminDeleteTestimonial(token, t.id); flash("Deleted"); loadTestimonials(); } catch { flash("Error", "error"); } } })} className="text-gray-500 hover:text-red-400 shrink-0"><Trash2 size={14} /></button>
+                        )}
+                      </div>
+
+                      {/* Stars */}
+                      <div className="flex gap-0.5">
+                        {Array.from({ length: 5 }).map((_, i) => (
+                          <Star key={i} size={12} className={i < (t.stars || 0) ? "fill-amber-400 text-amber-400" : "text-gray-700"} />
+                        ))}
+                      </div>
+
+                      {/* Text or awaiting */}
+                      {t.text
+                        ? <p className="text-xs text-gray-300 leading-relaxed line-clamp-4">"{t.text}"</p>
+                        : <p className="text-xs text-gray-600 italic">Awaiting customer response…</p>
+                      }
+
+                      {/* Footer */}
+                      <div className="flex items-center justify-between text-[10px] text-gray-600">
+                        {t.status === "approved" && (
+                          <>
+                            <span>Order: {t.sort_order}</span>
+                            <span className={`px-1.5 py-0.5 rounded-full ${t.is_active ? "bg-green-900 text-green-400" : "bg-gray-800 text-gray-500"}`}>
+                              {t.is_active ? "visible" : "hidden"}
+                            </span>
+                          </>
+                        )}
+                        {t.status === "pending" && t.submitted_at && (
+                          <span className="text-amber-500">Submitted · awaiting approval</span>
+                        )}
+                        {t.status === "pending" && !t.submitted_at && (
+                          <span>Request sent · awaiting response</span>
+                        )}
+                        {t.status === "rejected" && (
+                          <span className="text-red-500">{t.rejection_reason ? `Rejected: ${t.rejection_reason}` : "Rejected"}</span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
 
         </div>
       </main>
@@ -1612,6 +1683,97 @@ export default function SuperAdmin() {
               <button onClick={() => setTestimonialModal(null)} className="px-4 bg-gray-700 hover:bg-gray-600 text-white rounded-lg text-sm">
                 Cancel
               </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* ─── Request testimonial modal ─── */}
+      {requestModal && (
+        <Modal title="Request testimonial from customer" onClose={() => setRequestModal(false)}>
+          <div className="space-y-3">
+            <p className="text-xs text-gray-400">
+              The customer will receive an email with a unique link. They fill in their name, title, feedback, star rating, and consent — then it lands in your Pending queue for approval before going live.
+            </p>
+            <div>
+              <label className="block text-xs text-gray-400 mb-1">Customer email <span className="text-red-400">*</span></label>
+              <input
+                type="email"
+                className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-green-500"
+                value={requestForm.email}
+                onChange={(e) => setRequestForm({ ...requestForm, email: e.target.value })}
+                placeholder="grace@wanjikuconsulting.co.ke"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-400 mb-1">Customer name <span className="text-red-400">*</span></label>
+              <input
+                className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-green-500"
+                value={requestForm.name}
+                onChange={(e) => setRequestForm({ ...requestForm, name: e.target.value })}
+                placeholder="Grace Wanjiku"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-400 mb-1">Role hint <span className="text-gray-600">(optional — pre-fills their form)</span></label>
+              <input
+                className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-green-500"
+                value={requestForm.role_hint}
+                onChange={(e) => setRequestForm({ ...requestForm, role_hint: e.target.value })}
+                placeholder="CEO, Wanjiku Consulting"
+              />
+            </div>
+            <div className="flex gap-2 pt-2">
+              <button
+                onClick={async () => {
+                  if (!requestForm.email.trim() || !requestForm.name.trim()) { flash("Email and name are required", "error"); return; }
+                  try {
+                    await superadminRequestTestimonial(token, requestForm);
+                    flash(`Request sent to ${requestForm.email}`);
+                    setRequestModal(false);
+                    setTestimonialTab("pending");
+                    loadTestimonials();
+                  } catch (e) { flash(e.response?.data?.detail ?? "Error sending request", "error"); }
+                }}
+                className="flex-1 bg-green-600 hover:bg-green-500 text-white font-semibold py-2 rounded-lg text-sm flex items-center justify-center gap-1.5"
+              >
+                <Send size={13} /> Send request
+              </button>
+              <button onClick={() => setRequestModal(false)} className="px-4 bg-gray-700 hover:bg-gray-600 text-white rounded-lg text-sm">Cancel</button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* ─── Reject testimonial modal ─── */}
+      {rejectModal && (
+        <Modal title="Reject testimonial" onClose={() => setRejectModal(null)}>
+          <div className="space-y-3">
+            <p className="text-xs text-gray-400">The testimonial will not appear on the landing page. You can optionally note why.</p>
+            <div>
+              <label className="block text-xs text-gray-400 mb-1">Reason <span className="text-gray-600">(optional, internal only)</span></label>
+              <input
+                className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-red-500"
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+                placeholder="e.g. Off-brand, duplicate, unclear"
+              />
+            </div>
+            <div className="flex gap-2 pt-2">
+              <button
+                onClick={async () => {
+                  try {
+                    await superadminRejectTestimonial(token, rejectModal, rejectReason);
+                    flash("Testimonial rejected");
+                    setRejectModal(null);
+                    loadTestimonials();
+                  } catch { flash("Error rejecting", "error"); }
+                }}
+                className="flex-1 bg-red-700 hover:bg-red-600 text-white font-semibold py-2 rounded-lg text-sm"
+              >
+                Reject
+              </button>
+              <button onClick={() => setRejectModal(null)} className="px-4 bg-gray-700 hover:bg-gray-600 text-white rounded-lg text-sm">Cancel</button>
             </div>
           </div>
         </Modal>

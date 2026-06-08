@@ -1174,6 +1174,11 @@ async def sa_supplier_request_detail(request_id: str, db: AsyncSession = Depends
 
 # ── Testimonials ──────────────────────────────────────────────────────────────
 
+import secrets as _secrets
+from datetime import timezone as _tz
+from app.services.email_service import send_testimonial_request_email as _send_testimonial_email
+
+
 class TestimonialIn(BaseModel):
     name: str
     role: str
@@ -1183,24 +1188,117 @@ class TestimonialIn(BaseModel):
     sort_order: int = 0
 
 
+class TestimonialRequestIn(BaseModel):
+    email: str
+    name: str
+    role_hint: str = ""
+
+
+class TestimonialRejectIn(BaseModel):
+    reason: str = ""
+
+
 class TestimonialOut(BaseModel):
     id: _uuid.UUID
     name: str
-    role: str
-    text: str
-    stars: int
+    role: str | None
+    text: str | None
+    stars: int | None
     is_active: bool
     sort_order: int
+    status: str
+    requested_email: str | None
+    submitted_at: str | None
+    rejection_reason: str | None
 
     model_config = {"from_attributes": True}
 
+    @classmethod
+    def model_validate(cls, obj, **kw):
+        d = {
+            "id": obj.id,
+            "name": obj.name,
+            "role": obj.role,
+            "text": obj.text,
+            "stars": obj.stars,
+            "is_active": obj.is_active,
+            "sort_order": obj.sort_order,
+            "status": obj.status,
+            "requested_email": obj.requested_email,
+            "submitted_at": obj.submitted_at.isoformat() if obj.submitted_at else None,
+            "rejection_reason": obj.rejection_reason,
+        }
+        return cls(**d)
+
 
 @router.get("/testimonials", dependencies=[Depends(_verify_sa_token)])
-async def sa_list_testimonials(db: AsyncSession = Depends(get_db)):
-    rows = (await db.execute(
-        select(Testimonial).order_by(Testimonial.sort_order, Testimonial.created_at)
-    )).scalars().all()
+async def sa_list_testimonials(status: str | None = None, db: AsyncSession = Depends(get_db)):
+    q = select(Testimonial).order_by(Testimonial.sort_order, Testimonial.created_at)
+    if status:
+        q = q.where(Testimonial.status == status)
+    rows = (await db.execute(q)).scalars().all()
     return [TestimonialOut.model_validate(r) for r in rows]
+
+
+@router.post("/testimonials/request", dependencies=[Depends(_verify_sa_token)])
+async def sa_request_testimonial(
+    payload: TestimonialRequestIn,
+    db: AsyncSession = Depends(get_db),
+):
+    from datetime import datetime as _dt
+    token = _secrets.token_urlsafe(32)
+    t = Testimonial(
+        id=_uuid.uuid4(),
+        name=payload.name,
+        role=payload.role_hint or None,
+        text=None,
+        stars=None,
+        is_active=True,
+        sort_order=0,
+        status="pending",
+        request_token=token,
+        requested_email=payload.email,
+        requested_at=_dt.now(_tz.utc),
+        consent=False,
+    )
+    db.add(t)
+    await db.commit()
+    form_url = f"{settings.frontend_url}/testimonial/{token}"
+    await _send_testimonial_email(payload.email, payload.name, form_url)
+    return {"message": f"Request sent to {payload.email}", "id": str(t.id)}
+
+
+@router.post("/testimonials/{testimonial_id}/approve", dependencies=[Depends(_verify_sa_token)])
+async def sa_approve_testimonial(testimonial_id: str, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(
+        select(Testimonial).where(Testimonial.id == _uuid.UUID(testimonial_id))
+    )
+    t = result.scalar_one_or_none()
+    if not t:
+        raise HTTPException(404, "Testimonial not found")
+    t.status = "approved"
+    t.is_active = True
+    await db.commit()
+    return TestimonialOut.model_validate(t)
+
+
+@router.post("/testimonials/{testimonial_id}/reject", dependencies=[Depends(_verify_sa_token)])
+async def sa_reject_testimonial(
+    testimonial_id: str,
+    payload: TestimonialRejectIn,
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(Testimonial).where(Testimonial.id == _uuid.UUID(testimonial_id))
+    )
+    t = result.scalar_one_or_none()
+    if not t:
+        raise HTTPException(404, "Testimonial not found")
+    t.status = "rejected"
+    t.is_active = False
+    t.rejection_reason = payload.reason or None
+    await db.commit()
+    return {"message": "Rejected"}
 
 
 @router.post("/testimonials", dependencies=[Depends(_verify_sa_token)])
@@ -1213,6 +1311,8 @@ async def sa_create_testimonial(payload: TestimonialIn, db: AsyncSession = Depen
         stars=max(1, min(5, payload.stars)),
         is_active=payload.is_active,
         sort_order=payload.sort_order,
+        status="approved",
+        consent=True,
     )
     db.add(t)
     await db.commit()

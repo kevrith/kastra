@@ -100,8 +100,8 @@ export const superadminSupplierRequestDetail = (token, requestId) =>
   api.get(`/api/superadmin/supplier-requests/${requestId}/detail`, saHeaders(token));
 
 // Testimonials CRUD
-export const superadminGetTestimonials = (token) =>
-  api.get("/api/superadmin/testimonials", saHeaders(token));
+export const superadminGetTestimonials = (token, status = null) =>
+  api.get("/api/superadmin/testimonials", { ...saHeaders(token), params: status ? { status } : {} });
 
 export const superadminCreateTestimonial = (token, payload) =>
   api.post("/api/superadmin/testimonials", payload, saHeaders(token));
@@ -111,3 +111,12 @@ export const superadminUpdateTestimonial = (token, id, payload) =>
 
 export const superadminDeleteTestimonial = (token, id) =>
   api.delete(`/api/superadmin/testimonials/${id}`, saHeaders(token));
+
+export const superadminRequestTestimonial = (token, payload) =>
+  api.post("/api/superadmin/testimonials/request", payload, saHeaders(token));
+
+export const superadminApproveTestimonial = (token, id) =>
+  api.post(`/api/superadmin/testimonials/${id}/approve`, {}, saHeaders(token));
+
+export const superadminRejectTestimonial = (token, id, reason = "") =>
+  api.post(`/api/superadmin/testimonials/${id}/reject`, { reason }, saHeaders(token));

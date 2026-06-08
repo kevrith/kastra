@@ -235,10 +235,8 @@ async def update_quotation(
     qt = result.scalar_one_or_none()
     if not qt:
         raise HTTPException(status_code=404, detail="Quotation not found")
-    if qt.status not in ("draft", "pending", "declined"):
-        raise HTTPException(status_code=400, detail="Cannot edit an accepted or converted quotation")
-    if qt.status == "declined":
-        qt.status = "draft"
+    if qt.status not in ("draft", "pending"):
+        raise HTTPException(status_code=400, detail="Cannot edit a declined, accepted, or converted quotation")
 
     if payload.client_id:
         qt.client_id = payload.client_id

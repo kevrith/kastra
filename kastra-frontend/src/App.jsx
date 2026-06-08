@@ -42,6 +42,7 @@ import PrivacyPolicy from "./pages/legal/PrivacyPolicy";
 import TermsOfService from "./pages/legal/TermsOfService";
 import Landing from "./pages/Landing";
 import SuperAdmin from "./pages/superadmin/SuperAdmin";
+import TestimonialForm from "./pages/TestimonialForm";
 import Spinner from "./components/ui/Spinner";
 
 // Root route: Landing for visitors, dashboard for authenticated users
@@ -74,6 +75,7 @@ export default function App() {
           <Route path="/portal/c/:token" element={<ClientPortal />} />
           <Route path="/portal/paystack/verify" element={<PaystackVerify />} />
           <Route path="/supplier-portal/:token" element={<SupplierPortal />} />
+          <Route path="/testimonial/:token" element={<TestimonialForm />} />
           <Route path="/privacy" element={<PrivacyPolicy />} />
           <Route path="/terms" element={<TermsOfService />} />
 

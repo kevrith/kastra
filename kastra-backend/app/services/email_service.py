@@ -319,6 +319,42 @@ async def send_due_soon_reminder_email(
     await _send(client_email, f"Payment due {due_label} — {invoice_id}", html)
 
 
+async def send_testimonial_request_email(
+    to_email: str,
+    name: str,
+    form_url: str,
+) -> None:
+    html = f"""
+    <div style="font-family:sans-serif;max-width:520px;color:#1f2937">
+      <div style="background:#0f172a;padding:24px 28px;border-radius:10px 10px 0 0">
+        <p style="color:#94a3b8;font-size:11px;text-transform:uppercase;letter-spacing:1.5px;margin:0 0 4px">Kastra</p>
+        <h2 style="color:#f8fafc;margin:0;font-size:20px">Share your experience with Kastra</h2>
+      </div>
+      <div style="background:#fff;border:1px solid #e2e8f0;border-top:none;padding:24px 28px;border-radius:0 0 10px 10px">
+        <p style="margin:0 0 16px">Hi {name},</p>
+        <p style="color:#374151;margin:0 0 16px">
+          Thank you for using Kastra. We'd love to hear about your experience — it helps other Kenyan businesses
+          discover the platform and helps us keep improving.
+        </p>
+        <p style="color:#374151;margin:0 0 24px">
+          If you have 2 minutes, please share a quick testimonial using the link below.
+          You'll have the chance to review what you've written and give consent before anything is published.
+        </p>
+        <a href="{form_url}"
+           style="display:inline-block;background:#16a34a;color:#fff;padding:12px 26px;
+                  border-radius:8px;text-decoration:none;font-weight:700;font-size:14px">
+          Share your experience →
+        </a>
+        <p style="font-size:11px;color:#9ca3af;margin-top:24px">
+          This link is unique to you and can only be used once.
+          If you'd prefer not to share a testimonial, simply ignore this email — no action needed.
+        </p>
+      </div>
+    </div>
+    """
+    await _send(to_email, "Share your Kastra experience — 2-minute testimonial request", html)
+
+
 async def send_overdue_reminder_email(
     client_email: str,
     invoice_id: str,
