@@ -1193,7 +1193,7 @@ class TestimonialIn(BaseModel):
 
 
 class TestimonialRequestIn(BaseModel):
-    email: str
+    email: str = ""   # optional — enables email sending
     name: str
     role_hint: str = ""
     phone: str = ""   # optional — enables WhatsApp sending
@@ -1252,6 +1252,9 @@ async def sa_request_testimonial(
     payload: TestimonialRequestIn,
     db: AsyncSession = Depends(get_db),
 ):
+    if not payload.email.strip() and not payload.phone.strip():
+        raise HTTPException(400, "At least one of email or phone is required")
+
     from datetime import datetime as _dt
     token = _secrets.token_urlsafe(32)
     t = Testimonial(
@@ -1264,7 +1267,7 @@ async def sa_request_testimonial(
         sort_order=0,
         status="pending",
         request_token=token,
-        requested_email=payload.email,
+        requested_email=payload.email.strip() or None,
         requested_phone=payload.phone.strip() or None,
         requested_at=_dt.now(_tz.utc),
         consent=False,
@@ -1274,19 +1277,59 @@ async def sa_request_testimonial(
 
     form_url = f"{settings.frontend_url}/testimonial/{token}"
 
-    # Email (always)
-    await _send_testimonial_email(payload.email, payload.name, form_url)
+    sent_via: list[str] = []
+    if payload.email.strip():
+        await _send_testimonial_email(payload.email.strip(), payload.name, form_url)
+        sent_via.append("email")
 
-    # WhatsApp — programmatic send + always return wa.me link for manual backup
     whatsapp_link: str | None = None
     whatsapp_sent = False
     if payload.phone.strip():
         whatsapp_link = _wa_link(payload.phone.strip(), form_url, payload.name)
         whatsapp_sent = await _send_testimonial_whatsapp(payload.phone.strip(), payload.name, form_url)
+        if whatsapp_sent:
+            sent_via.append("WhatsApp")
 
+    contact = payload.email.strip() or payload.phone.strip()
     return {
-        "message": f"Request sent to {payload.email}" + (" and via WhatsApp" if whatsapp_sent else ""),
+        "message": f"Request sent to {contact}" + (f" via {' and '.join(sent_via)}" if sent_via else ""),
         "id": str(t.id),
+        "whatsapp_link": whatsapp_link,
+        "whatsapp_sent": whatsapp_sent,
+    }
+
+
+@router.post("/testimonials/{testimonial_id}/resend", dependencies=[Depends(_verify_sa_token)])
+async def sa_resend_testimonial(testimonial_id: str, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(
+        select(Testimonial).where(Testimonial.id == _uuid.UUID(testimonial_id))
+    )
+    t = result.scalar_one_or_none()
+    if not t:
+        raise HTTPException(404, "Testimonial not found")
+    if t.status != "pending" or t.submitted_at is not None:
+        raise HTTPException(400, "Can only resend for pending requests not yet submitted")
+    if not t.request_token or (not t.requested_email and not t.requested_phone):
+        raise HTTPException(400, "No contact info to resend to")
+
+    form_url = f"{settings.frontend_url}/testimonial/{t.request_token}"
+
+    sent_via: list[str] = []
+    if t.requested_email:
+        await _send_testimonial_email(t.requested_email, t.name, form_url)
+        sent_via.append("email")
+
+    whatsapp_link: str | None = None
+    whatsapp_sent = False
+    if t.requested_phone:
+        whatsapp_link = _wa_link(t.requested_phone, form_url, t.name)
+        whatsapp_sent = await _send_testimonial_whatsapp(t.requested_phone, t.name, form_url)
+        if whatsapp_sent:
+            sent_via.append("WhatsApp")
+
+    contact = t.requested_email or t.requested_phone
+    return {
+        "message": f"Link resent to {contact}" + (f" via {' and '.join(sent_via)}" if sent_via else ""),
         "whatsapp_link": whatsapp_link,
         "whatsapp_sent": whatsapp_sent,
     }

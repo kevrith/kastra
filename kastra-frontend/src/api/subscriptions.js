@@ -115,6 +115,9 @@ export const superadminDeleteTestimonial = (token, id) =>
 export const superadminRequestTestimonial = (token, payload) =>
   api.post("/api/superadmin/testimonials/request", payload, saHeaders(token));
 
+export const superadminResendTestimonial = (token, id) =>
+  api.post(`/api/superadmin/testimonials/${id}/resend`, {}, saHeaders(token));
+
 export const superadminApproveTestimonial = (token, id) =>
   api.post(`/api/superadmin/testimonials/${id}/approve`, {}, saHeaders(token));
 

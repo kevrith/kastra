@@ -12,7 +12,8 @@ import {
   superadminSupplierRequestDetail,
   superadminGetTestimonials, superadminCreateTestimonial,
   superadminUpdateTestimonial, superadminDeleteTestimonial,
-  superadminRequestTestimonial, superadminApproveTestimonial, superadminRejectTestimonial,
+  superadminRequestTestimonial, superadminResendTestimonial,
+  superadminApproveTestimonial, superadminRejectTestimonial,
 } from "../../api/subscriptions";
 import {
   LayoutDashboard, Building2, LogOut, Search, ChevronLeft, ChevronRight,
@@ -1561,10 +1562,28 @@ export default function SuperAdmin() {
                         </div>
 
                         {/* Actions per status */}
+                        {t.status === "pending" && !t.submitted_at && (
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <button
+                              title="Resend link"
+                              onClick={async () => {
+                                try {
+                                  const { data } = await superadminResendTestimonial(token, t.id);
+                                  flash(data.message ?? "Link resent");
+                                  if (data.whatsapp_link) { setWhatsappLink(data.whatsapp_link); setRequestModal(true); }
+                                } catch { flash("Error resending", "error"); }
+                              }}
+                              className="text-gray-500 hover:text-blue-400"
+                            ><RefreshCw size={14} /></button>
+                            <button title="Delete request" onClick={() => setConfirmModal({ title: "Delete Request", message: `Delete the pending request for "${t.name}"?`, onConfirm: async () => { try { await superadminDeleteTestimonial(token, t.id); flash("Deleted"); loadTestimonials(); } catch { flash("Error", "error"); } } })} className="text-gray-500 hover:text-red-400"><Trash2 size={14} /></button>
+                          </div>
+                        )}
+
                         {t.status === "pending" && t.submitted_at && (
                           <div className="flex items-center gap-1.5 shrink-0">
                             <button title="Approve" onClick={async () => { try { await superadminApproveTestimonial(token, t.id); flash("Approved — now live on landing page"); loadTestimonials(); } catch { flash("Error", "error"); } }} className="text-gray-500 hover:text-green-400"><ThumbsUp size={15} /></button>
                             <button title="Reject" onClick={() => { setRejectReason(""); setRejectModal(t.id); }} className="text-gray-500 hover:text-red-400"><ThumbsDown size={15} /></button>
+                            <button title="Delete" onClick={() => setConfirmModal({ title: "Delete", message: `Delete this submitted testimonial from "${t.name}"?`, onConfirm: async () => { try { await superadminDeleteTestimonial(token, t.id); flash("Deleted"); loadTestimonials(); } catch { flash("Error", "error"); } } })} className="text-gray-500 hover:text-red-400"><Trash2 size={14} /></button>
                           </div>
                         )}
 
@@ -1739,7 +1758,10 @@ export default function SuperAdmin() {
                   The customer receives a unique link via <strong className="text-gray-300">email</strong> and optionally <strong className="text-gray-300">WhatsApp</strong>. They write their feedback and consent — it lands in Pending for your approval before going live.
                 </p>
                 <div>
-                  <label className="block text-xs text-gray-400 mb-1">Customer email <span className="text-red-400">*</span></label>
+                  <label className="block text-xs text-gray-400 mb-1">
+                    Customer email
+                    <span className="text-gray-600 ml-1">(optional if WhatsApp number provided)</span>
+                  </label>
                   <input type="email"
                     className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-green-500"
                     value={requestForm.email}
@@ -1781,7 +1803,8 @@ export default function SuperAdmin() {
                 <div className="flex gap-2 pt-2">
                   <button
                     onClick={async () => {
-                      if (!requestForm.email.trim() || !requestForm.name.trim()) { flash("Email and name are required", "error"); return; }
+                      if (!requestForm.name.trim()) { flash("Customer name is required", "error"); return; }
+                      if (!requestForm.email.trim() && !requestForm.phone.trim()) { flash("Provide at least an email or WhatsApp number", "error"); return; }
                       try {
                         const { data } = await superadminRequestTestimonial(token, requestForm);
                         flash(data.message ?? `Request sent to ${requestForm.email}`);
