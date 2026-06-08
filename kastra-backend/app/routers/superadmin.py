@@ -1252,8 +1252,8 @@ async def sa_request_testimonial(
     payload: TestimonialRequestIn,
     db: AsyncSession = Depends(get_db),
 ):
-    if not payload.email.strip() and not payload.phone.strip():
-        raise HTTPException(400, "At least one of email or phone is required")
+    if not payload.phone.strip():
+        raise HTTPException(400, "WhatsApp number is required")
 
     from datetime import datetime as _dt
     token = _secrets.token_urlsafe(32)

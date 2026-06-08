@@ -1760,7 +1760,7 @@ export default function SuperAdmin() {
                 <div>
                   <label className="block text-xs text-gray-400 mb-1">
                     Customer email
-                    <span className="text-gray-600 ml-1">(optional if WhatsApp number provided)</span>
+                    <span className="text-gray-600 ml-1">(optional)</span>
                   </label>
                   <input type="email"
                     className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-green-500"
@@ -1780,8 +1780,8 @@ export default function SuperAdmin() {
                 </div>
                 <div>
                   <label className="block text-xs text-gray-400 mb-1">
-                    WhatsApp number
-                    <span className="text-gray-600 ml-1">(optional — e.g. 0722000001 or +254722000001)</span>
+                    WhatsApp number <span className="text-red-400">*</span>
+                    <span className="text-gray-600 ml-1">(e.g. 0722000001 or +254722000001)</span>
                   </label>
                   <input
                     className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-green-500"
@@ -1804,7 +1804,7 @@ export default function SuperAdmin() {
                   <button
                     onClick={async () => {
                       if (!requestForm.name.trim()) { flash("Customer name is required", "error"); return; }
-                      if (!requestForm.email.trim() && !requestForm.phone.trim()) { flash("Provide at least an email or WhatsApp number", "error"); return; }
+                      if (!requestForm.phone.trim()) { flash("WhatsApp number is required", "error"); return; }
                       try {
                         const { data } = await superadminRequestTestimonial(token, requestForm);
                         flash(data.message ?? `Request sent to ${requestForm.email}`);
