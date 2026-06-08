@@ -1,10 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { createInvoice } from "../../api/invoices";
-import { getClients } from "../../api/clients";
+import { getClients, createClient } from "../../api/clients";
 import { getOrganization } from "../../api/organization";
 import { suggestItems } from "../../api/ai";
-import { Plus, Trash2, ArrowLeft, Sparkles } from "lucide-react";
+import { scanReceipt } from "../../api/ocr";
+import { Plus, Trash2, ArrowLeft, Sparkles, ScanLine, X, Camera } from "lucide-react";
 import ProductAutocomplete from "../../components/ui/ProductAutocomplete";
 import FinancialsForm from "../../components/ui/FinancialsForm";
 import PriceConverter from "../../components/ui/PriceConverter";
@@ -12,6 +13,32 @@ import PriceConverter from "../../components/ui/PriceConverter";
 const CONVERTED_NOTE_RE = /\s*\(≈ [^()]*\)\s*$/;
 
 const emptyItem = () => ({ description: "", quantity: "1", unit_price: "", cost_price: "", discount_pct: "0", vat_exempt: false });
+
+function compressImage(file, maxDimension = 1920) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    const objectUrl = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+      let { width, height } = img;
+      if (width > maxDimension || height > maxDimension) {
+        if (width >= height) { height = Math.round(height * maxDimension / width); width = maxDimension; }
+        else { width = Math.round(width * maxDimension / height); height = maxDimension; }
+      }
+      const canvas = document.createElement("canvas");
+      canvas.width = width; canvas.height = height;
+      canvas.getContext("2d").drawImage(img, 0, 0, width, height);
+      const encode = (q) => {
+        const dataUrl = canvas.toDataURL("image/jpeg", q);
+        const b64 = dataUrl.split(",")[1];
+        if (b64.length > 4 * 1024 * 1024 && q > 0.3) return encode(Math.max(0.3, q - 0.15));
+        return { dataUrl, base64: b64, mediaType: "image/jpeg" };
+      };
+      resolve(encode(0.85));
+    };
+    img.src = objectUrl;
+  });
+}
 
 export default function InvoiceCreate() {
   const navigate = useNavigate();
@@ -32,6 +59,13 @@ export default function InvoiceCreate() {
   const [error, setError] = useState("");
   const [suggesting, setSuggesting] = useState(false);
   const [suggestions, setSuggestions] = useState([]);
+  const [showScan, setShowScan] = useState(false);
+  const [scanning, setScanning] = useState(false);
+  const [scanPreview, setScanPreview] = useState(null);
+  const [scanError, setScanError] = useState("");
+  const [scanClientHint, setScanClientHint] = useState(null);
+  const [creatingClient, setCreatingClient] = useState(false);
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
     getClients({ limit: 100 }).then(({ data }) => setClients(data.data));
@@ -86,6 +120,62 @@ export default function InvoiceCreate() {
     setSuggestions((prev) => prev.filter((x) => x.description !== s.description));
   };
 
+  const handleFileSelect = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setScanError("");
+    setScanPreview(await compressImage(file));
+  };
+
+  const handleScan = async () => {
+    if (!scanPreview) return;
+    setScanning(true);
+    setScanError("");
+    try {
+      const { data } = await scanReceipt(scanPreview.base64, scanPreview.mediaType);
+      if (data.items?.length) {
+        setItems(data.items.map((it) => ({
+          description: it.description,
+          quantity: String(it.quantity),
+          unit_price: String(it.unit_price),
+          cost_price: "",
+          discount_pct: "0",
+          vat_exempt: false,
+        })));
+      }
+      if (data.notes) setNotes(data.notes);
+      if (data.receipt_date) setInvoiceDate(data.receipt_date);
+      if (data.client_name) {
+        const match = clients.find((c) =>
+          c.name.toLowerCase().includes(data.client_name.toLowerCase()) ||
+          data.client_name.toLowerCase().includes(c.name.toLowerCase())
+        );
+        if (match) { setClientId(match.id); setScanClientHint(null); }
+        else { setScanClientHint({ name: data.client_name, phone: data.client_phone || "", email: data.client_email || "" }); }
+      }
+      setShowScan(false);
+      setScanPreview(null);
+    } catch (err) {
+      setScanError(err.response?.data?.detail ?? "Scan failed. Try a clearer image.");
+    } finally {
+      setScanning(false);
+    }
+  };
+
+  const handleCreateClientFromScan = async () => {
+    if (!scanClientHint) return;
+    setCreatingClient(true);
+    try {
+      const { data } = await createClient({ name: scanClientHint.name, phone: scanClientHint.phone || null, email: scanClientHint.email || null });
+      const newClient = data.data;
+      setClients((prev) => [...prev, newClient]);
+      setClientId(newClient.id);
+      setScanClientHint(null);
+    } catch { /* user can pick manually */ } finally {
+      setCreatingClient(false);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!clientId) { setError("Please select a client"); return; }
@@ -132,7 +222,49 @@ export default function InvoiceCreate() {
       <div className="flex items-center gap-3">
         <button onClick={() => navigate(-1)} className="text-gray-400 hover:text-gray-600"><ArrowLeft size={20} /></button>
         <h1 className="text-xl font-bold text-gray-900 flex-1">New Invoice</h1>
+        <button type="button" className="btn-secondary" onClick={() => { setShowScan(true); setScanPreview(null); setScanError(""); setScanClientHint(null); }}>
+          <ScanLine size={15} /> Scan Receipt
+        </button>
       </div>
+
+      {/* OCR Scan Modal */}
+      {showScan && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md space-y-4 p-6">
+            <div className="flex items-center justify-between">
+              <h2 className="text-base font-semibold text-gray-900 flex items-center gap-2">
+                <ScanLine size={18} className="text-green-600" /> Scan Receipt or Invoice
+              </h2>
+              <button onClick={() => setShowScan(false)} className="text-gray-400 hover:text-gray-600"><X size={18} /></button>
+            </div>
+            <p className="text-xs text-gray-500">
+              Take a photo or upload an image of a receipt, handwritten quote, or printed invoice.
+              Claude AI will extract the items and pre-fill the form for you.
+            </p>
+            <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" capture="environment"
+              className="hidden" onChange={handleFileSelect} />
+            {!scanPreview ? (
+              <button type="button" className="btn-primary w-full" onClick={() => fileInputRef.current?.click()}>
+                <Camera size={16} /> Take Photo / Choose Image
+              </button>
+            ) : (
+              <div className="space-y-3">
+                <img src={scanPreview.dataUrl} alt="Receipt preview"
+                  className="w-full max-h-56 object-contain rounded-lg border border-gray-200" />
+                {scanError && <p className="text-xs text-red-600">{scanError}</p>}
+                <div className="flex gap-2">
+                  <button type="button" className="btn-secondary flex-1"
+                    onClick={() => { setScanPreview(null); fileInputRef.current?.click(); }}>Retake</button>
+                  <button type="button" className="btn-primary flex-1" onClick={handleScan} disabled={scanning}>
+                    {scanning ? "Scanning…" : "Extract Items"}
+                  </button>
+                </div>
+              </div>
+            )}
+            <p className="text-[10px] text-gray-400 text-center">Powered by Claude AI · Review extracted data before saving</p>
+          </div>
+        </div>
+      )}
 
       {error && <div className="bg-red-50 text-red-700 text-sm px-3 py-2 rounded-lg">{error}</div>}
 
@@ -140,10 +272,28 @@ export default function InvoiceCreate() {
         <div className="card p-4 space-y-4">
           <div>
             <label className="label">Client *</label>
-            <select className="input" value={clientId} onChange={(e) => setClientId(e.target.value)} required>
+            <select className="input" value={clientId} onChange={(e) => { setClientId(e.target.value); setScanClientHint(null); }} required>
               <option value="">Select a client…</option>
               {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
+            {scanClientHint && (
+              <div className="mt-2 flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5">
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-semibold text-amber-800">New client detected from scan</p>
+                  <p className="text-xs text-amber-700 mt-0.5 truncate">
+                    {scanClientHint.name}
+                    {scanClientHint.phone && <span className="ml-2 text-amber-600">{scanClientHint.phone}</span>}
+                    {scanClientHint.email && <span className="ml-2 text-amber-600">{scanClientHint.email}</span>}
+                  </p>
+                </div>
+                <button type="button" disabled={creatingClient}
+                  onClick={handleCreateClientFromScan}
+                  className="shrink-0 text-xs bg-amber-600 hover:bg-amber-700 text-white rounded-md px-2.5 py-1 font-medium transition-colors disabled:opacity-50">
+                  {creatingClient ? "Adding…" : "Add client"}
+                </button>
+                <button type="button" onClick={() => setScanClientHint(null)} className="shrink-0 text-amber-500 hover:text-amber-700"><X size={14} /></button>
+              </div>
+            )}
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
