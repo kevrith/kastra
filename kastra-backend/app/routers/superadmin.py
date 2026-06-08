@@ -1176,7 +1176,11 @@ async def sa_supplier_request_detail(request_id: str, db: AsyncSession = Depends
 
 import secrets as _secrets
 from datetime import timezone as _tz
-from app.services.email_service import send_testimonial_request_email as _send_testimonial_email
+from app.services.email_service import (
+    send_testimonial_request_email as _send_testimonial_email,
+    send_testimonial_whatsapp as _send_testimonial_whatsapp,
+    _build_whatsapp_link as _wa_link,
+)
 
 
 class TestimonialIn(BaseModel):
@@ -1192,6 +1196,7 @@ class TestimonialRequestIn(BaseModel):
     email: str
     name: str
     role_hint: str = ""
+    phone: str = ""   # optional — enables WhatsApp sending
 
 
 class TestimonialRejectIn(BaseModel):
@@ -1208,6 +1213,7 @@ class TestimonialOut(BaseModel):
     sort_order: int
     status: str
     requested_email: str | None
+    requested_phone: str | None
     submitted_at: str | None
     rejection_reason: str | None
 
@@ -1225,6 +1231,7 @@ class TestimonialOut(BaseModel):
             "sort_order": obj.sort_order,
             "status": obj.status,
             "requested_email": obj.requested_email,
+            "requested_phone": obj.requested_phone,
             "submitted_at": obj.submitted_at.isoformat() if obj.submitted_at else None,
             "rejection_reason": obj.rejection_reason,
         }
@@ -1258,14 +1265,31 @@ async def sa_request_testimonial(
         status="pending",
         request_token=token,
         requested_email=payload.email,
+        requested_phone=payload.phone.strip() or None,
         requested_at=_dt.now(_tz.utc),
         consent=False,
     )
     db.add(t)
     await db.commit()
+
     form_url = f"{settings.frontend_url}/testimonial/{token}"
+
+    # Email (always)
     await _send_testimonial_email(payload.email, payload.name, form_url)
-    return {"message": f"Request sent to {payload.email}", "id": str(t.id)}
+
+    # WhatsApp — programmatic send + always return wa.me link for manual backup
+    whatsapp_link: str | None = None
+    whatsapp_sent = False
+    if payload.phone.strip():
+        whatsapp_link = _wa_link(payload.phone.strip(), form_url, payload.name)
+        whatsapp_sent = await _send_testimonial_whatsapp(payload.phone.strip(), payload.name, form_url)
+
+    return {
+        "message": f"Request sent to {payload.email}" + (" and via WhatsApp" if whatsapp_sent else ""),
+        "id": str(t.id),
+        "whatsapp_link": whatsapp_link,
+        "whatsapp_sent": whatsapp_sent,
+    }
 
 
 @router.post("/testimonials/{testimonial_id}/approve", dependencies=[Depends(_verify_sa_token)])

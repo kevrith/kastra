@@ -319,6 +319,68 @@ async def send_due_soon_reminder_email(
     await _send(client_email, f"Payment due {due_label} — {invoice_id}", html)
 
 
+def _build_whatsapp_link(phone: str, form_url: str, name: str) -> str:
+    """Return a wa.me link with the message pre-written (works even if API is not configured)."""
+    import urllib.parse
+    msg = (
+        f"Hi {name},\n\n"
+        "The team at Kastra would love to hear about your experience using our platform.\n\n"
+        "Could you spare 2 minutes to share a quick testimonial? Your feedback may be featured on our website.\n\n"
+        f"👉 {form_url}\n\n"
+        "Thank you! 🙏"
+    )
+    # Normalise phone: ensure it starts with + for wa.me
+    clean = "".join(c for c in phone if c.isdigit() or c == "+")
+    if not clean.startswith("+"):
+        clean = "+" + clean
+    return f"https://wa.me/{clean.lstrip('+')}?text={urllib.parse.quote(msg)}"
+
+
+async def send_testimonial_whatsapp(phone: str, name: str, form_url: str) -> bool:
+    """
+    Send the testimonial request via Africa's Talking WhatsApp API.
+    Returns True on success, False if AT is not configured or the call fails.
+    The caller should always also generate the wa.me link as a fallback.
+    """
+    if not settings.at_api_key or not settings.at_whatsapp_number:
+        logger.info("[WHATSAPP] AT not configured — skipping programmatic send to %s", phone)
+        return False
+
+    message = (
+        f"Hi {name}, the Kastra team would love to hear about your experience. "
+        f"Share a quick testimonial (2 min) here: {form_url} "
+        "Your feedback may be featured on our website. Thank you!"
+    )
+    clean_phone = "".join(c for c in phone if c.isdigit() or c == "+")
+    if not clean_phone.startswith("+"):
+        clean_phone = "+" + clean_phone
+
+    try:
+        async with httpx.AsyncClient(timeout=10) as http:
+            resp = await http.post(
+                "https://api.africastalking.com/version1/messaging/whatsapp/text/send",
+                headers={
+                    "apiKey": settings.at_api_key,
+                    "Accept": "application/json",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "username": settings.at_username,
+                    "to": clean_phone,
+                    "from": settings.at_whatsapp_number,
+                    "message": message,
+                },
+            )
+        if resp.is_success:
+            logger.info("[WHATSAPP] Sent to %s via AT", clean_phone)
+            return True
+        logger.warning("[WHATSAPP] AT returned %s: %s", resp.status_code, resp.text[:200])
+        return False
+    except Exception:
+        logger.exception("[WHATSAPP] Failed to send to %s via AT", clean_phone)
+        return False
+
+
 async def send_testimonial_request_email(
     to_email: str,
     name: str,

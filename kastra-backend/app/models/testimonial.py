@@ -24,6 +24,7 @@ class Testimonial(Base):
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="approved")
     request_token: Mapped[str | None] = mapped_column(String(64), nullable=True, unique=True, index=True)
     requested_email: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    requested_phone: Mapped[str | None] = mapped_column(String(30), nullable=True)
     requested_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     consent: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
