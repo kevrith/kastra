@@ -5,6 +5,7 @@ import httpx
 from jose import JWTError, jwt
 
 from app.config import settings
+from app.services.sms_service import _format_phone
 
 logger = logging.getLogger(__name__)
 
@@ -329,10 +330,7 @@ def _build_whatsapp_link(phone: str, form_url: str, name: str) -> str:
         f"👉 {form_url}\n\n"
         "Thank you! 🙏"
     )
-    # Normalise phone: ensure it starts with + for wa.me
-    clean = "".join(c for c in phone if c.isdigit() or c == "+")
-    if not clean.startswith("+"):
-        clean = "+" + clean
+    clean = _format_phone(phone) or phone
     return f"https://wa.me/{clean.lstrip('+')}?text={urllib.parse.quote(msg)}"
 
 
@@ -351,9 +349,7 @@ async def send_testimonial_whatsapp(phone: str, name: str, form_url: str) -> boo
         f"Share a quick testimonial (2 min) here: {form_url} "
         "Your feedback may be featured on our website. Thank you!"
     )
-    clean_phone = "".join(c for c in phone if c.isdigit() or c == "+")
-    if not clean_phone.startswith("+"):
-        clean_phone = "+" + clean_phone
+    clean_phone = _format_phone(phone) or phone
 
     try:
         async with httpx.AsyncClient(timeout=10) as http:
