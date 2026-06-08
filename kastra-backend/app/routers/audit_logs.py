@@ -4,23 +4,17 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
-from app.dependencies import require_role, ADMIN_ONLY
+from app.dependencies import require_admin
 from app.models.audit_log import AuditLog
 from app.models.user import User
 from app.schemas.common import Meta, PaginatedResponse
 
 router = APIRouter(prefix="/api/audit-logs", tags=["audit-logs"])
-
-
-class AuditLogOut:
-    pass
-
-
-from pydantic import BaseModel
 
 
 class AuditLogOut(BaseModel):
@@ -47,7 +41,7 @@ async def list_audit_logs(
     from_date: str | None = Query(None),
     to_date: str | None = Query(None),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_role(*ADMIN_ONLY)),
+    current_user: User = Depends(require_admin),
 ):
     """List audit log entries for the organisation (admin only)."""
     q = select(AuditLog).where(AuditLog.organization_id == str(current_user.organization_id))
@@ -78,7 +72,7 @@ async def export_audit_csv(
     from_date: str | None = Query(None),
     to_date: str | None = Query(None),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_role(*ADMIN_ONLY)),
+    current_user: User = Depends(require_admin),
 ):
     """Export audit log as CSV (admin only)."""
     import csv

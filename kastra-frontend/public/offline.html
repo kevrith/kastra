@@ -25,7 +25,9 @@
       max-width: 360px;
       width: 100%;
     }
-    .logo { font-size: 2rem; font-weight: 700; color: #16a34a; margin-bottom: 1rem; }
+    .logo { margin-bottom: 1rem; }
+    .logo img { width: 5rem; height: 5rem; object-fit: contain; border-radius: 0.75rem; display: block; margin: 0 auto 0.5rem; }
+    .logo span { font-size: 1.25rem; font-weight: 700; color: #16a34a; display: block; }
     h1 { font-size: 1.25rem; font-weight: 600; margin-bottom: 0.5rem; }
     p { font-size: 0.875rem; color: #6b7280; line-height: 1.5; }
     button {
@@ -44,7 +46,7 @@
 </head>
 <body>
   <div class="card">
-    <div class="logo">Kastra</div>
+    <div class="logo"><img src="/kastra1.png" alt="Kastra" /><span>Kastra</span></div>
     <h1>You are offline</h1>
     <p>Check your internet connection and try again. Your data is safe and will sync when you reconnect.</p>
     <button onclick="window.location.reload()">Try again</button>

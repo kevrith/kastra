@@ -903,14 +903,15 @@ psql "postgresql://user:pass@dpg-xxx.oregon-postgres.render.com/kastra_db" < kas
 |---|---|---|
 | PDF generation | Browser print-to-PDF (user must choose "Save as PDF") | Server-side PDF via WeasyPrint for true download button |
 | WhatsApp PDF sending | Text + link only (WhatsApp links can't attach files) | WhatsApp Business API (Meta Cloud) for file attachments |
-| Multi-currency | KES only | USD/EUR for international clients |
-| Recurring invoices | Manual creation only | Scheduled auto-generation |
-| SMS notifications | Not implemented | Africa's Talking API |
-| Multi-user roles | Admin + Manager only | Viewer (read-only), Accountant (reports only) |
-| Mobile app | PWA (installable) | Native React Native app |
+| Multi-currency | KES, USD, EUR and others — exchange rate via open.er-api.com (keyless) | Additional currency pairs |
+| Recurring invoices | Scheduler auto-generates on due date | — |
+| SMS notifications | Africa's Talking — set `AT_API_KEY` + `AT_USERNAME` in `.env` to activate | Branded sender ID (`AT_SENDER_ID`, must be pre-approved by AT) |
+| Multi-user roles | Admin / Manager / Viewer (read-only) / Field Agent (projects only) | Accountant role (expenses + reports, no invoicing) |
+| Mobile app | PWA (installable, offline-capable) | Native React Native app |
 | Accounting export | CSV only | QuickBooks / Xero / Sage format |
 | Bank reconciliation | Manual | Integration with bank statement APIs |
 | Multi-branch/location | Single org | Branch-level reporting |
+| Inventory / Stock | Not built — out of scope for this platform | Dedicated inventory tool |
 
 ---
 

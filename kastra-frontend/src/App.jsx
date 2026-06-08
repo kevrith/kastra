@@ -37,6 +37,7 @@ import SupplierRequestDetail from "./pages/suppliers/SupplierRequestDetail";
 import Employees from "./pages/payroll/Employees";
 import PayrollRuns from "./pages/payroll/PayrollRuns";
 import PayrollRunDetail from "./pages/payroll/PayrollRunDetail";
+import AuditLog from "./pages/AuditLog";
 import PrivacyPolicy from "./pages/legal/PrivacyPolicy";
 import TermsOfService from "./pages/legal/TermsOfService";
 import Landing from "./pages/Landing";
@@ -103,6 +104,7 @@ export default function App() {
             <Route path="/employees" element={<Employees />} />
             <Route path="/payroll" element={<PayrollRuns />} />
             <Route path="/payroll/runs/:id" element={<PayrollRunDetail />} />
+            <Route path="/audit-log" element={<AuditLog />} />
           </Route>
 
           <Route path="*" element={<Navigate to="/" replace />} />

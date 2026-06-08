@@ -82,7 +82,7 @@ export default function Register() {
   return (
     <div className="min-h-screen bg-gray-50 px-4 py-8">
       <div className="text-center mb-6">
-        <img src="/kastra.png" alt="Kastra" className="h-14 w-14 object-contain mx-auto mb-2" />
+        <img src="/kastra1.png" alt="Kastra" className="h-14 w-14 object-contain mx-auto mb-2" />
         <h1 className="text-2xl font-bold text-green-600">Kastra</h1>
         <p className="text-gray-500 text-sm">Create your account — it's free to start</p>
       </div>

@@ -167,7 +167,7 @@ export default function Landing() {
       <nav className="sticky top-0 z-50 bg-white/90 backdrop-blur border-b border-gray-100">
         <div className="max-w-6xl mx-auto px-5 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <img src="/kastra.png" alt="Kastra" className="h-8 w-8 object-contain" />
+            <img src="/kastra1.png" alt="Kastra" className="h-8 w-8 object-contain" />
             <span className="text-xl font-bold text-green-600 tracking-tight">Kastra</span>
           </div>
           <div className="hidden md:flex items-center gap-8 text-sm font-medium text-gray-600">
@@ -397,7 +397,7 @@ export default function Landing() {
           <div className="grid md:grid-cols-4 gap-8 mb-10">
             <div>
               <div className="flex items-center gap-2 mb-3">
-                <img src="/kastra.png" alt="Kastra" className="h-7 w-7 object-contain" />
+                <img src="/kastra1.png" alt="Kastra" className="h-7 w-7 object-contain" />
                 <span className="text-white font-bold text-lg">Kastra</span>
               </div>
               <p className="text-sm leading-relaxed">Business operations platform built for Kenyan SMEs.</p>

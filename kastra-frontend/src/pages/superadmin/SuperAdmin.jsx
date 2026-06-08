@@ -526,7 +526,7 @@ export default function SuperAdmin() {
       <div className="min-h-screen bg-gray-950 flex items-center justify-center px-4">
         <div className="w-full max-w-sm">
           <div className="text-center mb-8">
-            <img src="/kastra.png" alt="Kastra" className="h-12 w-12 object-contain mx-auto mb-3" />
+            <img src="/kastra1.png" alt="Kastra" className="h-12 w-12 object-contain mx-auto mb-3" />
             <h1 className="text-xl font-bold text-white">Kastra Admin Console</h1>
             <p className="text-gray-500 text-xs mt-1 uppercase tracking-widest">Restricted Access</p>
           </div>
@@ -587,7 +587,7 @@ export default function SuperAdmin() {
       }`}>
         <div className="p-4 border-b border-gray-800">
           <div className="flex items-center gap-2.5">
-            <img src="/kastra.png" alt="" className="h-8 w-8 object-contain" />
+            <img src="/kastra1.png" alt="" className="h-8 w-8 object-contain" />
             <div>
               <p className="text-sm font-bold text-white">Kastra</p>
               <p className="text-[10px] text-green-500 uppercase tracking-widest">Admin Console</p>
@@ -633,7 +633,7 @@ export default function SuperAdmin() {
             <Menu size={20} />
           </button>
           <div className="flex items-center gap-2">
-            <img src="/kastra.png" alt="" className="h-6 w-6 object-contain" />
+            <img src="/kastra1.png" alt="" className="h-6 w-6 object-contain" />
             <span className="text-sm font-bold text-white">Admin Console</span>
           </div>
         </div>

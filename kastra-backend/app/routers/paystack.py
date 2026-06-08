@@ -160,6 +160,7 @@ def _fire_post_payment(invoice: Invoice, paid_amount: float, reference: str) -> 
         amount=paid_amount,
         business_name=biz_name,
         receipt=reference,
+        sms_consent=getattr(invoice.client, "sms_consent", False) if invoice.client else False,
     ))
 
 

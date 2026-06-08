@@ -2,7 +2,7 @@ import { NavLink, useNavigate } from "react-router-dom";
 import {
   BarChart2, FileText, Home, LogOut, Settings, Users, Receipt,
   TrendingDown, RefreshCw, Package, Kanban, UserCog, FolderKanban, Truck,
-  UserCheck, Wallet,
+  UserCheck, Wallet, ShieldCheck,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import GlobalSearch from "../ui/GlobalSearch";
@@ -10,20 +10,21 @@ import NotificationBell from "../ui/NotificationBell";
 
 const links = [
   { to: "/dashboard", icon: Home, label: "Dashboard" },
-  { to: "/quotations", icon: FileText, label: "Quotations" },
-  { to: "/quotations/pipeline", icon: Kanban, label: "Pipeline" },
+  { to: "/quotations", icon: FileText, label: "Quotations", roles: ["admin", "manager", "viewer"] },
+  { to: "/quotations/pipeline", icon: Kanban, label: "Pipeline", roles: ["admin", "manager", "viewer"] },
   { to: "/projects", icon: FolderKanban, label: "Projects" },
-  { to: "/invoices", icon: Receipt, label: "Invoices" },
-  { to: "/clients", icon: Users, label: "Clients" },
-  { to: "/products", icon: Package, label: "Products" },
-  { to: "/suppliers", icon: Truck, label: "Suppliers" },
-  { to: "/employees", icon: UserCheck, label: "Employees" },
-  { to: "/payroll", icon: Wallet, label: "Payroll" },
-  { to: "/expenses", icon: TrendingDown, label: "Expenses" },
-  { to: "/recurring", icon: RefreshCw, label: "Recurring" },
-  { to: "/reports", icon: BarChart2, label: "Reports" },
+  { to: "/invoices", icon: Receipt, label: "Invoices", roles: ["admin", "manager", "viewer"] },
+  { to: "/clients", icon: Users, label: "Clients", roles: ["admin", "manager", "viewer"] },
+  { to: "/products", icon: Package, label: "Products", roles: ["admin", "manager"] },
+  { to: "/suppliers", icon: Truck, label: "Suppliers", roles: ["admin", "manager"] },
+  { to: "/employees", icon: UserCheck, label: "Employees", roles: ["admin", "manager"] },
+  { to: "/payroll", icon: Wallet, label: "Payroll", roles: ["admin", "manager"] },
+  { to: "/expenses", icon: TrendingDown, label: "Expenses", roles: ["admin", "manager"] },
+  { to: "/recurring", icon: RefreshCw, label: "Recurring", roles: ["admin", "manager"] },
+  { to: "/reports", icon: BarChart2, label: "Reports", roles: ["admin", "manager", "viewer"] },
   { to: "/team", icon: UserCog, label: "Team", adminOnly: true },
-  { to: "/settings", icon: Settings, label: "Settings" },
+  { to: "/audit-log", icon: ShieldCheck, label: "Audit Log", adminOnly: true },
+  { to: "/settings", icon: Settings, label: "Settings", roles: ["admin", "manager"] },
 ];
 
 export default function Sidebar() {
@@ -40,7 +41,7 @@ export default function Sidebar() {
       <div className="px-5 py-4 border-b border-gray-200">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            <img src="/kastra.png" alt="Kastra" className="h-8 w-8 object-contain" />
+            <img src="/kastra1.png" alt="Kastra" className="h-8 w-8 object-contain" />
             <div>
               <span className="text-lg font-bold text-green-600 tracking-tight">Kastra</span>
               <p className="text-xs text-gray-400">Enterprise Management</p>
@@ -53,7 +54,11 @@ export default function Sidebar() {
 
       <nav className="flex-1 py-4 px-3 space-y-0.5">
         {links
-          .filter(link => !link.adminOnly || user?.role === 'admin')
+          .filter(link => {
+            if (link.adminOnly) return user?.role === 'admin';
+            if (link.roles) return link.roles.includes(user?.role);
+            return true;
+          })
           .map(({ to, icon: Icon, label }) => (
           <NavLink
             key={to}

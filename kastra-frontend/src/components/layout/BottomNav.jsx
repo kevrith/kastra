@@ -3,32 +3,39 @@ import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
   Home, FileText, Receipt, Users, Settings,
   TrendingDown, RefreshCw, BarChart2, Package, MoreHorizontal, X, Kanban,
-  FolderKanban, UserCog, LogOut, Truck, UserCheck, Wallet,
+  FolderKanban, UserCog, LogOut, Truck, UserCheck, Wallet, ShieldCheck,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 
 const PRIMARY = [
   { to: "/dashboard", icon: Home, label: "Home" },
-  { to: "/quotations", icon: FileText, label: "Quotes" },
-  { to: "/quotations/pipeline", icon: Kanban, label: "Pipeline" },
-  { to: "/invoices", icon: Receipt, label: "Invoices" },
-  { to: "/clients", icon: Users, label: "Clients" },
+  { to: "/quotations", icon: FileText, label: "Quotes", roles: ["admin", "manager", "viewer"] },
+  { to: "/quotations/pipeline", icon: Kanban, label: "Pipeline", roles: ["admin", "manager", "viewer"] },
+  { to: "/invoices", icon: Receipt, label: "Invoices", roles: ["admin", "manager", "viewer"] },
+  { to: "/clients", icon: Users, label: "Clients", roles: ["admin", "manager", "viewer"] },
 ];
 
 const DRAWER_LINKS = [
   { to: "/projects", icon: FolderKanban, label: "Projects" },
-  { to: "/suppliers", icon: Truck, label: "Suppliers" },
-  { to: "/employees", icon: UserCheck, label: "Employees" },
-  { to: "/payroll", icon: Wallet, label: "Payroll" },
-  { to: "/expenses", icon: TrendingDown, label: "Expenses" },
-  { to: "/recurring", icon: RefreshCw, label: "Recurring" },
-  { to: "/reports", icon: BarChart2, label: "Reports" },
-  { to: "/products", icon: Package, label: "Products" },
+  { to: "/suppliers", icon: Truck, label: "Suppliers", roles: ["admin", "manager"] },
+  { to: "/employees", icon: UserCheck, label: "Employees", roles: ["admin", "manager"] },
+  { to: "/payroll", icon: Wallet, label: "Payroll", roles: ["admin", "manager"] },
+  { to: "/expenses", icon: TrendingDown, label: "Expenses", roles: ["admin", "manager"] },
+  { to: "/recurring", icon: RefreshCw, label: "Recurring", roles: ["admin", "manager"] },
+  { to: "/reports", icon: BarChart2, label: "Reports", roles: ["admin", "manager", "viewer"] },
+  { to: "/products", icon: Package, label: "Products", roles: ["admin", "manager"] },
   { to: "/team", icon: UserCog, label: "Team", adminOnly: true },
-  { to: "/settings", icon: Settings, label: "Settings" },
+  { to: "/audit-log", icon: ShieldCheck, label: "Audit Log", adminOnly: true },
+  { to: "/settings", icon: Settings, label: "Settings", roles: ["admin", "manager"] },
 ];
 
 const NAV_H = 56; // px — keep in sync with the nav bar height below
+
+function canSee(link, role) {
+  if (link.adminOnly) return role === 'admin';
+  if (link.roles) return link.roles.includes(role);
+  return true;
+}
 
 export default function BottomNav() {
   const [open, setOpen] = useState(false);
@@ -38,7 +45,9 @@ export default function BottomNav() {
 
   useEffect(() => { setOpen(false); }, [location.pathname]);
 
-  const isMoreActive = DRAWER_LINKS.some((l) => location.pathname.startsWith(l.to));
+  const role = user?.role;
+  const visibleDrawer = DRAWER_LINKS.filter(l => canSee(l, role));
+  const isMoreActive = visibleDrawer.some((l) => location.pathname.startsWith(l.to));
 
   const handleLogout = async () => {
     await logout();
@@ -76,9 +85,7 @@ export default function BottomNav() {
 
         {/* Nav items — simple list, always readable on any screen width */}
         <div className="px-3 py-2">
-          {DRAWER_LINKS
-            .filter(link => !link.adminOnly || user?.role === 'admin')
-            .map(({ to, icon: Icon, label }) => (
+          {visibleDrawer.map(({ to, icon: Icon, label }) => (
             <NavLink
               key={to}
               to={to}
@@ -119,7 +126,7 @@ export default function BottomNav() {
         className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex"
         style={{ height: NAV_H, zIndex: 60 }}
       >
-        {PRIMARY.map(({ to, icon: Icon, label }) => (
+        {PRIMARY.filter(l => canSee(l, role)).map(({ to, icon: Icon, label }) => (
           <NavLink
             key={to}
             to={to}
