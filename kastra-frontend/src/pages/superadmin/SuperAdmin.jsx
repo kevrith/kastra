@@ -1347,6 +1347,24 @@ export default function SuperAdmin() {
                         Revoke Complimentary Access
                       </button>
                     )}
+                    <button
+                      onClick={() => {
+                        const admin = selectedOrg.users?.find((u) => u.role === "admin") ?? selectedOrg.users?.[0];
+                        setRequestForm({
+                          email: selectedOrg.email ?? admin?.email ?? "",
+                          name: admin?.display_name ?? selectedOrg.name ?? "",
+                          role_hint: "",
+                          phone: selectedOrg.phone ?? "",
+                        });
+                        setWhatsappLink(null);
+                        setRequestModal(true);
+                        setView("testimonials");
+                        setTestimonialTab("pending");
+                      }}
+                      className="w-full text-sm text-green-400 border border-green-800 rounded-lg py-2 hover:bg-green-900/30 transition flex items-center justify-center gap-1.5"
+                    >
+                      <MessageSquare size={13} /> Request testimonial
+                    </button>
                   </div>
                 </div>
 
