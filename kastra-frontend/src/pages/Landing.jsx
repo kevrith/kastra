@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import {
   FileText, Receipt, CreditCard, Users, BarChart2, Shield,
@@ -95,7 +96,7 @@ const stats = [
   { value: "100%", label: "KRA eTIMS compliant" },
 ];
 
-const testimonials = [
+const FALLBACK_TESTIMONIALS = [
   {
     name: "Grace Wanjiku",
     role: "CEO, Wanjiku Consulting",
@@ -160,6 +161,16 @@ const plans = [
 ];
 
 export default function Landing() {
+  const [testimonials, setTestimonials] = useState(FALLBACK_TESTIMONIALS);
+
+  useEffect(() => {
+    const base = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
+    fetch(`${base}/api/testimonials`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => { if (Array.isArray(data) && data.length > 0) setTestimonials(data); })
+      .catch(() => {});
+  }, []);
+
   return (
     <div className="min-h-screen bg-white text-gray-900 font-sans">
 

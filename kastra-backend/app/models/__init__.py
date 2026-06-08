@@ -15,6 +15,7 @@ from app.models.project import Project
 from app.models.supplier import Supplier, SupplierRequest, SupplierRequestInvite, SupplierRequestItem, SupplierResponseItem
 from app.models.employee import Employee
 from app.models.payroll import PayrollRun, Payslip
+from app.models.testimonial import Testimonial
 
 __all__ = [
     "Organization",
@@ -45,4 +46,5 @@ __all__ = [
     "Employee",
     "PayrollRun",
     "Payslip",
+    "Testimonial",
 ]

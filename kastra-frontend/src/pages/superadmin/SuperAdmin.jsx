@@ -10,12 +10,15 @@ import {
   superadminInvoices, superadminQuotations, superadminSuppliers, superadminSupplierRequests,
   superadminInvoiceDetail, superadminInvoicePdfBlob, superadminQuotationPdfBlob,
   superadminSupplierRequestDetail,
+  superadminGetTestimonials, superadminCreateTestimonial,
+  superadminUpdateTestimonial, superadminDeleteTestimonial,
 } from "../../api/subscriptions";
 import {
   LayoutDashboard, Building2, LogOut, Search, ChevronLeft, ChevronRight,
   TrendingUp, Users, FileText, RefreshCw, AlertCircle, CheckCircle2,
   CreditCard, Clock, Activity, DollarSign, BarChart2, ShieldAlert,
   PlusCircle, X, Gift, Menu, Key, UserX, UserCheck, Shield, Receipt, Truck, Package, Printer, Eye,
+  MessageSquare, Star, Edit2, Trash2, ToggleLeft, ToggleRight,
 } from "lucide-react";
 
 // ── Colour maps ────────────────────────────────────────────────────────────────
@@ -216,6 +219,12 @@ export default function SuperAdmin() {
   const [roleChangeForm, setRoleChangeForm] = useState("");
   const [confirmModal, setConfirmModal] = useState(null); // { title, message, onConfirm }
 
+  // Testimonials
+  const [testimonials, setTestimonials] = useState([]);
+  const [testimonialLoading, setTestimonialLoading] = useState(false);
+  const [testimonialModal, setTestimonialModal] = useState(null); // null | "create" | testimonial object
+  const [testimonialForm, setTestimonialForm] = useState({ name: "", role: "", text: "", stars: 5, is_active: true, sort_order: 0 });
+
   const isAuthed = Boolean(token);
 
   const flash = (text, type = "success") => {
@@ -382,6 +391,16 @@ export default function SuperAdmin() {
     } finally { setLoading(false); }
   }, [token, saRequestsPage, saRequestsOrgFilter]);
 
+  const loadTestimonials = useCallback(async () => {
+    if (!token) return;
+    setTestimonialLoading(true);
+    try {
+      const { data } = await superadminGetTestimonials(token);
+      setTestimonials(data);
+    } catch { flash("Failed to load testimonials", "error"); }
+    finally { setTestimonialLoading(false); }
+  }, [token]);
+
   // ── Effects ───────────────────────────────────────────────────────────────────
   useEffect(() => { if (isAuthed) loadStats(); }, [isAuthed, loadStats]);
   useEffect(() => { if (isAuthed && view === "revenue") { loadRevenue(); loadPayments(); } }, [isAuthed, view, loadRevenue, loadPayments]);
@@ -394,6 +413,7 @@ export default function SuperAdmin() {
   useEffect(() => { if (isAuthed && view === "quotations") loadSaQuotations(); }, [isAuthed, view, loadSaQuotations]);
   useEffect(() => { if (isAuthed && view === "suppliers") loadSaSuppliers(); }, [isAuthed, view, loadSaSuppliers]);
   useEffect(() => { if (isAuthed && view === "supplier_requests") loadSaRequests(); }, [isAuthed, view, loadSaRequests]);
+  useEffect(() => { if (isAuthed && view === "testimonials") loadTestimonials(); }, [isAuthed, view, loadTestimonials]);
 
   // ── Org actions ───────────────────────────────────────────────────────────────
   const changePlan = async (orgId, plan) => {
@@ -569,6 +589,7 @@ export default function SuperAdmin() {
     { id: "suppliers",         label: "Suppliers",       icon: Truck },
     { id: "supplier_requests", label: "Price Requests",  icon: Package },
     { id: "audit",             label: "Audit Log",       icon: Activity },
+    { id: "testimonials",      label: "Testimonials",    icon: MessageSquare },
   ];
 
   return (
@@ -1438,8 +1459,163 @@ export default function SuperAdmin() {
               )}
             </>
           )}
+
+          {/* ─── TESTIMONIALS ─── */}
+          {view === "testimonials" && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <SectionTitle title="Testimonials" onRefresh={loadTestimonials} />
+                <button
+                  onClick={() => {
+                    setTestimonialForm({ name: "", role: "", text: "", stars: 5, is_active: true, sort_order: testimonials.length });
+                    setTestimonialModal("create");
+                  }}
+                  className="flex items-center gap-1.5 bg-green-600 hover:bg-green-500 text-white text-xs font-semibold px-3 py-1.5 rounded-lg"
+                >
+                  <PlusCircle size={13} /> Add testimonial
+                </button>
+              </div>
+
+              <p className="text-xs text-gray-500">
+                These appear on the public landing page. Add real feedback received via WhatsApp, email, or other channels. Toggle visibility without deleting.
+              </p>
+
+              {testimonialLoading && <p className="text-gray-500 text-sm">Loading…</p>}
+              {!testimonialLoading && testimonials.length === 0 && (
+                <p className="text-gray-500 text-sm text-center py-10">No testimonials yet.</p>
+              )}
+
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {testimonials.map((t) => (
+                  <div key={t.id} className={`rounded-xl border p-4 space-y-3 ${t.is_active ? "bg-gray-800 border-gray-700" : "bg-gray-900 border-gray-800 opacity-60"}`}>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-white truncate">{t.name}</p>
+                        <p className="text-xs text-gray-400 truncate">{t.role}</p>
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <button
+                          title={t.is_active ? "Hide" : "Show"}
+                          onClick={async () => {
+                            try {
+                              await superadminUpdateTestimonial(token, t.id, { ...t, is_active: !t.is_active });
+                              loadTestimonials();
+                            } catch { flash("Error updating testimonial", "error"); }
+                          }}
+                        >
+                          {t.is_active
+                            ? <ToggleRight size={18} className="text-green-400" />
+                            : <ToggleLeft size={18} className="text-gray-600" />}
+                        </button>
+                        <button title="Edit" onClick={() => { setTestimonialForm({ name: t.name, role: t.role, text: t.text, stars: t.stars, is_active: t.is_active, sort_order: t.sort_order }); setTestimonialModal(t); }} className="text-gray-500 hover:text-blue-400">
+                          <Edit2 size={14} />
+                        </button>
+                        <button title="Delete" onClick={() => setConfirmModal({ title: "Delete Testimonial", message: `Remove "${t.name}"'s testimonial?`, onConfirm: async () => { try { await superadminDeleteTestimonial(token, t.id); flash("Deleted"); loadTestimonials(); } catch { flash("Error", "error"); } } })} className="text-gray-500 hover:text-red-400">
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </div>
+                    <div className="flex gap-0.5">
+                      {Array.from({ length: 5 }).map((_, i) => (
+                        <Star key={i} size={12} className={i < t.stars ? "fill-amber-400 text-amber-400" : "text-gray-700"} />
+                      ))}
+                    </div>
+                    <p className="text-xs text-gray-300 leading-relaxed line-clamp-4">"{t.text}"</p>
+                    <div className="flex items-center justify-between text-[10px] text-gray-600">
+                      <span>Order: {t.sort_order}</span>
+                      <span className={`px-1.5 py-0.5 rounded-full ${t.is_active ? "bg-green-900 text-green-400" : "bg-gray-800 text-gray-500"}`}>
+                        {t.is_active ? "visible" : "hidden"}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
         </div>
       </main>
+
+      {/* ─── Testimonial add/edit modal ─── */}
+      {testimonialModal && (
+        <Modal
+          title={testimonialModal === "create" ? "Add Testimonial" : "Edit Testimonial"}
+          onClose={() => setTestimonialModal(null)}
+        >
+          <div className="space-y-3">
+            {[
+              { key: "name", label: "Customer Name", placeholder: "Grace Wanjiku" },
+              { key: "role", label: "Title / Company", placeholder: "CEO, Wanjiku Consulting" },
+            ].map(({ key, label, placeholder }) => (
+              <div key={key}>
+                <label className="block text-xs text-gray-400 mb-1">{label}</label>
+                <input
+                  className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-green-500"
+                  value={testimonialForm[key]}
+                  onChange={(e) => setTestimonialForm({ ...testimonialForm, [key]: e.target.value })}
+                  placeholder={placeholder}
+                />
+              </div>
+            ))}
+            <div>
+              <label className="block text-xs text-gray-400 mb-1">Testimonial Text</label>
+              <textarea
+                rows={4}
+                className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-green-500 resize-none"
+                value={testimonialForm.text}
+                onChange={(e) => setTestimonialForm({ ...testimonialForm, text: e.target.value })}
+                placeholder="What did the customer say?"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">Stars (1–5)</label>
+                <input type="number" min={1} max={5}
+                  className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-green-500"
+                  value={testimonialForm.stars}
+                  onChange={(e) => setTestimonialForm({ ...testimonialForm, stars: Number(e.target.value) })}
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">Sort Order</label>
+                <input type="number" min={0}
+                  className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-green-500"
+                  value={testimonialForm.sort_order}
+                  onChange={(e) => setTestimonialForm({ ...testimonialForm, sort_order: Number(e.target.value) })}
+                />
+              </div>
+            </div>
+            <label className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
+              <input type="checkbox" checked={testimonialForm.is_active} onChange={(e) => setTestimonialForm({ ...testimonialForm, is_active: e.target.checked })} className="accent-green-500" />
+              Show on landing page
+            </label>
+            <div className="flex gap-2 pt-2">
+              <button
+                onClick={async () => {
+                  if (!testimonialForm.name.trim() || !testimonialForm.text.trim()) { flash("Name and text are required", "error"); return; }
+                  try {
+                    if (testimonialModal === "create") {
+                      await superadminCreateTestimonial(token, testimonialForm);
+                      flash("Testimonial added");
+                    } else {
+                      await superadminUpdateTestimonial(token, testimonialModal.id, testimonialForm);
+                      flash("Testimonial updated");
+                    }
+                    setTestimonialModal(null);
+                    loadTestimonials();
+                  } catch (e) { flash(e.response?.data?.detail ?? "Error saving testimonial", "error"); }
+                }}
+                className="flex-1 bg-green-600 hover:bg-green-500 text-white font-semibold py-2 rounded-lg text-sm"
+              >
+                {testimonialModal === "create" ? "Add" : "Save changes"}
+              </button>
+              <button onClick={() => setTestimonialModal(null)} className="px-4 bg-gray-700 hover:bg-gray-600 text-white rounded-lg text-sm">
+                Cancel
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
 
       {/* ─── EXTEND TRIAL MODAL ─── */}
       {extendModal && (

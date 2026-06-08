@@ -15,12 +15,14 @@ from sqlalchemy.orm import selectinload
 
 from app.config import settings
 from app.database import get_db
+import uuid as _uuid
 from app.models.admin_audit_log import AdminAuditLog
 from app.models.invoice import Invoice
 from app.models.organization import Organization
 from app.models.quotation import Quotation
 from app.models.subscription_payment import SubscriptionPayment
 from app.models.supplier import Supplier, SupplierRequest
+from app.models.testimonial import Testimonial
 from app.models.user import User
 from app.utils.billing_events import record_audit, record_subscription_payment
 from app.utils.plan_limits import PLAN_PRICES_KES, VALID_PLANS, get_limits
@@ -1168,3 +1170,85 @@ async def sa_supplier_request_detail(request_id: str, db: AsyncSession = Depends
             for inv in req.invites
         ],
     }
+
+
+# ── Testimonials ──────────────────────────────────────────────────────────────
+
+class TestimonialIn(BaseModel):
+    name: str
+    role: str
+    text: str
+    stars: int = 5
+    is_active: bool = True
+    sort_order: int = 0
+
+
+class TestimonialOut(BaseModel):
+    id: _uuid.UUID
+    name: str
+    role: str
+    text: str
+    stars: int
+    is_active: bool
+    sort_order: int
+
+    model_config = {"from_attributes": True}
+
+
+@router.get("/testimonials", dependencies=[Depends(_verify_sa_token)])
+async def sa_list_testimonials(db: AsyncSession = Depends(get_db)):
+    rows = (await db.execute(
+        select(Testimonial).order_by(Testimonial.sort_order, Testimonial.created_at)
+    )).scalars().all()
+    return [TestimonialOut.model_validate(r) for r in rows]
+
+
+@router.post("/testimonials", dependencies=[Depends(_verify_sa_token)])
+async def sa_create_testimonial(payload: TestimonialIn, db: AsyncSession = Depends(get_db)):
+    t = Testimonial(
+        id=_uuid.uuid4(),
+        name=payload.name,
+        role=payload.role,
+        text=payload.text,
+        stars=max(1, min(5, payload.stars)),
+        is_active=payload.is_active,
+        sort_order=payload.sort_order,
+    )
+    db.add(t)
+    await db.commit()
+    return TestimonialOut.model_validate(t)
+
+
+@router.put("/testimonials/{testimonial_id}", dependencies=[Depends(_verify_sa_token)])
+async def sa_update_testimonial(
+    testimonial_id: str,
+    payload: TestimonialIn,
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(Testimonial).where(Testimonial.id == _uuid.UUID(testimonial_id))
+    )
+    t = result.scalar_one_or_none()
+    if not t:
+        raise HTTPException(404, "Testimonial not found")
+    t.name = payload.name
+    t.role = payload.role
+    t.text = payload.text
+    t.stars = max(1, min(5, payload.stars))
+    t.is_active = payload.is_active
+    t.sort_order = payload.sort_order
+    await db.commit()
+    return TestimonialOut.model_validate(t)
+
+
+@router.delete("/testimonials/{testimonial_id}", dependencies=[Depends(_verify_sa_token)])
+async def sa_delete_testimonial(testimonial_id: str, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(
+        select(Testimonial).where(Testimonial.id == _uuid.UUID(testimonial_id))
+    )
+    t = result.scalar_one_or_none()
+    if not t:
+        raise HTTPException(404, "Testimonial not found")
+    await db.delete(t)
+    await db.commit()
+    return {"message": "Deleted"}

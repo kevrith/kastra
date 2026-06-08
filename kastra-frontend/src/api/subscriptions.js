@@ -98,3 +98,16 @@ export const superadminQuotationPdfBlob = async (token, quotationId) => {
 };
 export const superadminSupplierRequestDetail = (token, requestId) =>
   api.get(`/api/superadmin/supplier-requests/${requestId}/detail`, saHeaders(token));
+
+// Testimonials CRUD
+export const superadminGetTestimonials = (token) =>
+  api.get("/api/superadmin/testimonials", saHeaders(token));
+
+export const superadminCreateTestimonial = (token, payload) =>
+  api.post("/api/superadmin/testimonials", payload, saHeaders(token));
+
+export const superadminUpdateTestimonial = (token, id, payload) =>
+  api.put(`/api/superadmin/testimonials/${id}`, payload, saHeaders(token));
+
+export const superadminDeleteTestimonial = (token, id) =>
+  api.delete(`/api/superadmin/testimonials/${id}`, saHeaders(token));

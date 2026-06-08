@@ -21,6 +21,7 @@ from app.routers import ai as ai_router
 from app.routers import currency
 from app.routers import employees, payroll
 from app.routers import audit_logs
+from app.routers import testimonials
 from app.services.scheduler import start_scheduler, stop_scheduler
 from app.utils.rate_limit import limiter
 
@@ -194,6 +195,7 @@ app.include_router(payroll.router)
 app.include_router(subscriptions.router)
 app.include_router(superadmin.router)
 app.include_router(audit_logs.router)
+app.include_router(testimonials.router)
 
 
 @app.api_route("/health", methods=["GET", "HEAD"])
