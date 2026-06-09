@@ -171,22 +171,30 @@
   </div>
 
   <!-- Line items -->
+  {% set has_line_discounts = doc['items'] | selectattr('discount_pct', 'gt', 0) | list | length > 0 %}
   <table>
     <thead>
       <tr>
         <th>Description</th>
         <th class="right" style="width:55px">Qty</th>
         <th class="right" style="width:110px">Unit Price</th>
+        {% if has_line_discounts %}<th class="right" style="width:70px;color:#dc2626">Disc %</th>{% endif %}
         <th class="right" style="width:110px">Total</th>
       </tr>
     </thead>
     <tbody>
       {% for item in doc['items'] %}
+      {% set disc = item.discount_pct | float %}
+      {% set effective_total = item.line_total | float * (1 - disc / 100) %}
       <tr>
-        <td>{{ item.description }}</td>
+        <td>
+          {{ item.description }}
+          {% if item.unit_price | float == 0 %}<span style="font-size:10px;font-weight:600;color:#15803d;background:#dcfce7;padding:1px 5px;border-radius:4px;margin-left:4px">COMPLIMENTARY</span>{% endif %}
+        </td>
         <td class="right qty">{{ item.quantity }}</td>
-        <td class="right price">{{ item.unit_price | money(currency) }}</td>
-        <td class="right" style="font-weight:500">{{ item.line_total | money(currency) }}</td>
+        <td class="right price">{% if item.unit_price | float == 0 %}—{% else %}{{ item.unit_price | money(currency) }}{% endif %}</td>
+        {% if has_line_discounts %}<td class="right" style="color:#dc2626;font-size:11px">{% if disc > 0 %}{{ disc | int }}%{% endif %}</td>{% endif %}
+        <td class="right" style="font-weight:500">{{ effective_total | money(currency) }}</td>
       </tr>
       {% endfor %}
     </tbody>
@@ -196,6 +204,9 @@
   <div class="totals">
     <div class="totals-inner">
       <div class="total-row"><span>Subtotal</span><span>{{ doc.subtotal | money(currency) }}</span></div>
+      {% if doc.total_discount | float > 0 %}
+      <div class="total-row" style="color:#dc2626"><span>Discount</span><span>- {{ doc.total_discount | money(currency) }}</span></div>
+      {% endif %}
       {% if doc.vat_amount | float > 0 %}
       <div class="total-row vat"><span>VAT (16%)</span><span>{{ doc.vat_amount | money(currency) }}</span></div>
       {% endif %}

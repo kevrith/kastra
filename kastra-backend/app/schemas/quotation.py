@@ -32,11 +32,18 @@ class QuotationItemCreate(BaseModel):
     vat_exempt: bool = False
     sort_order: int = 0
 
-    @field_validator("quantity", "unit_price")
+    @field_validator("quantity")
     @classmethod
-    def must_be_positive(cls, v: Decimal) -> Decimal:
+    def quantity_must_be_positive(cls, v: Decimal) -> Decimal:
         if v <= 0:
             raise ValueError("Must be greater than zero")
+        return v
+
+    @field_validator("unit_price")
+    @classmethod
+    def unit_price_non_negative(cls, v: Decimal) -> Decimal:
+        if v < 0:
+            raise ValueError("Unit price cannot be negative")
         return v
 
 

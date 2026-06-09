@@ -134,7 +134,7 @@ export default function QuotationForm() {
   };
 
   const buildPayload = (isDraft = false) => {
-    const validItems = items.filter((it) => it.description.trim() && parseFloat(it.quantity) > 0 && parseFloat(it.unit_price) > 0);
+    const validItems = items.filter((it) => it.description.trim() && parseFloat(it.quantity) > 0 && it.unit_price.toString().trim() !== "");
     const itemsGross = validItems.reduce((s, it) => s + parseFloat(it.quantity) * parseFloat(it.unit_price), 0);
     return {
       client_id: clientId || null,
