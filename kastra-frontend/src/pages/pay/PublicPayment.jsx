@@ -286,7 +286,7 @@ export default function PublicPayment() {
               <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-4">
                 <div className="flex items-center gap-2">
                   <CreditCard size={18} className="text-indigo-600" />
-                  <h2 className="font-semibold text-gray-800">Pay by Card (Visa / Mastercard)</h2>
+                  <h2 className="font-semibold text-gray-800">Pay by Card or M-Pesa (via Paystack)</h2>
                 </div>
                 {isPartialRequest && (
                   <div className="flex items-center gap-2 bg-indigo-50 text-indigo-800 text-xs px-3 py-2 rounded-lg">
@@ -294,7 +294,7 @@ export default function PublicPayment() {
                   </div>
                 )}
                 <p className="text-sm text-gray-500">
-                  You'll be redirected to Paystack's secure page to enter your card details.
+                  You'll be redirected to Paystack's secure page to pay by Visa, Mastercard, or M-Pesa.
                 </p>
                 {cardError && (
                   <div className="bg-red-50 text-red-700 text-sm px-3 py-2 rounded-lg flex items-start gap-2">
@@ -317,7 +317,7 @@ export default function PublicPayment() {
                 <button onClick={handleCardPay} disabled={cardLoading || !cardEmail}
                   className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-semibold rounded-xl py-3 flex items-center justify-center gap-2 transition-colors">
                   {cardLoading ? <Loader size={17} className="animate-spin" /> : <CreditCard size={17} />}
-                  {cardLoading ? "Redirecting to Paystack…" : `Pay ${ksh(chargeAmount)} by Card`}
+                  {cardLoading ? "Redirecting to Paystack…" : `Pay ${ksh(chargeAmount)} by Card or M-Pesa`}
                 </button>
               </div>
             )}
