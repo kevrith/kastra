@@ -1,0 +1,13 @@
+User-agent: *
+Allow: /
+Disallow: /dashboard
+Disallow: /invoices
+Disallow: /quotations
+Disallow: /clients
+Disallow: /expenses
+Disallow: /reports
+Disallow: /settings
+Disallow: /portal
+Disallow: /superadmin
+
+Sitemap: https://kastra.app/sitemap.xml
