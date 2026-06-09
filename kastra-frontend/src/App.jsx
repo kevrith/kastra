@@ -41,6 +41,8 @@ import AuditLog from "./pages/AuditLog";
 import PrivacyPolicy from "./pages/legal/PrivacyPolicy";
 import TermsOfService from "./pages/legal/TermsOfService";
 import Landing from "./pages/Landing";
+import Docs from "./pages/Docs";
+import Help from "./pages/Help";
 import SuperAdmin from "./pages/superadmin/SuperAdmin";
 import TestimonialForm from "./pages/TestimonialForm";
 import Spinner from "./components/ui/Spinner";
@@ -78,6 +80,7 @@ export default function App() {
           <Route path="/testimonial/:token" element={<TestimonialForm />} />
           <Route path="/privacy" element={<PrivacyPolicy />} />
           <Route path="/terms" element={<TermsOfService />} />
+          <Route path="/docs" element={<Docs />} />
 
           {/* Protected app */}
           <Route element={<AppLayout />}>
@@ -107,6 +110,7 @@ export default function App() {
             <Route path="/payroll" element={<PayrollRuns />} />
             <Route path="/payroll/runs/:id" element={<PayrollRunDetail />} />
             <Route path="/audit-log" element={<AuditLog />} />
+            <Route path="/help" element={<Help />} />
           </Route>
 
           <Route path="*" element={<Navigate to="/" replace />} />

@@ -2,7 +2,7 @@ import { NavLink, useNavigate } from "react-router-dom";
 import {
   BarChart2, FileText, Home, LogOut, Settings, Users, Receipt,
   TrendingDown, RefreshCw, Package, Kanban, UserCog, FolderKanban, Truck,
-  UserCheck, Wallet, ShieldCheck,
+  UserCheck, Wallet, ShieldCheck, HelpCircle,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import GlobalSearch from "../ui/GlobalSearch";
@@ -92,6 +92,17 @@ export default function Sidebar() {
           <p className="text-xs text-gray-400 truncate">{user?.email}</p>
           <p className="text-xs text-gray-300 truncate mt-0.5">{user?.organization?.name}</p>
         </div>
+        <NavLink
+          to="/help"
+          className={({ isActive }) =>
+            `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+              isActive ? "bg-green-50 text-green-700" : "text-gray-500 hover:bg-gray-50 hover:text-gray-900"
+            }`
+          }
+        >
+          <HelpCircle size={17} />
+          Help
+        </NavLink>
         <button
           onClick={handleLogout}
           className="flex items-center gap-3 px-3 py-2 w-full rounded-lg text-sm text-gray-500 hover:bg-gray-50 hover:text-gray-900 transition-colors"

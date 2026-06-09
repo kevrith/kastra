@@ -422,6 +422,13 @@ export default function Landing() {
               </ul>
             </div>
             <div>
+              <h4 className="text-white font-semibold text-sm mb-3">Support</h4>
+              <ul className="space-y-2 text-sm">
+                <li><Link to="/docs" className="hover:text-white transition-colors">Documentation</Link></li>
+                <li><Link to="/docs#faq" className="hover:text-white transition-colors">FAQ</Link></li>
+              </ul>
+            </div>
+            <div>
               <h4 className="text-white font-semibold text-sm mb-3">Legal</h4>
               <ul className="space-y-2 text-sm">
                 <li><Link to="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link></li>
