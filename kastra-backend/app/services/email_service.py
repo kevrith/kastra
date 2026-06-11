@@ -81,7 +81,7 @@ async def send_password_reset_email(email: str, reset_token: str) -> None:
 
 
 async def send_verification_email(email: str, token: str) -> None:
-    verify_url = f"{settings.primary_frontend_url}/verify-email?token={token}"
+    verify_url = f"{settings.backend_url}/api/auth/verify-email?token={token}"
     html = f"""
     <div style="font-family:sans-serif;max-width:480px;color:#1f2937">
       <div style="background:#0f172a;padding:24px 28px;border-radius:10px 10px 0 0">
