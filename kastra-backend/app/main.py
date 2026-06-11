@@ -22,6 +22,7 @@ from app.routers import currency
 from app.routers import employees, payroll
 from app.routers import audit_logs
 from app.routers import testimonials
+from app.routers import affiliate as affiliate_router
 from app.services.scheduler import start_scheduler, stop_scheduler
 from app.utils.rate_limit import limiter
 
@@ -196,6 +197,7 @@ app.include_router(subscriptions.router)
 app.include_router(superadmin.router)
 app.include_router(audit_logs.router)
 app.include_router(testimonials.router)
+app.include_router(affiliate_router.router)
 
 
 @app.api_route("/health", methods=["GET", "HEAD"])

@@ -8,6 +8,7 @@ from sqlalchemy.orm import selectinload
 
 from app.config import settings
 from app.models.organization import Organization
+from app.models.affiliate import Affiliate, AffiliateReferral
 from app.models.user import User
 from app.utils.plan_limits import VALID_PLANS
 from app.utils.security import hash_password, verify_password
@@ -48,6 +49,7 @@ async def create_user_with_org(
     business_name: str,
     role: str = "admin",
     plan: str = "free",
+    referral_code: str | None = None,
 ) -> User:
     now = datetime.now(timezone.utc)
     chosen_plan = plan if plan in VALID_PLANS else "free"
@@ -79,6 +81,15 @@ async def create_user_with_org(
     )
     db.add(user)
     await db.flush()
+
+    if referral_code:
+        aff = (await db.execute(
+            select(Affiliate).where(Affiliate.code == referral_code.upper(), Affiliate.status == "active")
+        )).scalar_one_or_none()
+        if aff:
+            db.add(AffiliateReferral(affiliate_id=aff.id, organization_id=org.id))
+            await db.flush()
+
     await db.refresh(user, ["organization"])
     return user
 

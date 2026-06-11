@@ -46,6 +46,9 @@ import Help from "./pages/Help";
 import SuperAdmin from "./pages/superadmin/SuperAdmin";
 import TestimonialForm from "./pages/TestimonialForm";
 import Spinner from "./components/ui/Spinner";
+import AffiliateRegister from "./pages/affiliate/AffiliateRegister";
+import AffiliateLogin from "./pages/affiliate/AffiliateLogin";
+import AffiliateDashboard from "./pages/affiliate/AffiliateDashboard";
 
 // Root route: Landing for visitors, dashboard for authenticated users
 function RootRoute() {
@@ -63,6 +66,11 @@ export default function App() {
           {/* Super admin — standalone, no app layout */}
           <Route path="/superadmin" element={<SuperAdmin />} />
           <Route path="/superadmin/*" element={<SuperAdmin />} />
+
+          {/* Affiliate portal — standalone */}
+          <Route path="/affiliate/register" element={<AffiliateRegister />} />
+          <Route path="/affiliate/login" element={<AffiliateLogin />} />
+          <Route path="/affiliate/dashboard" element={<AffiliateDashboard />} />
 
           {/* Public */}
           <Route path="/" element={<RootRoute />} />

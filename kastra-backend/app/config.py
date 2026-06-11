@@ -59,6 +59,9 @@ class Settings(BaseSettings):
     paystack_secret_key: str = "sk_test_placeholder"
     paystack_public_key: str = "pk_test_placeholder"
 
+    # Affiliate programme
+    affiliate_commission_ksh: int = 50  # KSh per active paying org per month — set AFFILIATE_COMMISSION_KSH to override
+
     # Africa's Talking (SMS + WhatsApp)
     at_api_key: str = ""
     at_username: str = "sandbox"   # "sandbox" for testing, your AT username for production

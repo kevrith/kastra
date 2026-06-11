@@ -1419,3 +1419,114 @@ async def sa_delete_testimonial(testimonial_id: str, db: AsyncSession = Depends(
     await db.delete(t)
     await db.commit()
     return {"message": "Deleted"}
+
+
+# ---------------------------------------------------------------------------
+# Affiliate management
+# ---------------------------------------------------------------------------
+
+from app.models.affiliate import Affiliate, AffiliateReferral, AffiliateCommission, AffiliatePayout
+
+
+class _AffiliateStatusPatch(BaseModel):
+    status: str  # active | suspended | pending
+
+
+@router.get("/affiliates", dependencies=[Depends(_verify_sa_token)])
+async def sa_list_affiliates(db: AsyncSession = Depends(get_db)):
+    rows = (await db.execute(
+        select(Affiliate).order_by(Affiliate.created_at.desc())
+    )).scalars().all()
+    return [
+        {
+            "id": str(a.id),
+            "name": a.name,
+            "email": a.email,
+            "phone": a.phone,
+            "code": a.code,
+            "status": a.status,
+            "payout_phone": a.payout_phone,
+            "balance_ksh": float(a.balance_ksh),
+            "total_earned_ksh": float(a.total_earned_ksh),
+            "total_paid_ksh": float(a.total_paid_ksh),
+            "created_at": a.created_at.isoformat(),
+        }
+        for a in rows
+    ]
+
+
+@router.patch("/affiliates/{affiliate_id}/status", dependencies=[Depends(_verify_sa_token)])
+async def sa_update_affiliate_status(affiliate_id: str, payload: _AffiliateStatusPatch, db: AsyncSession = Depends(get_db)):
+    aff = (await db.execute(select(Affiliate).where(Affiliate.id == _uuid.UUID(affiliate_id)))).scalar_one_or_none()
+    if not aff:
+        raise HTTPException(404, "Affiliate not found")
+    if payload.status not in ("active", "suspended", "pending"):
+        raise HTTPException(422, "Invalid status")
+    aff.status = payload.status
+    await db.commit()
+    return {"message": f"Affiliate status updated to {payload.status}"}
+
+
+@router.get("/affiliates/{affiliate_id}", dependencies=[Depends(_verify_sa_token)])
+async def sa_get_affiliate(affiliate_id: str, db: AsyncSession = Depends(get_db)):
+    aff = (await db.execute(select(Affiliate).where(Affiliate.id == _uuid.UUID(affiliate_id)))).scalar_one_or_none()
+    if not aff:
+        raise HTTPException(404, "Affiliate not found")
+
+    referrals = (await db.execute(
+        select(AffiliateReferral)
+        .where(AffiliateReferral.affiliate_id == aff.id)
+        .options(selectinload(AffiliateReferral.organization))
+    )).scalars().all()
+
+    commissions = (await db.execute(
+        select(AffiliateCommission)
+        .where(AffiliateCommission.affiliate_id == aff.id)
+        .order_by(AffiliateCommission.created_at.desc())
+        .limit(50)
+    )).scalars().all()
+
+    payouts = (await db.execute(
+        select(AffiliatePayout)
+        .where(AffiliatePayout.affiliate_id == aff.id)
+        .order_by(AffiliatePayout.requested_at.desc())
+        .limit(20)
+    )).scalars().all()
+
+    return {
+        "id": str(aff.id),
+        "name": aff.name,
+        "email": aff.email,
+        "phone": aff.phone,
+        "code": aff.code,
+        "status": aff.status,
+        "payout_phone": aff.payout_phone,
+        "balance_ksh": float(aff.balance_ksh),
+        "total_earned_ksh": float(aff.total_earned_ksh),
+        "total_paid_ksh": float(aff.total_paid_ksh),
+        "commission_rate_ksh": settings.affiliate_commission_ksh,
+        "referrals": [
+            {
+                "org_id": str(r.organization_id),
+                "org_name": r.organization.name,
+                "plan": r.organization.plan,
+                "is_trial": r.organization.is_trial,
+                "is_paying": r.organization.plan != "free" and not r.organization.is_trial,
+                "joined_at": r.created_at.isoformat(),
+            }
+            for r in referrals
+        ],
+        "commissions": [
+            {"month": c.month, "amount_ksh": float(c.amount_ksh), "org_id": str(c.organization_id)}
+            for c in commissions
+        ],
+        "payouts": [
+            {
+                "id": str(p.id),
+                "amount_ksh": float(p.amount_ksh),
+                "status": p.status,
+                "requested_at": p.requested_at.isoformat(),
+            }
+            for p in payouts
+        ],
+    }

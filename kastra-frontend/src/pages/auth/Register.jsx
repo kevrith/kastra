@@ -42,6 +42,10 @@ export default function Register() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const defaultPlan = searchParams.get("plan") || "free";
+  const referralCode = searchParams.get("ref") || localStorage.getItem("kastra_ref") || null;
+
+  // Persist referral code across page reloads
+  if (searchParams.get("ref")) localStorage.setItem("kastra_ref", searchParams.get("ref"));
 
   const [step, setStep] = useState(1);
   const [selectedPlan, setSelectedPlan] = useState(defaultPlan);
@@ -66,7 +70,8 @@ export default function Register() {
     setError("");
     setLoading(true);
     try {
-      const { data } = await apiRegister(form.email, form.password, form.display_name, form.business_name, true, selectedPlan);
+      const { data } = await apiRegister(form.email, form.password, form.display_name, form.business_name, true, selectedPlan, referralCode);
+      localStorage.removeItem("kastra_ref");
       localStorage.setItem("access_token", data.access_token);
       const { data: userData } = await me();
       login(data.access_token, userData);

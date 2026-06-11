@@ -7,6 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from app.database import AsyncSessionLocal
+from app.models.affiliate import Affiliate, AffiliateCommission, AffiliateReferral
 from app.models.invoice import Invoice, InvoiceItem
 from app.models.organization import Organization
 from app.models.quotation import Quotation
@@ -437,6 +438,67 @@ async def _reset_monthly_counters():
             await db.rollback()
 
 
+async def _credit_affiliate_commissions():
+    """
+    Runs on the 1st of each month — credits KSh commission to each active affiliate
+    for every referred organisation that is on a paid (non-trial) plan.
+    Uses the previous calendar month as the billing period.
+    """
+    from app.config import settings as _settings
+    now = datetime.now(timezone.utc)
+    # Derive previous month label e.g. "2026-05"
+    if now.month == 1:
+        prev_month = f"{now.year - 1}-12"
+    else:
+        prev_month = f"{now.year}-{now.month - 1:02d}"
+
+    async with AsyncSessionLocal() as db:
+        try:
+            referrals = (await db.execute(
+                select(AffiliateReferral)
+                .options(selectinload(AffiliateReferral.organization))
+            )).scalars().all()
+
+            credited = 0
+            for ref in referrals:
+                org = ref.organization
+                if org.plan == "free" or org.is_trial:
+                    continue
+
+                # Skip if already credited this month
+                exists = (await db.execute(
+                    select(AffiliateCommission).where(
+                        AffiliateCommission.affiliate_id == ref.affiliate_id,
+                        AffiliateCommission.organization_id == ref.organization_id,
+                        AffiliateCommission.month == prev_month,
+                    )
+                )).scalar_one_or_none()
+                if exists:
+                    continue
+
+                amount = Decimal(str(_settings.affiliate_commission_ksh))
+                db.add(AffiliateCommission(
+                    affiliate_id=ref.affiliate_id,
+                    organization_id=ref.organization_id,
+                    month=prev_month,
+                    amount_ksh=amount,
+                ))
+
+                aff = (await db.execute(
+                    select(Affiliate).where(Affiliate.id == ref.affiliate_id)
+                )).scalar_one_or_none()
+                if aff:
+                    aff.balance_ksh = Decimal(str(aff.balance_ksh)) + amount
+                    aff.total_earned_ksh = Decimal(str(aff.total_earned_ksh)) + amount
+                    credited += 1
+
+            await db.commit()
+            logger.info("[scheduler] Affiliate commissions credited: %d entries for month %s.", credited, prev_month)
+        except Exception:
+            logger.exception("[scheduler] Error in affiliate commission job")
+            await db.rollback()
+
+
 def start_scheduler():
     # Run jobs daily at midnight EAT (21:00 UTC)
     scheduler.add_job(_process_smart_reminders, "cron", hour=21, minute=0, id="smart_reminders")
@@ -447,6 +509,8 @@ def start_scheduler():
     scheduler.add_job(_expire_complimentary, "cron", hour=21, minute=25, id="expire_complimentary")
     scheduler.add_job(_send_billing_reminders, "cron", hour=21, minute=30, id="billing_reminders")
     scheduler.add_job(_expire_subscriptions, "cron", hour=21, minute=35, id="expire_subscriptions")
+    # Affiliate commissions — runs on the 1st of each month at 00:40 EAT (21:40 UTC)
+    scheduler.add_job(_credit_affiliate_commissions, "cron", day=1, hour=21, minute=40, id="affiliate_commissions")
     scheduler.start()
     logger.info("[scheduler] Started. Jobs run daily at 00:00 EAT.")
 

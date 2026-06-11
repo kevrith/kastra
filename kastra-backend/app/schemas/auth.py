@@ -11,6 +11,7 @@ class RegisterRequest(BaseModel):
     display_name: str
     consent: bool  # Kenya DPA 2019 — explicit consent required
     plan: str = "free"  # free | starter | business | premium
+    referral_code: str | None = None  # affiliate referral code
 
 
 class LoginRequest(BaseModel):
