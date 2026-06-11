@@ -317,3 +317,68 @@ async def test_requires_auth_list(client: AsyncClient):
 async def test_requires_auth_create(client: AsyncClient, sample_client_id: str):
     resp = await client.post("/api/quotations", json={"client_id": sample_client_id, "items": _ITEMS_SIMPLE})
     assert resp.status_code in (401, 403)
+
+
+# ---------------------------------------------------------------------------
+# Zero-price and discounted line items
+# ---------------------------------------------------------------------------
+
+async def test_zero_price_item_accepted(client: AsyncClient, auth_headers: dict, sample_client_id: str):
+    """unit_price=0 must be valid (complimentary items)."""
+    resp = await client.post("/api/quotations", json={
+        "client_id": sample_client_id,
+        "items": [{"description": "Free bonus item", "quantity": "1", "unit_price": "0"}],
+    }, headers=auth_headers)
+    assert resp.status_code == 201
+
+
+async def test_zero_price_item_appears_in_saved_quotation(client: AsyncClient, auth_headers: dict, sample_client_id: str):
+    """A zero-priced line item must survive the save round-trip."""
+    resp = await client.post("/api/quotations", json={
+        "client_id": sample_client_id,
+        "items": [
+            {"description": "Paid service", "quantity": "1", "unit_price": "5000"},
+            {"description": "Complimentary install", "quantity": "1", "unit_price": "0"},
+        ],
+    }, headers=auth_headers)
+    assert resp.status_code == 201
+    items = resp.json()["data"]["items"]
+    assert len(items) == 2
+    descs = {i["description"] for i in items}
+    assert "Complimentary install" in descs
+
+
+async def test_negative_price_rejected(client: AsyncClient, auth_headers: dict, sample_client_id: str):
+    """unit_price below 0 must be rejected with 422."""
+    resp = await client.post("/api/quotations", json={
+        "client_id": sample_client_id,
+        "items": [{"description": "Invalid", "quantity": "1", "unit_price": "-100"}],
+    }, headers=auth_headers)
+    assert resp.status_code == 422
+
+
+async def test_discount_applied_to_line_item(client: AsyncClient, auth_headers: dict, sample_client_id: str):
+    """10% discount on a 10000 item → discount_amount=1000."""
+    resp = await client.post("/api/quotations", json={
+        "client_id": sample_client_id,
+        "items": [{"description": "Camera", "quantity": "1", "unit_price": "10000", "discount_pct": "10"}],
+    }, headers=auth_headers)
+    assert resp.status_code == 201
+    item = resp.json()["data"]["items"][0]
+    assert Decimal(item["discount_amount"]) == Decimal("1000.00")
+
+
+async def test_mixed_zero_and_paid_items_totals(client: AsyncClient, auth_headers: dict, sample_client_id: str):
+    """Zero-price item should not inflate or deflate the total."""
+    resp = await client.post("/api/quotations", json={
+        "client_id": sample_client_id,
+        "items": [
+            {"description": "Service", "quantity": "2", "unit_price": "5000"},
+            {"description": "Free bonus", "quantity": "1", "unit_price": "0"},
+        ],
+    }, headers=auth_headers)
+    assert resp.status_code == 201
+    data = resp.json()["data"]
+    # subtotal = 2×5000 + 1×0 = 10000; vat = 1600; grand = 11600
+    assert Decimal(data["subtotal"]) == Decimal("10000.00")
+    assert Decimal(data["grand_total"]) == Decimal("11600.00")
