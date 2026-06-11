@@ -129,7 +129,7 @@ export default function AffiliateDashboard() {
             <input
               readOnly
               value={referralLink}
-              className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-600 bg-gray-50 font-mono"
+              className="flex-1 min-w-0 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-600 bg-gray-50 font-mono truncate"
             />
             <button
               onClick={copyLink}
@@ -186,7 +186,7 @@ export default function AffiliateDashboard() {
               <button
                 key={t.id}
                 onClick={() => setTab(t.id)}
-                className={`flex-1 py-3 text-sm font-medium transition-colors ${
+                className={`flex-1 py-3 text-xs sm:text-sm font-medium transition-colors truncate ${
                   tab === t.id ? "text-green-600 border-b-2 border-green-600" : "text-gray-500 hover:text-gray-700"
                 }`}
               >

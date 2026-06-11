@@ -54,6 +54,7 @@ class Settings(BaseSettings):
     # Email
     sendgrid_api_key: str = ""
     mail_from: str = "noreply@kastra.co.ke"
+    mail_reply_to: str = ""
 
     # Paystack card payments (set real keys in production)
     paystack_secret_key: str = "sk_test_placeholder"

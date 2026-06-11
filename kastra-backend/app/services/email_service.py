@@ -47,6 +47,8 @@ async def _send_via_sendgrid(to_email: str, subject: str, html: str) -> None:
         "subject": subject,
         "content": [{"type": "text/html", "value": html}],
     }
+    if settings.mail_reply_to:
+        payload["reply_to"] = {"email": settings.mail_reply_to}
     async with httpx.AsyncClient() as client:
         resp = await client.post(
             "https://api.sendgrid.com/v3/mail/send",
@@ -457,6 +459,43 @@ async def send_testimonial_request_email(
     </div>
     """
     await _send(to_email, "Share your Kastra experience — 2-minute testimonial request", html)
+
+
+async def send_affiliate_approved_email(name: str, email: str) -> None:
+    login_url = f"{settings.primary_frontend_url}/affiliate/login"
+    html = f"""
+    <div style="font-family:sans-serif;max-width:480px;color:#1f2937">
+      <div style="background:#0f172a;padding:24px 28px;border-radius:10px 10px 0 0">
+        <p style="color:#94a3b8;font-size:11px;text-transform:uppercase;letter-spacing:1.5px;margin:0 0 4px">Kastra Partners</p>
+        <h2 style="color:#f8fafc;margin:0;font-size:20px">You're approved!</h2>
+      </div>
+      <div style="background:#fff;border:1px solid #e2e8f0;border-top:none;padding:24px 28px;border-radius:0 0 10px 10px">
+        <p style="margin:0 0 16px">Hi {name},</p>
+        <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:14px 16px;margin-bottom:20px">
+          <p style="margin:0;font-size:13px;color:#166534">
+            Your Kastra affiliate application has been approved.
+            Your account is now active and you can start earning commissions immediately.
+          </p>
+        </div>
+        <p style="color:#374151;margin:0 0 20px;font-size:13px">
+          Log in to your partner portal to grab your referral link and track your earnings.
+          You earn a commission for every paying subscriber you refer.
+        </p>
+        <a href="{login_url}"
+           style="display:inline-block;background:#16a34a;color:#fff;padding:12px 26px;
+                  border-radius:8px;text-decoration:none;font-weight:700;font-size:14px">
+          Go to Partner Portal
+        </a>
+        <p style="font-size:12px;color:#6b7280;margin-top:20px">
+          Sign in with the email and password you used when you applied.
+        </p>
+        <p style="font-size:11px;color:#9ca3af;margin-top:16px">
+          Questions? Reply to this email and we'll help you get started.
+        </p>
+      </div>
+    </div>
+    """
+    await _send(email, "You've been approved — Kastra Partner Portal", html)
 
 
 async def send_overdue_reminder_email(

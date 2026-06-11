@@ -4,12 +4,13 @@ import os
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy import text
+from sqlalchemy import select, text
 from sqlalchemy.pool import NullPool
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.database import Base, get_db
 from app.main import app
+from app.models.user import User
 from app.utils.rate_limit import limiter
 
 # Disable rate limiting in tests so fixture registrations don't hit 429.
@@ -67,20 +68,34 @@ async def client(db_session: AsyncSession):
 _counter = {"n": 0}
 
 
-@pytest_asyncio.fixture
-async def auth_headers(client: AsyncClient) -> dict:
-    """Register a unique user per test and return Bearer auth headers."""
-    _counter["n"] += 1
-    email = f"user{_counter['n']}@example.com"
-    resp = await client.post("/api/auth/register", json={
+async def _register_and_verify(client: AsyncClient, db_session: AsyncSession, email: str, password: str, n: int) -> str:
+    """Register a user, bypass email verification via DB, log in, return access token."""
+    reg = await client.post("/api/auth/register", json={
         "email": email,
-        "password": "testpass123",
+        "password": password,
         "display_name": "Test User",
-        "business_name": f"Test Biz {_counter['n']}",
+        "business_name": f"Test Biz {n}",
         "consent": True,
     })
-    assert resp.status_code == 201, resp.text
-    token = resp.json()["access_token"]
+    assert reg.status_code == 201, reg.text
+
+    # Bypass the email link — mark the user verified directly in the test DB.
+    result = await db_session.execute(select(User).where(User.email == email))
+    user = result.scalar_one()
+    user.email_verified = True
+    await db_session.commit()
+
+    login = await client.post("/api/auth/login", json={"email": email, "password": password})
+    assert login.status_code == 200, login.text
+    return login.json()["access_token"]
+
+
+@pytest_asyncio.fixture
+async def auth_headers(client: AsyncClient, db_session: AsyncSession) -> dict:
+    """Register a unique verified user per test and return Bearer auth headers."""
+    _counter["n"] += 1
+    email = f"user{_counter['n']}@example.com"
+    token = await _register_and_verify(client, db_session, email, "testpass123", _counter["n"])
     return {"Authorization": f"Bearer {token}"}
 
 

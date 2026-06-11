@@ -1516,6 +1516,7 @@ async def sa_delete_testimonial(testimonial_id: str, db: AsyncSession = Depends(
 # ---------------------------------------------------------------------------
 
 from app.models.affiliate import Affiliate, AffiliateReferral, AffiliateCommission, AffiliatePayout
+from app.services.email_service import send_affiliate_approved_email
 
 
 class _AffiliateStatusPatch(BaseModel):
@@ -1552,8 +1553,11 @@ async def sa_update_affiliate_status(affiliate_id: str, payload: _AffiliateStatu
         raise HTTPException(404, "Affiliate not found")
     if payload.status not in ("active", "suspended", "pending"):
         raise HTTPException(422, "Invalid status")
+    prev_status = aff.status
     aff.status = payload.status
     await db.commit()
+    if payload.status == "active" and prev_status != "active":
+        await send_affiliate_approved_email(aff.name, aff.email)
     return {"message": f"Affiliate status updated to {payload.status}"}
 
 
@@ -1620,3 +1624,18 @@ async def sa_get_affiliate(affiliate_id: str, db: AsyncSession = Depends(get_db)
             for p in payouts
         ],
     }
+
+
+@router.delete("/affiliates/{affiliate_id}", dependencies=[Depends(_verify_sa_token)])
+async def sa_delete_affiliate(affiliate_id: str, db: AsyncSession = Depends(get_db)):
+    aff = (await db.execute(select(Affiliate).where(Affiliate.id == _uuid.UUID(affiliate_id)))).scalar_one_or_none()
+    if not aff:
+        raise HTTPException(404, "Affiliate not found")
+    name = aff.name
+    # Cascade: delete child records first (referrals keep the org intact — we only remove the link)
+    await db.execute(text("DELETE FROM affiliate_payouts     WHERE affiliate_id = :aid"), {"aid": aff.id})
+    await db.execute(text("DELETE FROM affiliate_commissions WHERE affiliate_id = :aid"), {"aid": aff.id})
+    await db.execute(text("DELETE FROM affiliate_referrals   WHERE affiliate_id = :aid"), {"aid": aff.id})
+    await db.delete(aff)
+    await db.commit()
+    return {"message": f"Affiliate '{name}' has been permanently deleted."}

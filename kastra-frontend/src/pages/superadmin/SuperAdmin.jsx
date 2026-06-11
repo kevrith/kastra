@@ -15,6 +15,7 @@ import {
   superadminRequestTestimonial, superadminResendTestimonial,
   superadminApproveTestimonial, superadminRejectTestimonial,
   superadminListAffiliates, superadminGetAffiliate, superadminUpdateAffiliateStatus,
+  superadminDeleteAffiliate,
   superadminDeleteOrg,
 } from "../../api/subscriptions";
 import {
@@ -1822,6 +1823,15 @@ export default function SuperAdmin() {
                                 catch { flash("Failed to reactivate", "error"); }
                               }} className="text-xs px-2 py-1 bg-blue-700 hover:bg-blue-600 text-white rounded-lg">Reactivate</button>
                             )}
+                            <button onClick={async () => {
+                              if (!window.confirm(`Permanently delete ${a.name}? This cannot be undone.`)) return;
+                              try {
+                                await superadminDeleteAffiliate(token, a.id);
+                                flash("Affiliate deleted", "success");
+                                if (selectedAffiliate?.id === a.id) setSelectedAffiliate(null);
+                                loadAffiliates();
+                              } catch { flash("Failed to delete affiliate", "error"); }
+                            }} className="text-xs px-2 py-1 bg-red-800 hover:bg-red-700 text-white rounded-lg">Delete</button>
                           </div>
                         </td>
                       </tr>
