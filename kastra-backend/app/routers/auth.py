@@ -92,34 +92,31 @@ async def register(request: Request, payload: RegisterRequest, db: AsyncSession 
 
 @router.get("/verify-email")
 @limiter.limit("20/hour")
-async def verify_email(request: Request, token: str, response: Response, db: AsyncSession = Depends(get_db)):
+async def verify_email(request: Request, token: str, db: AsyncSession = Depends(get_db)):
     try:
         email = verify_email_verification_token(token)
     except JWTError:
-        from fastapi.responses import RedirectResponse
-        return RedirectResponse(url=f"{settings.primary_frontend_url}/verify-email?error=invalid")
+        raise HTTPException(status_code=400, detail="INVALID_TOKEN")
 
     user = await get_user_by_email(db, email)
     if not user:
-        from fastapi.responses import RedirectResponse
-        return RedirectResponse(url=f"{settings.primary_frontend_url}/verify-email?error=invalid")
+        raise HTTPException(status_code=400, detail="INVALID_TOKEN")
 
     if user.email_verified:
-        from fastapi.responses import RedirectResponse
-        return RedirectResponse(url=f"{settings.primary_frontend_url}/login?verified=already")
+        raise HTTPException(status_code=409, detail="ALREADY_VERIFIED")
 
     user.email_verified = True
     user.last_login_at = datetime.now(timezone.utc)
     await db.commit()
 
-    # Load org for token creation
     user = await _load_user_with_org(db, user.id)
     access_token = create_access_token(str(user.id), user.role)
     refresh_token = create_refresh_token(str(user.id), user.token_version)
-    _set_refresh_cookie(response, refresh_token)
 
-    from fastapi.responses import RedirectResponse
-    return RedirectResponse(url=f"{settings.primary_frontend_url}/auth/callback?token={access_token}")
+    from fastapi.responses import JSONResponse
+    resp = JSONResponse(content={"access_token": access_token})
+    _set_refresh_cookie(resp, refresh_token)
+    return resp
 
 
 @router.post("/resend-verification")

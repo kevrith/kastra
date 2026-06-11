@@ -93,28 +93,26 @@ async def test_login_wrong_password(client: AsyncClient):
 # ---------------------------------------------------------------------------
 
 @pytest.mark.asyncio
-async def test_verify_email_valid_token_redirects_with_jwt(client: AsyncClient):
-    """A valid verification token marks the user verified and redirects to the callback URL."""
+async def test_verify_email_valid_token_returns_access_token(client: AsyncClient):
+    """A valid verification token returns a 200 with an access token."""
     email = "verify_ok@k.co"
     await client.post("/api/auth/register", json={**_REG, "email": email})
 
     token = create_email_verification_token(email)
-    resp = await client.get(f"/api/auth/verify-email?token={token}", follow_redirects=False)
+    resp = await client.get(f"/api/auth/verify-email?token={token}")
 
-    assert resp.status_code in (302, 307)
-    location = resp.headers["location"]
-    assert "/auth/callback" in location
-    assert "token=" in location
+    assert resp.status_code == 200
+    assert "access_token" in resp.json()
 
 
 @pytest.mark.asyncio
 async def test_verify_email_marks_user_as_verified(client: AsyncClient, db_session: AsyncSession):
-    """After following the verification link, email_verified must be True in the DB."""
+    """After calling the verify endpoint, email_verified must be True in the DB."""
     email = "verify_db@k.co"
     await client.post("/api/auth/register", json={**_REG, "email": email})
 
     token = create_email_verification_token(email)
-    await client.get(f"/api/auth/verify-email?token={token}", follow_redirects=False)
+    await client.get(f"/api/auth/verify-email?token={token}")
 
     result = await db_session.execute(select(User).where(User.email == email))
     user = result.scalar_one()
@@ -122,34 +120,33 @@ async def test_verify_email_marks_user_as_verified(client: AsyncClient, db_sessi
 
 
 @pytest.mark.asyncio
-async def test_verify_email_invalid_token_redirects_to_error(client: AsyncClient):
-    """A tampered / garbage token must redirect to the error page."""
-    resp = await client.get("/api/auth/verify-email?token=not.a.valid.token", follow_redirects=False)
-    assert resp.status_code in (302, 307)
-    assert "error=invalid" in resp.headers["location"]
+async def test_verify_email_invalid_token_returns_400(client: AsyncClient):
+    """A tampered / garbage token must return 400 INVALID_TOKEN."""
+    resp = await client.get("/api/auth/verify-email?token=not.a.valid.token")
+    assert resp.status_code == 400
+    assert resp.json()["detail"] == "INVALID_TOKEN"
 
 
 @pytest.mark.asyncio
-async def test_verify_email_expired_token_redirects_to_error(client: AsyncClient):
-    """An expired JWT must redirect to the error page."""
+async def test_verify_email_expired_token_returns_400(client: AsyncClient):
+    """An expired JWT must return 400 INVALID_TOKEN."""
     email = "expired@k.co"
     await client.post("/api/auth/register", json={**_REG, "email": email})
 
-    # Build a token that expired 1 second ago
     past = datetime.now(timezone.utc) - timedelta(seconds=1)
     expired_token = jwt.encode(
         {"sub": email, "exp": past, "type": "verify"},
         _VERIFY_SECRET,
         algorithm="HS256",
     )
-    resp = await client.get(f"/api/auth/verify-email?token={expired_token}", follow_redirects=False)
-    assert resp.status_code in (302, 307)
-    assert "error=invalid" in resp.headers["location"]
+    resp = await client.get(f"/api/auth/verify-email?token={expired_token}")
+    assert resp.status_code == 400
+    assert resp.json()["detail"] == "INVALID_TOKEN"
 
 
 @pytest.mark.asyncio
-async def test_verify_email_wrong_token_type_redirects_to_error(client: AsyncClient):
-    """A JWT with wrong 'type' claim (e.g. a reset token) must be rejected."""
+async def test_verify_email_wrong_token_type_returns_400(client: AsyncClient):
+    """A JWT with wrong 'type' claim must return 400 INVALID_TOKEN."""
     email = "wrongtype@k.co"
     await client.post("/api/auth/register", json={**_REG, "email": email})
 
@@ -158,34 +155,32 @@ async def test_verify_email_wrong_token_type_redirects_to_error(client: AsyncCli
         _VERIFY_SECRET,
         algorithm="HS256",
     )
-    resp = await client.get(f"/api/auth/verify-email?token={wrong_type_token}", follow_redirects=False)
-    assert resp.status_code in (302, 307)
-    assert "error=invalid" in resp.headers["location"]
+    resp = await client.get(f"/api/auth/verify-email?token={wrong_type_token}")
+    assert resp.status_code == 400
+    assert resp.json()["detail"] == "INVALID_TOKEN"
 
 
 @pytest.mark.asyncio
-async def test_verify_email_unknown_email_redirects_to_error(client: AsyncClient):
-    """Verification token for a non-existent email must redirect to error."""
+async def test_verify_email_unknown_email_returns_400(client: AsyncClient):
+    """Verification token for a non-existent email must return 400 INVALID_TOKEN."""
     token = create_email_verification_token("ghost@nowhere.io")
-    resp = await client.get(f"/api/auth/verify-email?token={token}", follow_redirects=False)
-    assert resp.status_code in (302, 307)
-    assert "error=invalid" in resp.headers["location"]
+    resp = await client.get(f"/api/auth/verify-email?token={token}")
+    assert resp.status_code == 400
+    assert resp.json()["detail"] == "INVALID_TOKEN"
 
 
 @pytest.mark.asyncio
-async def test_verify_email_already_verified_redirects_to_login(client: AsyncClient, db_session: AsyncSession):
-    """Clicking the link a second time must redirect to /login?verified=already."""
+async def test_verify_email_already_verified_returns_409(client: AsyncClient, db_session: AsyncSession):
+    """Calling the verify endpoint a second time must return 409 ALREADY_VERIFIED."""
     email = "already@k.co"
     await client.post("/api/auth/register", json={**_REG, "email": email})
 
-    # First click — verifies
     token = create_email_verification_token(email)
-    await client.get(f"/api/auth/verify-email?token={token}", follow_redirects=False)
+    await client.get(f"/api/auth/verify-email?token={token}")
 
-    # Second click — already verified
-    resp = await client.get(f"/api/auth/verify-email?token={token}", follow_redirects=False)
-    assert resp.status_code in (302, 307)
-    assert "verified=already" in resp.headers["location"]
+    resp = await client.get(f"/api/auth/verify-email?token={token}")
+    assert resp.status_code == 409
+    assert resp.json()["detail"] == "ALREADY_VERIFIED"
 
 
 # ---------------------------------------------------------------------------
@@ -209,13 +204,11 @@ async def test_full_registration_verification_login_flow(client: AsyncClient):
 
     # 3. Verify
     token = create_email_verification_token(email)
-    verify = await client.get(f"/api/auth/verify-email?token={token}", follow_redirects=False)
-    assert verify.status_code in (302, 307)
-    location = verify.headers["location"]
-    assert "token=" in location
+    verify = await client.get(f"/api/auth/verify-email?token={token}")
+    assert verify.status_code == 200
+    jwt_token = verify.json()["access_token"]
 
-    # 4. Extract JWT from redirect and call /me
-    jwt_token = location.split("token=")[1]
+    # 4. Use returned access token to call /me
     me = await client.get("/api/auth/me", headers={"Authorization": f"Bearer {jwt_token}"})
     assert me.status_code == 200
     assert me.json()["email"] == email

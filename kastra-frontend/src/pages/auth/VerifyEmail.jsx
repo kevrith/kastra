@@ -1,49 +1,39 @@
 import { useEffect, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
-import { me } from "../../api/auth";
+import { verifyEmail as apiVerifyEmail, me } from "../../api/auth";
 import { CheckCircle, XCircle, Loader } from "lucide-react";
 
 export default function VerifyEmail() {
   const [searchParams] = useSearchParams();
   const { login } = useAuth();
+  const navigate = useNavigate();
   const token = searchParams.get("token");
-  const error = searchParams.get("error");
 
   const [status, setStatus] = useState("checking"); // checking | success | invalid | already
 
   useEffect(() => {
-    if (error) {
+    if (!token) {
       setStatus("invalid");
       return;
     }
-
-    // The backend verify-email endpoint is a GET redirect — when the user
-    // clicks the email link they are sent to the backend which then redirects
-    // to /auth/callback?token=... (same as Google OAuth).
-    // This page is only reached when something goes wrong (error param) or
-    // when the backend redirects here with ?verified=already.
-    const already = searchParams.get("verified");
-    if (already === "already") {
-      setStatus("already");
-    }
-  }, [error, searchParams]);
-
-  // If there's a raw JWT token in the URL (from a redirect), log the user in
-  useEffect(() => {
-    if (!token) return;
     (async () => {
       try {
-        localStorage.setItem("access_token", token);
+        const { data } = await apiVerifyEmail(token);
+        localStorage.setItem("access_token", data.access_token);
         const { data: userData } = await me();
-        login(token, userData);
+        login(data.access_token, userData);
         setStatus("success");
-      } catch {
-        localStorage.removeItem("access_token");
-        setStatus("invalid");
+        setTimeout(() => navigate("/dashboard"), 2500);
+      } catch (err) {
+        if (err.response?.data?.detail === "ALREADY_VERIFIED") {
+          setStatus("already");
+        } else {
+          setStatus("invalid");
+        }
       }
     })();
-  }, [token, login]);
+  }, [token, login, navigate]);
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
