@@ -6,6 +6,7 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
+from app.utils.encryption import EncryptedString
 
 
 class Organization(Base):
@@ -23,19 +24,19 @@ class Organization(Base):
     authorised_by: Mapped[str | None] = mapped_column(String(200), nullable=True)
     logo_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     document_template: Mapped[str] = mapped_column(String(20), nullable=False, default="classic")
-    # Payment credentials (per-org)
-    paystack_secret_key: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    mpesa_consumer_key: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    mpesa_consumer_secret: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # Payment credentials (per-org) — stored encrypted at rest via EncryptedString
+    paystack_secret_key: Mapped[str | None] = mapped_column(EncryptedString, nullable=True)
+    mpesa_consumer_key: Mapped[str | None] = mapped_column(EncryptedString, nullable=True)
+    mpesa_consumer_secret: Mapped[str | None] = mapped_column(EncryptedString, nullable=True)
     mpesa_shortcode: Mapped[str | None] = mapped_column(String(20), nullable=True)
-    mpesa_passkey: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    mpesa_passkey: Mapped[str | None] = mapped_column(EncryptedString, nullable=True)
     mpesa_env: Mapped[str] = mapped_column(String(20), nullable=False, default="sandbox")
 
     # eTIMS / KRA
     etims_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     etims_branch_id: Mapped[str | None] = mapped_column(String(10), nullable=True)
     etims_device_serial: Mapped[str | None] = mapped_column(String(50), nullable=True)
-    etims_auth_token: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    etims_auth_token: Mapped[str | None] = mapped_column(EncryptedString, nullable=True)
 
     # Subscription / plan
     plan: Mapped[str] = mapped_column(String(20), nullable=False, default="free")

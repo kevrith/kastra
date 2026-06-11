@@ -69,6 +69,11 @@ class Settings(BaseSettings):
     cloudinary_api_key: str = ""
     cloudinary_api_secret: str = ""
 
+    # Field-level encryption key — generate with:
+    #   python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+    # Set FIELD_ENCRYPTION_KEY in .env. If blank, credentials are stored plain-text (dev only).
+    field_encryption_key: str = ""
+
     # Error tracking (optional — set SENTRY_DSN in production)
     sentry_dsn: str = ""
 
