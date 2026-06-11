@@ -521,6 +521,88 @@ async def suspend_org(org_id: str, db: AsyncSession = Depends(get_db)):
     return {"message": "Organization suspended", "org_id": org_id}
 
 
+@router.delete("/organizations/{org_id}", dependencies=[Depends(_verify_sa_token)])
+async def delete_org(org_id: str, db: AsyncSession = Depends(get_db)):
+    from sqlalchemy import text
+
+    result = await db.execute(select(Organization).where(Organization.id == org_id))
+    org = result.scalar_one_or_none()
+    if not org:
+        raise HTTPException(404, "Organization not found")
+
+    org_name = org.name
+
+    # Delete in FK dependency order — children before parents
+    stmts = [
+        # Affiliate sub-tables
+        "DELETE FROM affiliate_commissions WHERE organization_id = :oid",
+        "DELETE FROM affiliate_referrals  WHERE organization_id = :oid",
+        # Supplier sub-tables (response items → invites → request items → requests → suppliers)
+        """DELETE FROM supplier_response_items WHERE supplier_request_invite_id IN (
+              SELECT id FROM supplier_request_invites WHERE supplier_request_id IN (
+                SELECT id FROM supplier_requests WHERE organization_id = :oid))""",
+        """DELETE FROM supplier_request_invites WHERE supplier_request_id IN (
+              SELECT id FROM supplier_requests WHERE organization_id = :oid)""",
+        """DELETE FROM supplier_request_items WHERE supplier_request_id IN (
+              SELECT id FROM supplier_requests WHERE organization_id = :oid)""",
+        "DELETE FROM supplier_requests WHERE organization_id = :oid",
+        "DELETE FROM suppliers WHERE organization_id = :oid",
+        # Payroll sub-tables
+        """DELETE FROM payslips WHERE payroll_run_id IN (
+              SELECT id FROM payroll_runs WHERE organization_id = :oid)""",
+        "DELETE FROM payroll_runs WHERE organization_id = :oid",
+        "DELETE FROM employees WHERE organization_id = :oid",
+        # Project sub-tables
+        """DELETE FROM project_photos WHERE project_id IN (
+              SELECT id FROM projects WHERE organization_id = :oid)""",
+        """DELETE FROM project_updates WHERE project_id IN (
+              SELECT id FROM projects WHERE organization_id = :oid)""",
+        "DELETE FROM projects WHERE organization_id = :oid",
+        # Invoice sub-tables
+        """DELETE FROM payment_details WHERE invoice_id IN (
+              SELECT id FROM invoices WHERE organization_id = :oid)""",
+        """DELETE FROM invoice_items WHERE invoice_id IN (
+              SELECT id FROM invoices WHERE organization_id = :oid)""",
+        """DELETE FROM invoice_charges WHERE invoice_id IN (
+              SELECT id FROM invoices WHERE organization_id = :oid)""",
+        """DELETE FROM invoice_payments WHERE invoice_id IN (
+              SELECT id FROM invoices WHERE organization_id = :oid)""",
+        "DELETE FROM invoices WHERE organization_id = :oid",
+        # Quotation sub-tables
+        """DELETE FROM quotation_items WHERE quotation_id IN (
+              SELECT id FROM quotations WHERE organization_id = :oid)""",
+        """DELETE FROM quotation_charges WHERE quotation_id IN (
+              SELECT id FROM quotations WHERE organization_id = :oid)""",
+        """DELETE FROM quotation_notes WHERE quotation_id IN (
+              SELECT id FROM quotations WHERE organization_id = :oid)""",
+        "DELETE FROM quotations WHERE organization_id = :oid",
+        # Other org-level tables
+        "DELETE FROM recurring_invoices WHERE organization_id = :oid",
+        "DELETE FROM expenses WHERE organization_id = :oid",
+        "DELETE FROM products WHERE organization_id = :oid",
+        "DELETE FROM client_prices WHERE organization_id = :oid",
+        "DELETE FROM clients WHERE organization_id = :oid",
+        "DELETE FROM notifications WHERE organization_id = :oid",
+        "DELETE FROM subscription_payments WHERE organization_id = :oid",
+        "DELETE FROM sequence_counters WHERE organization_id = :oid",
+        # Audit logs referencing org users
+        """DELETE FROM audit_logs WHERE user_id IN (
+              SELECT id FROM users WHERE organization_id = :oid)""",
+        """DELETE FROM user_permissions WHERE user_id IN (
+              SELECT id FROM users WHERE organization_id = :oid)""",
+        "DELETE FROM users WHERE organization_id = :oid",
+        # Finally the org itself
+        "DELETE FROM organizations WHERE id = :oid",
+    ]
+
+    oid = _uuid.UUID(org_id)
+    for stmt in stmts:
+        await db.execute(text(stmt), {"oid": oid})
+
+    await db.commit()
+    return {"message": f"Organisation '{org_name}' and all its data have been permanently deleted."}
+
+
 @router.post("/organizations/{org_id}/extend-trial", dependencies=[Depends(_verify_sa_token)])
 async def extend_trial(
     org_id: str,

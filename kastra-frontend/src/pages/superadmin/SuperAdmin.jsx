@@ -15,6 +15,7 @@ import {
   superadminRequestTestimonial, superadminResendTestimonial,
   superadminApproveTestimonial, superadminRejectTestimonial,
   superadminListAffiliates, superadminGetAffiliate, superadminUpdateAffiliateStatus,
+  superadminDeleteOrg,
 } from "../../api/subscriptions";
 import {
   LayoutDashboard, Building2, LogOut, Search, ChevronLeft, ChevronRight,
@@ -184,6 +185,8 @@ export default function SuperAdmin() {
   const [selectedOrg, setSelectedOrg] = useState(null);
   const [loading, setLoading] = useState(false);
   const [actionMsg, setActionMsg] = useState({ text: "", type: "success" });
+  const [deleteOrgConfirm, setDeleteOrgConfirm] = useState(false);
+  const [deleteOrgLoading, setDeleteOrgLoading] = useState(false);
 
   // Platform data views
   const [saInvoices, setSaInvoices] = useState([]);
@@ -561,6 +564,21 @@ export default function SuperAdmin() {
       setUserActionModal(null);
       await loadOrgDetail(selectedOrg.id);
     } catch (e) { flash(e.response?.data?.detail ?? "Error changing role", "error"); }
+  };
+
+  const doDeleteOrg = async () => {
+    setDeleteOrgLoading(true);
+    try {
+      await superadminDeleteOrg(token, selectedOrg.id);
+      setDeleteOrgConfirm(false);
+      setSelectedOrg(null);
+      setView("orgs");
+      flash(`Organisation deleted permanently.`);
+      loadOrgs();
+    } catch (e) {
+      setDeleteOrgLoading(false);
+      flash(e.response?.data?.detail ?? "Error deleting organisation", "error");
+    }
   };
 
   // ── Login screen ──────────────────────────────────────────────────────────────
@@ -1302,7 +1320,47 @@ export default function SuperAdmin() {
                     <Gift size={10} /> Complimentary{selectedOrg.complimentary_ends_at ? ` · expires ${fmtDate(selectedOrg.complimentary_ends_at)}` : " · indefinite"}
                   </span>
                 )}
+                <button
+                  onClick={() => setDeleteOrgConfirm(true)}
+                  className="ml-auto flex items-center gap-1.5 px-3 py-1.5 bg-red-900/40 hover:bg-red-800/60 border border-red-700 text-red-400 hover:text-red-300 text-xs font-semibold rounded-lg transition-colors"
+                >
+                  <Trash2 size={13} /> Delete Org
+                </button>
               </div>
+
+              {/* Delete confirmation modal */}
+              {deleteOrgConfirm && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
+                  <div className="bg-gray-900 border border-red-700 rounded-xl p-6 w-full max-w-sm shadow-2xl">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="p-2 bg-red-900/40 rounded-lg"><Trash2 size={20} className="text-red-400" /></div>
+                      <h3 className="text-white font-bold text-lg">Delete Organisation</h3>
+                    </div>
+                    <p className="text-gray-300 text-sm mb-2">
+                      You are about to permanently delete <span className="font-semibold text-white">{selectedOrg.name}</span>.
+                    </p>
+                    <p className="text-red-400 text-xs mb-5">
+                      This will remove ALL data — invoices, quotations, clients, users, payments, and more. This action cannot be undone.
+                    </p>
+                    <div className="flex gap-3">
+                      <button
+                        onClick={() => setDeleteOrgConfirm(false)}
+                        disabled={deleteOrgLoading}
+                        className="flex-1 py-2 rounded-lg border border-gray-700 text-gray-300 hover:text-white text-sm font-medium transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={doDeleteOrg}
+                        disabled={deleteOrgLoading}
+                        className="flex-1 py-2 rounded-lg bg-red-700 hover:bg-red-600 text-white text-sm font-semibold transition-colors disabled:opacity-60"
+                      >
+                        {deleteOrgLoading ? "Deleting…" : "Yes, delete permanently"}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* KPI row */}
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">

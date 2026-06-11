@@ -132,3 +132,6 @@ export const superadminGetAffiliate = (token, id) =>
 
 export const superadminUpdateAffiliateStatus = (token, id, status) =>
   api.patch(`/api/superadmin/affiliates/${id}/status`, { status }, saHeaders(token));
+
+export const superadminDeleteOrg = (token, orgId) =>
+  api.delete(`/api/superadmin/organizations/${orgId}`, saHeaders(token));
