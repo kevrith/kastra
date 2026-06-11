@@ -3,10 +3,11 @@ import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
   Home, FileText, Receipt, Users, Settings,
   TrendingDown, RefreshCw, BarChart2, Package, MoreHorizontal, X, Kanban,
-  FolderKanban, UserCog, LogOut, Truck, UserCheck, Wallet, ShieldCheck, Lock,
+  FolderKanban, UserCog, LogOut, Truck, UserCheck, Wallet, ShieldCheck, Lock, Download,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { hasFeature, SIDEBAR_FEATURE, UNLOCK_PLAN, PLAN_LABELS } from "../../utils/planFeatures";
+import { usePWAInstall } from "../../hooks/usePWAInstall";
 
 const PRIMARY = [
   { to: "/dashboard", icon: Home, label: "Home" },
@@ -48,6 +49,7 @@ export default function BottomNav() {
 
   const role = user?.role;
   const visibleDrawer = DRAWER_LINKS.filter(l => canSee(l, role));
+  const { canInstall, promptInstall } = usePWAInstall();
   const isMoreActive = visibleDrawer.some((l) => location.pathname.startsWith(l.to));
 
   const handleLogout = async () => {
@@ -123,6 +125,15 @@ export default function BottomNav() {
               <p className="text-xs font-medium text-gray-900 truncate">{user?.display_name}</p>
               <p className="text-xs text-gray-500 truncate">{user?.email}</p>
             </div>
+            {canInstall && (
+              <button
+                onClick={promptInstall}
+                className="flex items-center gap-3 px-4 py-3 w-full rounded-xl text-sm font-medium text-green-600 active:bg-green-50 transition-colors"
+              >
+                <Download size={20} />
+                Install App
+              </button>
+            )}
             <button
               onClick={handleLogout}
               className="flex items-center gap-3 px-4 py-3 w-full rounded-xl text-sm font-medium text-red-600 active:bg-red-50 transition-colors"

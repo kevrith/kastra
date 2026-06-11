@@ -2,12 +2,13 @@ import { NavLink, useNavigate } from "react-router-dom";
 import {
   BarChart2, FileText, Home, LogOut, Settings, Users, Receipt,
   TrendingDown, RefreshCw, Package, Kanban, UserCog, FolderKanban, Truck,
-  UserCheck, Wallet, ShieldCheck, HelpCircle, Lock,
+  UserCheck, Wallet, ShieldCheck, HelpCircle, Lock, Download,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import GlobalSearch from "../ui/GlobalSearch";
 import NotificationBell from "../ui/NotificationBell";
 import { hasFeature, SIDEBAR_FEATURE, UNLOCK_PLAN, PLAN_LABELS } from "../../utils/planFeatures";
+import { usePWAInstall } from "../../hooks/usePWAInstall";
 
 const links = [
   { to: "/dashboard", icon: Home, label: "Dashboard" },
@@ -31,6 +32,7 @@ const links = [
 export default function Sidebar() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const { canInstall, promptInstall } = usePWAInstall();
 
   const handleLogout = async () => {
     await logout();
@@ -118,6 +120,15 @@ export default function Sidebar() {
           <HelpCircle size={17} />
           Help
         </NavLink>
+        {canInstall && (
+          <button
+            onClick={promptInstall}
+            className="flex items-center gap-3 px-3 py-2 w-full rounded-lg text-sm text-green-600 hover:bg-green-50 transition-colors font-medium"
+          >
+            <Download size={17} />
+            Install App
+          </button>
+        )}
         <button
           onClick={handleLogout}
           className="flex items-center gap-3 px-3 py-2 w-full rounded-lg text-sm text-gray-500 hover:bg-gray-50 hover:text-gray-900 transition-colors"
