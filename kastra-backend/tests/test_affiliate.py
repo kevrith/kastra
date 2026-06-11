@@ -264,16 +264,26 @@ async def test_check_inactive_code_returns_404(client: AsyncClient, db_session: 
 # Superadmin affiliate management
 # ---------------------------------------------------------------------------
 
+async def _sa_token(client: AsyncClient) -> str:
+    from app.config import settings
+    resp = await client.post("/api/superadmin/login", json={
+        "username": settings.superadmin_username,
+        "password": settings.superadmin_password,
+    })
+    assert resp.status_code == 200, resp.text
+    return resp.json()["access_token"]
+
+
 @pytest.mark.asyncio
 async def test_sa_list_affiliates(client: AsyncClient, db_session: AsyncSession):
-    from app.config import settings
     aff = _make_affiliate(code=f"SA{uuid.uuid4().hex[:4].upper()}")
     db_session.add(aff)
     await db_session.commit()
 
+    token = await _sa_token(client)
     resp = await client.get(
         "/api/superadmin/affiliates",
-        headers={"Authorization": f"Bearer {settings.superadmin_secret_key}"},
+        headers={"Authorization": f"Bearer {token}"},
     )
     assert resp.status_code == 200
     assert isinstance(resp.json(), list)
@@ -281,15 +291,15 @@ async def test_sa_list_affiliates(client: AsyncClient, db_session: AsyncSession)
 
 @pytest.mark.asyncio
 async def test_sa_approve_affiliate(client: AsyncClient, db_session: AsyncSession):
-    from app.config import settings
     aff = _make_affiliate(status="pending", code=f"APP{uuid.uuid4().hex[:4].upper()}")
     db_session.add(aff)
     await db_session.commit()
 
+    token = await _sa_token(client)
     resp = await client.patch(
         f"/api/superadmin/affiliates/{aff.id}/status",
         json={"status": "active"},
-        headers={"Authorization": f"Bearer {settings.superadmin_secret_key}"},
+        headers={"Authorization": f"Bearer {token}"},
     )
     assert resp.status_code == 200
 
