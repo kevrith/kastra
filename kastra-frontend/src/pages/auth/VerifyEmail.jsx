@@ -26,6 +26,7 @@ export default function VerifyEmail() {
         setStatus("success");
         setTimeout(() => navigate("/dashboard"), 2500);
       } catch (err) {
+        console.error("[VerifyEmail] error:", err?.response?.status, err?.response?.data, err?.message);
         if (err.response?.data?.detail === "ALREADY_VERIFIED") {
           setStatus("already");
         } else {
