@@ -395,7 +395,19 @@ export default function Help() {
         <p className="text-gray-500 text-sm mt-0.5">Step-by-step guides for every feature.</p>
       </div>
 
-      <div className="flex gap-5">
+      {/* Mobile section selector — full width, above content */}
+      <div className="md:hidden mb-4">
+        <select
+          className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-green-400"
+          value={activeSection}
+          onChange={e => setActiveSection(e.target.value)}
+        >
+          {sections.map(s => <option key={s.id} value={s.id}>{s.title}</option>)}
+          <option value="faq">FAQ</option>
+        </select>
+      </div>
+
+      <div className="md:flex gap-5">
         {/* Sidebar nav — desktop */}
         <aside className="hidden md:block w-48 shrink-0">
           <nav className="space-y-0.5 sticky top-6">
@@ -423,20 +435,8 @@ export default function Help() {
           </nav>
         </aside>
 
-        {/* Mobile dropdown */}
-        <div className="md:hidden w-full mb-4">
-          <select
-            className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-green-400"
-            value={activeSection}
-            onChange={e => setActiveSection(e.target.value)}
-          >
-            {sections.map(s => <option key={s.id} value={s.id}>{s.title}</option>)}
-            <option value="faq">FAQ</option>
-          </select>
-        </div>
-
-        {/* Content */}
-        <main className="flex-1 min-w-0">
+        {/* Content — full width on mobile, flex-1 on desktop */}
+        <main className="w-full min-w-0">
           {activeSection === "faq" ? (
             <div>
               <div className="flex items-center gap-3 mb-5">

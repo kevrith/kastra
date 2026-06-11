@@ -482,32 +482,44 @@ export default function Docs() {
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
-        <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-2">
-            <img src="/kastra1.png" alt="Kastra" className="h-8 w-8 object-contain" />
-            <span className="text-lg font-bold text-green-600 tracking-tight">Kastra</span>
-            <span className="text-gray-300 mx-1">/</span>
-            <span className="text-sm text-gray-500 font-medium">Docs</span>
+        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+          <Link to="/" className="flex items-center gap-2 min-w-0">
+            <img src="/kastra1.png" alt="Kastra" className="h-7 w-7 object-contain shrink-0" />
+            <span className="text-base font-bold text-green-600 tracking-tight">Kastra</span>
+            <span className="text-gray-300 mx-1 hidden sm:inline">/</span>
+            <span className="text-sm text-gray-500 font-medium hidden sm:inline">Docs</span>
           </Link>
-          <div className="flex items-center gap-3">
-            <Link to="/login" className="text-sm text-gray-600 hover:text-gray-900 font-medium">Sign in</Link>
-            <Link to="/register" className="text-sm bg-green-600 hover:bg-green-700 text-white font-semibold px-4 py-1.5 rounded-lg transition-colors">
-              Get started free
+          <div className="flex items-center gap-2 shrink-0">
+            <Link to="/login" className="text-sm text-gray-600 hover:text-gray-900 font-medium px-2 py-1">Sign in</Link>
+            <Link to="/register" className="text-sm bg-green-600 hover:bg-green-700 text-white font-semibold px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap">
+              Get started
             </Link>
           </div>
         </div>
       </header>
 
-      <div className="max-w-6xl mx-auto px-4 py-8">
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold text-gray-900">Help & Documentation</h1>
-          <p className="text-gray-500 mt-1 text-sm">Step-by-step guides for every feature in Kastra.</p>
+      <div className="max-w-6xl mx-auto px-4 py-6">
+        <div className="mb-5">
+          <h1 className="text-xl font-bold text-gray-900">Help & Documentation</h1>
+          <p className="text-gray-500 mt-0.5 text-sm">Step-by-step guides for every feature in Kastra.</p>
         </div>
 
-        <div className="flex gap-6">
-          {/* Sidebar nav */}
+        {/* Mobile section selector — full width, above content */}
+        <div className="md:hidden mb-4">
+          <select
+            className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-green-400"
+            value={activeSection}
+            onChange={e => setActiveSection(e.target.value)}
+          >
+            {sections.map(s => <option key={s.id} value={s.id}>{s.title}</option>)}
+            <option value="faq">FAQ</option>
+          </select>
+        </div>
+
+        <div className="md:flex md:gap-6">
+          {/* Desktop sidebar nav */}
           <aside className="hidden md:block w-52 shrink-0">
-            <nav className="space-y-0.5 sticky top-24">
+            <nav className="space-y-0.5 sticky top-20">
               {sections.map(s => (
                 <button
                   key={s.id}
@@ -532,27 +544,15 @@ export default function Docs() {
             </nav>
           </aside>
 
-          {/* Mobile section selector */}
-          <div className="md:hidden w-full mb-4">
-            <select
-              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-green-400"
-              value={activeSection}
-              onChange={e => setActiveSection(e.target.value)}
-            >
-              {sections.map(s => <option key={s.id} value={s.id}>{s.title}</option>)}
-              <option value="faq">FAQ</option>
-            </select>
-          </div>
-
-          {/* Content */}
-          <main className="flex-1 min-w-0">
+          {/* Content — full width on mobile, flex-1 on desktop */}
+          <main className="w-full min-w-0">
             {activeSection === "faq" ? (
               <div>
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="w-9 h-9 rounded-xl bg-gray-100 flex items-center justify-center">
-                    <HelpCircle size={18} className="text-gray-600" />
+                <div className="flex items-center gap-3 mb-5">
+                  <div className="w-8 h-8 rounded-xl bg-gray-100 flex items-center justify-center shrink-0">
+                    <HelpCircle size={17} className="text-gray-600" />
                   </div>
-                  <h2 className="text-xl font-bold text-gray-900">Frequently Asked Questions</h2>
+                  <h2 className="text-lg font-bold text-gray-900">Frequently Asked Questions</h2>
                 </div>
                 <div className="space-y-2">
                   {faqs.map((faq, i) => <FaqItem key={i} faq={faq} />)}
@@ -560,11 +560,11 @@ export default function Docs() {
               </div>
             ) : current ? (
               <div>
-                <div className="flex items-center gap-3 mb-6">
-                  <div className={`w-9 h-9 rounded-xl ${current.bg} flex items-center justify-center`}>
-                    <current.icon size={18} className={current.color} />
+                <div className="flex items-center gap-3 mb-5">
+                  <div className={`w-8 h-8 rounded-xl ${current.bg} flex items-center justify-center shrink-0`}>
+                    <current.icon size={17} className={current.color} />
                   </div>
-                  <h2 className="text-xl font-bold text-gray-900">{current.title}</h2>
+                  <h2 className="text-lg font-bold text-gray-900">{current.title}</h2>
                 </div>
                 <div className="space-y-2">
                   {current.guides.map((guide, i) => <GuideCard key={i} guide={guide} />)}
@@ -573,8 +573,8 @@ export default function Docs() {
             ) : null}
 
             {/* CTA */}
-            <div className="mt-10 bg-green-600 rounded-2xl p-6 text-white text-center">
-              <p className="font-bold text-lg">Ready to get started?</p>
+            <div className="mt-8 bg-green-600 rounded-2xl p-5 text-white text-center">
+              <p className="font-bold text-base">Ready to get started?</p>
               <p className="text-green-100 text-sm mt-1">Create your free Kastra account — no credit card required.</p>
               <Link
                 to="/register"
