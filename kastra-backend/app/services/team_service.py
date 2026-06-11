@@ -54,6 +54,7 @@ async def create_invited_user(
         role=role,
         hashed_password=None,  # Set when they accept invite
         is_active=False,  # Activated when they accept
+        email_verified=True,  # Invite link itself proves email ownership
         invite_token=invite_token,
         invite_token_expires_at=expires_at,
         invited_by=invited_by_id,

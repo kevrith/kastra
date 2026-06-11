@@ -78,6 +78,7 @@ async def create_user_with_org(
         hashed_password=hash_password(password),
         display_name=display_name,
         role=role,
+        email_verified=False,
     )
     db.add(user)
     await db.flush()
@@ -173,6 +174,7 @@ async def get_or_create_google_user(db: AsyncSession, google_info: dict, plan: s
         display_name=display_name,
         google_id=google_id,
         role="admin",
+        email_verified=True,  # Google has already verified the address
     )
     db.add(user)
     await db.flush()

@@ -19,6 +19,7 @@ class User(Base):
     role: Mapped[str] = mapped_column(String(20), nullable=False, default="manager")  # admin | manager | field_agent | viewer
     google_id: Mapped[str | None] = mapped_column(String(100), unique=True, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    email_verified: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     token_version: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     consented_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     invite_token: Mapped[str | None] = mapped_column(String(500), nullable=True, index=True)

@@ -21,3 +21,9 @@ export const forgotPassword = (email) =>
 
 export const resetPassword = (token, new_password) =>
   api.post("/api/auth/reset-password", { token, new_password });
+
+export const resendVerification = (email) =>
+  api.post("/api/auth/resend-verification", { email });
+
+export const verifyEmail = (token) =>
+  api.get(`/api/auth/verify-email?token=${token}`);

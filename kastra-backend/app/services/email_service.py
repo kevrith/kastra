@@ -12,6 +12,9 @@ logger = logging.getLogger(__name__)
 _RESET_SECRET = settings.secret_key + "-reset"
 _RESET_EXPIRE_MINUTES = 30
 
+_VERIFY_SECRET = settings.secret_key + "-verify"
+_VERIFY_EXPIRE_HOURS = 48
+
 
 def create_password_reset_token(email: str) -> str:
     expire = datetime.now(timezone.utc) + timedelta(minutes=_RESET_EXPIRE_MINUTES)
@@ -21,6 +24,18 @@ def create_password_reset_token(email: str) -> str:
 def verify_password_reset_token(token: str) -> str:
     payload = jwt.decode(token, _RESET_SECRET, algorithms=["HS256"])
     if payload.get("type") != "reset":
+        raise JWTError("Invalid token type")
+    return payload["sub"]
+
+
+def create_email_verification_token(email: str) -> str:
+    expire = datetime.now(timezone.utc) + timedelta(hours=_VERIFY_EXPIRE_HOURS)
+    return jwt.encode({"sub": email, "exp": expire, "type": "verify"}, _VERIFY_SECRET, algorithm="HS256")
+
+
+def verify_email_verification_token(token: str) -> str:
+    payload = jwt.decode(token, _VERIFY_SECRET, algorithms=["HS256"])
+    if payload.get("type") != "verify":
         raise JWTError("Invalid token type")
     return payload["sub"]
 
@@ -61,6 +76,37 @@ async def send_password_reset_email(email: str, reset_token: str) -> None:
     <p>If you didn't request this, you can safely ignore this email.</p>
     """
     await _send(email, "Reset your Kastra password", html)
+
+
+async def send_verification_email(email: str, token: str) -> None:
+    verify_url = f"{settings.primary_frontend_url}/verify-email?token={token}"
+    html = f"""
+    <div style="font-family:sans-serif;max-width:480px;color:#1f2937">
+      <div style="background:#0f172a;padding:24px 28px;border-radius:10px 10px 0 0">
+        <p style="color:#94a3b8;font-size:11px;text-transform:uppercase;letter-spacing:1.5px;margin:0 0 4px">Kastra</p>
+        <h2 style="color:#f8fafc;margin:0;font-size:20px">Verify your email address</h2>
+      </div>
+      <div style="background:#fff;border:1px solid #e2e8f0;border-top:none;padding:24px 28px;border-radius:0 0 10px 10px">
+        <p style="margin:0 0 16px">Welcome to Kastra!</p>
+        <p style="color:#374151;margin:0 0 20px">
+          Click the button below to activate your account. This link is valid for 48 hours.
+        </p>
+        <a href="{verify_url}"
+           style="display:inline-block;background:#16a34a;color:#fff;padding:12px 26px;
+                  border-radius:8px;text-decoration:none;font-weight:700;font-size:14px">
+          Activate my account
+        </a>
+        <p style="font-size:12px;color:#6b7280;margin-top:20px">
+          Or copy this link into your browser:<br>
+          <span style="word-break:break-all;color:#374151">{verify_url}</span>
+        </p>
+        <p style="font-size:11px;color:#9ca3af;margin-top:20px">
+          If you did not create a Kastra account, you can safely ignore this email.
+        </p>
+      </div>
+    </div>
+    """
+    await _send(email, "Activate your Kastra account", html)
 
 
 async def send_plan_activated_email(

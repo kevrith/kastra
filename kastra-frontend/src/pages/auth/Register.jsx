@@ -1,8 +1,7 @@
 import { useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { register as apiRegister, me, getGoogleAuthUrl } from "../../api/auth";
-import { useAuth } from "../../context/AuthContext";
-import { Eye, EyeOff, Check } from "lucide-react";
+import { Link, useSearchParams } from "react-router-dom";
+import { register as apiRegister, getGoogleAuthUrl, resendVerification } from "../../api/auth";
+import { Eye, EyeOff, Check, Mail } from "lucide-react";
 
 const PLANS = [
   {
@@ -38,13 +37,10 @@ const PLANS = [
 ];
 
 export default function Register() {
-  const { login } = useAuth();
-  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const defaultPlan = searchParams.get("plan") || "free";
   const referralCode = searchParams.get("ref") || localStorage.getItem("kastra_ref") || null;
 
-  // Persist referral code across page reloads
   if (searchParams.get("ref")) localStorage.setItem("kastra_ref", searchParams.get("ref"));
 
   const [step, setStep] = useState(1);
@@ -54,6 +50,8 @@ export default function Register() {
   const [consent, setConsent] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [registered, setRegistered] = useState(false);
+  const [resendStatus, setResendStatus] = useState("");
 
   const handleGoogle = async () => {
     try {
@@ -70,19 +68,61 @@ export default function Register() {
     setError("");
     setLoading(true);
     try {
-      const { data } = await apiRegister(form.email, form.password, form.display_name, form.business_name, true, selectedPlan, referralCode);
+      await apiRegister(form.email, form.password, form.display_name, form.business_name, true, selectedPlan, referralCode);
       localStorage.removeItem("kastra_ref");
-      localStorage.setItem("access_token", data.access_token);
-      const { data: userData } = await me();
-      login(data.access_token, userData);
-      navigate("/dashboard");
+      setRegistered(true);
     } catch (err) {
-      localStorage.removeItem("access_token");
       setError(err.response?.data?.detail ?? "Registration failed");
     } finally {
       setLoading(false);
     }
   };
+
+  const handleResend = async () => {
+    setResendStatus("sending");
+    try {
+      await resendVerification(form.email);
+      setResendStatus("sent");
+    } catch {
+      setResendStatus("error");
+    }
+  };
+
+  if (registered) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+        <div className="w-full max-w-sm text-center">
+          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Mail size={28} className="text-green-600" />
+          </div>
+          <h2 className="text-xl font-bold text-gray-900 mb-2">Check your email</h2>
+          <p className="text-gray-600 text-sm mb-1">
+            We sent an activation link to
+          </p>
+          <p className="font-semibold text-gray-900 mb-5">{form.email}</p>
+          <p className="text-gray-500 text-xs mb-6">
+            Click the link in the email to activate your account. The link expires in 48 hours.
+            Check your spam folder if you don't see it.
+          </p>
+          <button
+            type="button"
+            onClick={handleResend}
+            disabled={resendStatus === "sending" || resendStatus === "sent"}
+            className="btn-secondary w-full justify-center text-sm"
+          >
+            {resendStatus === "sending" ? "Sending…" : resendStatus === "sent" ? "Email sent ✓" : "Resend activation email"}
+          </button>
+          {resendStatus === "error" && (
+            <p className="text-red-600 text-xs mt-2">Failed to resend. Please try again.</p>
+          )}
+          <p className="text-xs text-gray-400 mt-4">
+            Wrong email?{" "}
+            <button type="button" onClick={() => setRegistered(false)} className="text-green-600 hover:underline">Go back</button>
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 px-4 py-8">

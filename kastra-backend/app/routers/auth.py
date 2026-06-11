@@ -21,6 +21,7 @@ from app.schemas.auth import (
     ForgotPasswordRequest,
     LoginRequest,
     RegisterRequest,
+    ResendVerificationRequest,
     ResetPasswordRequest,
     TokenResponse,
     UserOut,
@@ -33,8 +34,11 @@ from app.services.auth_service import (
     get_user_by_email,
 )
 from app.services.email_service import (
+    create_email_verification_token,
     create_password_reset_token,
     send_password_reset_email,
+    send_verification_email,
+    verify_email_verification_token,
     verify_password_reset_token,
 )
 from app.utils.security import create_access_token, create_refresh_token, decode_refresh_token, hash_password, verify_password
@@ -63,25 +67,70 @@ async def _load_user_with_org(db: AsyncSession, user_id) -> User:
     return result.scalar_one()
 
 
-@router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/register", status_code=status.HTTP_201_CREATED)
 @limiter.limit("10/hour")
-async def register(request: Request, payload: RegisterRequest, response: Response, db: AsyncSession = Depends(get_db)):
+async def register(request: Request, payload: RegisterRequest, db: AsyncSession = Depends(get_db)):
     existing = await get_user_by_email(db, payload.email)
     if existing:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
     if len(payload.password) < 8:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Password must be at least 8 characters")
-
     if not payload.consent:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="You must accept the Privacy Policy and Terms of Service to register")
     if not payload.business_name.strip():
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Business name is required")
+
     user = await create_user_with_org(db, payload.email, payload.password, payload.display_name, payload.business_name.strip(), plan=payload.plan, referral_code=payload.referral_code)
     user.consented_at = datetime.now(timezone.utc)
+    await db.commit()
+
+    token = create_email_verification_token(payload.email)
+    await send_verification_email(payload.email, token)
+
+    return {"message": "Account created. Please check your email to activate your account."}
+
+
+@router.get("/verify-email")
+@limiter.limit("20/hour")
+async def verify_email(request: Request, token: str, response: Response, db: AsyncSession = Depends(get_db)):
+    try:
+        email = verify_email_verification_token(token)
+    except JWTError:
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse(url=f"{settings.primary_frontend_url}/verify-email?error=invalid")
+
+    user = await get_user_by_email(db, email)
+    if not user:
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse(url=f"{settings.primary_frontend_url}/verify-email?error=invalid")
+
+    if user.email_verified:
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse(url=f"{settings.primary_frontend_url}/login?verified=already")
+
+    user.email_verified = True
+    user.last_login_at = datetime.now(timezone.utc)
+    await db.commit()
+
+    # Load org for token creation
+    user = await _load_user_with_org(db, user.id)
     access_token = create_access_token(str(user.id), user.role)
     refresh_token = create_refresh_token(str(user.id), user.token_version)
     _set_refresh_cookie(response, refresh_token)
-    return TokenResponse(access_token=access_token)
+
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(url=f"{settings.primary_frontend_url}/auth/callback?token={access_token}")
+
+
+@router.post("/resend-verification")
+@limiter.limit("5/hour")
+async def resend_verification(request: Request, payload: ResendVerificationRequest, db: AsyncSession = Depends(get_db)):
+    user = await get_user_by_email(db, payload.email)
+    if user and not user.email_verified:
+        token = create_email_verification_token(user.email)
+        await send_verification_email(user.email, token)
+    # Always return the same message — don't reveal whether email exists
+    return {"message": "If that email is registered and unverified, a new activation link has been sent."}
 
 
 @router.post("/login", response_model=TokenResponse)
@@ -90,6 +139,11 @@ async def login(request: Request, payload: LoginRequest, response: Response, db:
     user = await authenticate_user(db, payload.email, payload.password)
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
+    if not user.email_verified:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="EMAIL_NOT_VERIFIED",
+        )
 
     user.last_login_at = datetime.now(timezone.utc)
     access_token = create_access_token(str(user.id), user.role)

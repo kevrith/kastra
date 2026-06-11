@@ -1,20 +1,27 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { login as apiLogin, getGoogleAuthUrl, me } from "../../api/auth";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { login as apiLogin, getGoogleAuthUrl, me, resendVerification } from "../../api/auth";
 import { useAuth } from "../../context/AuthContext";
 import { Eye, EyeOff } from "lucide-react";
 
 export default function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [form, setForm] = useState({ email: "", password: "" });
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [unverified, setUnverified] = useState(false);
+  const [resendStatus, setResendStatus] = useState("");
+
+  const alreadyVerified = searchParams.get("verified") === "already";
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
+    setUnverified(false);
+    setResendStatus("");
     setLoading(true);
     try {
       const { data } = await apiLogin(form.email, form.password);
@@ -24,9 +31,23 @@ export default function Login() {
       navigate("/dashboard");
     } catch (err) {
       localStorage.removeItem("access_token");
-      setError(err.response?.data?.detail ?? "Login failed");
+      if (err.response?.data?.detail === "EMAIL_NOT_VERIFIED") {
+        setUnverified(true);
+      } else {
+        setError(err.response?.data?.detail ?? "Login failed");
+      }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleResend = async () => {
+    setResendStatus("sending");
+    try {
+      await resendVerification(form.email);
+      setResendStatus("sent");
+    } catch {
+      setResendStatus("error");
     }
   };
 
@@ -49,8 +70,32 @@ export default function Login() {
         </div>
 
         <div className="card p-6 space-y-4">
+          {alreadyVerified && (
+            <div className="bg-green-50 text-green-700 text-sm px-3 py-2 rounded-lg">
+              Your email is already verified. Sign in below.
+            </div>
+          )}
           {error && (
             <div className="bg-red-50 text-red-700 text-sm px-3 py-2 rounded-lg">{error}</div>
+          )}
+          {unverified && (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-3 space-y-2">
+              <p className="text-amber-800 text-sm font-medium">Email not verified</p>
+              <p className="text-amber-700 text-xs">
+                Please check your inbox for the activation link we sent when you signed up.
+              </p>
+              <button
+                type="button"
+                onClick={handleResend}
+                disabled={resendStatus === "sending" || resendStatus === "sent"}
+                className="text-xs font-semibold text-amber-800 underline disabled:opacity-50"
+              >
+                {resendStatus === "sending" ? "Sending…" : resendStatus === "sent" ? "Sent ✓ — check your inbox" : "Resend activation email"}
+              </button>
+              {resendStatus === "error" && (
+                <p className="text-red-600 text-xs">Failed to resend. Please try again.</p>
+              )}
+            </div>
           )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
