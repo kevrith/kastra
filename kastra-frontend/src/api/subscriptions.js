@@ -123,3 +123,12 @@ export const superadminApproveTestimonial = (token, id) =>
 
 export const superadminRejectTestimonial = (token, id, reason = "") =>
   api.post(`/api/superadmin/testimonials/${id}/reject`, { reason }, saHeaders(token));
+
+export const superadminListAffiliates = (token) =>
+  api.get("/api/superadmin/affiliates", saHeaders(token));
+
+export const superadminGetAffiliate = (token, id) =>
+  api.get(`/api/superadmin/affiliates/${id}`, saHeaders(token));
+
+export const superadminUpdateAffiliateStatus = (token, id, status) =>
+  api.patch(`/api/superadmin/affiliates/${id}/status`, { status }, saHeaders(token));

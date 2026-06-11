@@ -14,6 +14,7 @@ import {
   superadminUpdateTestimonial, superadminDeleteTestimonial,
   superadminRequestTestimonial, superadminResendTestimonial,
   superadminApproveTestimonial, superadminRejectTestimonial,
+  superadminListAffiliates, superadminGetAffiliate, superadminUpdateAffiliateStatus,
 } from "../../api/subscriptions";
 import {
   LayoutDashboard, Building2, LogOut, Search, ChevronLeft, ChevronRight,
@@ -21,6 +22,7 @@ import {
   CreditCard, Clock, Activity, DollarSign, BarChart2, ShieldAlert,
   PlusCircle, X, Gift, Menu, Key, UserX, UserCheck, Shield, Receipt, Truck, Package, Printer, Eye,
   MessageSquare, Star, Edit2, Trash2, ToggleLeft, ToggleRight, Send, ThumbsUp, ThumbsDown,
+  Handshake,
 } from "lucide-react";
 
 // ── Colour maps ────────────────────────────────────────────────────────────────
@@ -227,6 +229,10 @@ export default function SuperAdmin() {
   const [testimonialModal, setTestimonialModal] = useState(null); // null | "create" | testimonial object
   const [testimonialForm, setTestimonialForm] = useState({ name: "", role: "", text: "", stars: 5, is_active: true, sort_order: 0 });
   const [testimonialTab, setTestimonialTab] = useState("pending"); // "pending" | "approved" | "rejected"
+
+  // Affiliates
+  const [affiliates, setAffiliates] = useState([]);
+  const [selectedAffiliate, setSelectedAffiliate] = useState(null);
   const [requestModal, setRequestModal] = useState(false);
   const [requestForm, setRequestForm] = useState({ email: "", name: "", role_hint: "", phone: "" });
   const [rejectModal, setRejectModal] = useState(null); // testimonial id
@@ -409,6 +415,14 @@ export default function SuperAdmin() {
     finally { setTestimonialLoading(false); }
   }, [token]);
 
+  const loadAffiliates = useCallback(async () => {
+    if (!token) return;
+    try {
+      const { data } = await superadminListAffiliates(token);
+      setAffiliates(data);
+    } catch { flash("Failed to load affiliates", "error"); }
+  }, [token]);
+
   // ── Effects ───────────────────────────────────────────────────────────────────
   useEffect(() => { if (isAuthed) loadStats(); }, [isAuthed, loadStats]);
   useEffect(() => { if (isAuthed && view === "revenue") { loadRevenue(); loadPayments(); } }, [isAuthed, view, loadRevenue, loadPayments]);
@@ -422,6 +436,7 @@ export default function SuperAdmin() {
   useEffect(() => { if (isAuthed && view === "suppliers") loadSaSuppliers(); }, [isAuthed, view, loadSaSuppliers]);
   useEffect(() => { if (isAuthed && view === "supplier_requests") loadSaRequests(); }, [isAuthed, view, loadSaRequests]);
   useEffect(() => { if (isAuthed && view === "testimonials") loadTestimonials(); }, [isAuthed, view, loadTestimonials]);
+  useEffect(() => { if (isAuthed && view === "affiliates") loadAffiliates(); }, [isAuthed, view, loadAffiliates]);
 
   // ── Org actions ───────────────────────────────────────────────────────────────
   const changePlan = async (orgId, plan) => {
@@ -598,6 +613,7 @@ export default function SuperAdmin() {
     { id: "supplier_requests", label: "Price Requests",  icon: Package },
     { id: "audit",             label: "Audit Log",       icon: Activity },
     { id: "testimonials", label: "Testimonials", icon: MessageSquare, badge: testimonials.filter((t) => t.status === "pending" && t.submitted_at).length || null },
+    { id: "affiliates", label: "Affiliates", icon: Handshake, badge: affiliates.filter(a => a.status === "pending").length || null },
   ];
 
   return (
@@ -2170,6 +2186,122 @@ export default function SuperAdmin() {
           </div>
         </Modal>
       )}
+
+          {/* ── Affiliates ── */}
+          {view === "affiliates" && (
+            <div className="p-6 space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-bold text-white">Affiliates / Partners</h2>
+                <span className="text-xs text-gray-400">{affiliates.length} total · {affiliates.filter(a => a.status === "pending").length} pending</span>
+              </div>
+
+              {selectedAffiliate && (
+                <div className="bg-gray-900 rounded-xl p-5 border border-gray-700 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-semibold text-white">{selectedAffiliate.name}</p>
+                      <p className="text-xs text-gray-400">{selectedAffiliate.email} · {selectedAffiliate.phone}</p>
+                      <p className="text-xs text-gray-500 mt-0.5">Code: <span className="font-mono text-green-400">{selectedAffiliate.code}</span> · Payout M-Pesa: {selectedAffiliate.payout_phone}</p>
+                    </div>
+                    <button onClick={() => setSelectedAffiliate(null)} className="text-gray-500 hover:text-white"><X size={18} /></button>
+                  </div>
+                  <div className="grid grid-cols-3 gap-3 text-center">
+                    <div className="bg-gray-800 rounded-lg p-3">
+                      <p className="text-lg font-bold text-green-400">KSh {selectedAffiliate.balance_ksh?.toFixed(0)}</p>
+                      <p className="text-xs text-gray-400">Balance</p>
+                    </div>
+                    <div className="bg-gray-800 rounded-lg p-3">
+                      <p className="text-lg font-bold text-white">KSh {selectedAffiliate.total_earned_ksh?.toFixed(0)}</p>
+                      <p className="text-xs text-gray-400">Total Earned</p>
+                    </div>
+                    <div className="bg-gray-800 rounded-lg p-3">
+                      <p className="text-lg font-bold text-white">{selectedAffiliate.referrals?.length ?? 0}</p>
+                      <p className="text-xs text-gray-400">Referrals</p>
+                    </div>
+                  </div>
+                  {selectedAffiliate.referrals?.length > 0 && (
+                    <div>
+                      <p className="text-xs text-gray-400 font-semibold uppercase mb-2">Referred Clients</p>
+                      <div className="space-y-1">
+                        {selectedAffiliate.referrals.map(r => (
+                          <div key={r.org_id} className="flex items-center justify-between text-sm">
+                            <span className="text-gray-200">{r.org_name}</span>
+                            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${r.is_paying ? "bg-green-900 text-green-300" : r.is_trial ? "bg-blue-900 text-blue-300" : "bg-gray-700 text-gray-400"}`}>
+                              {r.is_paying ? "Paying" : r.is_trial ? "Trial" : r.plan}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  <p className="text-xs text-gray-500">Commission rate: KSh {selectedAffiliate.commission_rate_ksh}/month per paying client</p>
+                </div>
+              )}
+
+              <div className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-gray-800 text-xs text-gray-400 uppercase">
+                      <th className="text-left px-4 py-3">Name</th>
+                      <th className="text-left px-4 py-3">Code</th>
+                      <th className="text-left px-4 py-3 hidden md:table-cell">Phone</th>
+                      <th className="text-right px-4 py-3 hidden md:table-cell">Balance</th>
+                      <th className="text-center px-4 py-3">Status</th>
+                      <th className="text-right px-4 py-3">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {affiliates.length === 0 && (
+                      <tr><td colSpan={6} className="text-center py-8 text-gray-500">No affiliates yet</td></tr>
+                    )}
+                    {affiliates.map(a => (
+                      <tr key={a.id} className="border-b border-gray-800/50 hover:bg-gray-800/40 transition-colors">
+                        <td className="px-4 py-3">
+                          <button onClick={async () => {
+                            try { const { data } = await superadminGetAffiliate(token, a.id); setSelectedAffiliate(data); }
+                            catch { flash("Failed to load affiliate detail", "error"); }
+                          }} className="font-medium text-white hover:text-green-400 text-left">{a.name}</button>
+                          <p className="text-xs text-gray-500">{a.email}</p>
+                        </td>
+                        <td className="px-4 py-3 font-mono text-green-400 text-xs">{a.code}</td>
+                        <td className="px-4 py-3 text-gray-300 hidden md:table-cell">{a.phone}</td>
+                        <td className="px-4 py-3 text-right text-gray-200 hidden md:table-cell">KSh {a.balance_ksh?.toFixed(0)}</td>
+                        <td className="px-4 py-3 text-center">
+                          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                            a.status === "active" ? "bg-green-900 text-green-300" :
+                            a.status === "pending" ? "bg-yellow-900 text-yellow-300" :
+                            "bg-red-900 text-red-300"
+                          }`}>{a.status}</span>
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            {a.status === "pending" && (
+                              <button onClick={async () => {
+                                try { await superadminUpdateAffiliateStatus(token, a.id, "active"); flash("Affiliate approved", "success"); loadAffiliates(); }
+                                catch { flash("Failed to approve", "error"); }
+                              }} className="text-xs px-2 py-1 bg-green-700 hover:bg-green-600 text-white rounded-lg">Approve</button>
+                            )}
+                            {a.status === "active" && (
+                              <button onClick={async () => {
+                                try { await superadminUpdateAffiliateStatus(token, a.id, "suspended"); flash("Affiliate suspended", "success"); loadAffiliates(); }
+                                catch { flash("Failed to suspend", "error"); }
+                              }} className="text-xs px-2 py-1 bg-gray-700 hover:bg-gray-600 text-white rounded-lg">Suspend</button>
+                            )}
+                            {a.status === "suspended" && (
+                              <button onClick={async () => {
+                                try { await superadminUpdateAffiliateStatus(token, a.id, "active"); flash("Reactivated", "success"); loadAffiliates(); }
+                                catch { flash("Failed to reactivate", "error"); }
+                              }} className="text-xs px-2 py-1 bg-blue-700 hover:bg-blue-600 text-white rounded-lg">Reactivate</button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
     </div>
   );
 }
