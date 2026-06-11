@@ -531,75 +531,78 @@ async def delete_org(org_id: str, db: AsyncSession = Depends(get_db)):
         raise HTTPException(404, "Organization not found")
 
     org_name = org.name
-
-    # Delete in FK dependency order — children before parents
-    stmts = [
-        # Affiliate sub-tables
-        "DELETE FROM affiliate_commissions WHERE organization_id = :oid",
-        "DELETE FROM affiliate_referrals  WHERE organization_id = :oid",
-        # Supplier sub-tables (response items → invites → request items → requests → suppliers)
-        """DELETE FROM supplier_response_items WHERE supplier_request_invite_id IN (
-              SELECT id FROM supplier_request_invites WHERE supplier_request_id IN (
-                SELECT id FROM supplier_requests WHERE organization_id = :oid))""",
-        """DELETE FROM supplier_request_invites WHERE supplier_request_id IN (
-              SELECT id FROM supplier_requests WHERE organization_id = :oid)""",
-        """DELETE FROM supplier_request_items WHERE supplier_request_id IN (
-              SELECT id FROM supplier_requests WHERE organization_id = :oid)""",
-        "DELETE FROM supplier_requests WHERE organization_id = :oid",
-        "DELETE FROM suppliers WHERE organization_id = :oid",
-        # Payroll sub-tables
-        """DELETE FROM payslips WHERE payroll_run_id IN (
-              SELECT id FROM payroll_runs WHERE organization_id = :oid)""",
-        "DELETE FROM payroll_runs WHERE organization_id = :oid",
-        "DELETE FROM employees WHERE organization_id = :oid",
-        # Project sub-tables
-        """DELETE FROM project_photos WHERE project_id IN (
-              SELECT id FROM projects WHERE organization_id = :oid)""",
-        """DELETE FROM project_updates WHERE project_id IN (
-              SELECT id FROM projects WHERE organization_id = :oid)""",
-        "DELETE FROM projects WHERE organization_id = :oid",
-        # Invoice sub-tables
-        """DELETE FROM payment_details WHERE invoice_id IN (
-              SELECT id FROM invoices WHERE organization_id = :oid)""",
-        """DELETE FROM invoice_items WHERE invoice_id IN (
-              SELECT id FROM invoices WHERE organization_id = :oid)""",
-        """DELETE FROM invoice_charges WHERE invoice_id IN (
-              SELECT id FROM invoices WHERE organization_id = :oid)""",
-        """DELETE FROM invoice_payments WHERE invoice_id IN (
-              SELECT id FROM invoices WHERE organization_id = :oid)""",
-        "DELETE FROM invoices WHERE organization_id = :oid",
-        # Quotation sub-tables
-        """DELETE FROM quotation_items WHERE quotation_id IN (
-              SELECT id FROM quotations WHERE organization_id = :oid)""",
-        """DELETE FROM quotation_charges WHERE quotation_id IN (
-              SELECT id FROM quotations WHERE organization_id = :oid)""",
-        """DELETE FROM quotation_notes WHERE quotation_id IN (
-              SELECT id FROM quotations WHERE organization_id = :oid)""",
-        "DELETE FROM quotations WHERE organization_id = :oid",
-        # Other org-level tables
-        "DELETE FROM recurring_invoices WHERE organization_id = :oid",
-        "DELETE FROM expenses WHERE organization_id = :oid",
-        "DELETE FROM products WHERE organization_id = :oid",
-        "DELETE FROM client_prices WHERE organization_id = :oid",
-        "DELETE FROM clients WHERE organization_id = :oid",
-        "DELETE FROM notifications WHERE organization_id = :oid",
-        "DELETE FROM subscription_payments WHERE organization_id = :oid",
-        "DELETE FROM sequence_counters WHERE organization_id = :oid",
-        # Audit logs referencing org users
-        """DELETE FROM audit_logs WHERE user_id IN (
-              SELECT id FROM users WHERE organization_id = :oid)""",
-        """DELETE FROM user_permissions WHERE user_id IN (
-              SELECT id FROM users WHERE organization_id = :oid)""",
-        "DELETE FROM users WHERE organization_id = :oid",
-        # Finally the org itself
-        "DELETE FROM organizations WHERE id = :oid",
-    ]
-
     oid = _uuid.UUID(org_id)
-    for stmt in stmts:
-        await db.execute(text(stmt), {"oid": oid})
+    oid_str = str(oid)  # audit_logs stores IDs as plain strings
 
-    await db.commit()
+    try:
+        # Delete in FK dependency order — children before parents.
+        # quotations.invoice_id → invoices is a circular reference so NULL it first.
+        stmts_oid = [
+            # Break circular FK: quotations ↔ invoices
+            "UPDATE quotations SET invoice_id = NULL WHERE organization_id = :oid",
+            # Affiliate sub-tables
+            "DELETE FROM affiliate_commissions WHERE organization_id = :oid",
+            "DELETE FROM affiliate_referrals   WHERE organization_id = :oid",
+            # Supplier sub-tables (response items → invites → request items → requests → suppliers)
+            """DELETE FROM supplier_response_items WHERE supplier_request_invite_id IN (
+                  SELECT id FROM supplier_request_invites WHERE supplier_request_id IN (
+                    SELECT id FROM supplier_requests WHERE organization_id = :oid))""",
+            """DELETE FROM supplier_request_invites WHERE supplier_request_id IN (
+                  SELECT id FROM supplier_requests WHERE organization_id = :oid)""",
+            """DELETE FROM supplier_request_items WHERE supplier_request_id IN (
+                  SELECT id FROM supplier_requests WHERE organization_id = :oid)""",
+            "DELETE FROM supplier_requests WHERE organization_id = :oid",
+            "DELETE FROM suppliers        WHERE organization_id = :oid",
+            # Payroll sub-tables
+            """DELETE FROM payslips WHERE payroll_run_id IN (
+                  SELECT id FROM payroll_runs WHERE organization_id = :oid)""",
+            "DELETE FROM payroll_runs WHERE organization_id = :oid",
+            "DELETE FROM employees    WHERE organization_id = :oid",
+            # Project sub-tables (project_updates/photos cascade via ON DELETE CASCADE on project_id)
+            "DELETE FROM project_updates WHERE organization_id = :oid",
+            "DELETE FROM project_photos  WHERE organization_id = :oid",
+            "DELETE FROM projects        WHERE organization_id = :oid",
+            # Invoice sub-tables
+            """DELETE FROM payment_details  WHERE invoice_id IN (SELECT id FROM invoices WHERE organization_id = :oid)""",
+            """DELETE FROM invoice_items    WHERE invoice_id IN (SELECT id FROM invoices WHERE organization_id = :oid)""",
+            """DELETE FROM invoice_charges  WHERE invoice_id IN (SELECT id FROM invoices WHERE organization_id = :oid)""",
+            """DELETE FROM invoice_payments WHERE invoice_id IN (SELECT id FROM invoices WHERE organization_id = :oid)""",
+            "DELETE FROM invoices WHERE organization_id = :oid",
+            # Quotation sub-tables (invoice_id already NULLed above)
+            """DELETE FROM quotation_items   WHERE quotation_id IN (SELECT id FROM quotations WHERE organization_id = :oid)""",
+            """DELETE FROM quotation_charges WHERE quotation_id IN (SELECT id FROM quotations WHERE organization_id = :oid)""",
+            """DELETE FROM quotation_notes   WHERE quotation_id IN (SELECT id FROM quotations WHERE organization_id = :oid)""",
+            "DELETE FROM quotations WHERE organization_id = :oid",
+            # Other org-level tables
+            "DELETE FROM recurring_invoices   WHERE organization_id = :oid",
+            "DELETE FROM expenses             WHERE organization_id = :oid",
+            "DELETE FROM products             WHERE organization_id = :oid",
+            "DELETE FROM client_prices        WHERE organization_id = :oid",
+            "DELETE FROM clients              WHERE organization_id = :oid",
+            "DELETE FROM notifications        WHERE organization_id = :oid",
+            "DELETE FROM subscription_payments WHERE organization_id = :oid",
+            "DELETE FROM sequence_counters    WHERE organization_id = :oid",
+            # User-level tables (audit_logs.user_id is a plain string, handled separately)
+            """DELETE FROM user_permissions WHERE user_id IN (SELECT id FROM users WHERE organization_id = :oid)""",
+            "DELETE FROM users WHERE organization_id = :oid",
+            # Finally the org itself
+            "DELETE FROM organizations WHERE id = :oid",
+        ]
+
+        for stmt in stmts_oid:
+            await db.execute(text(stmt), {"oid": oid})
+
+        # audit_logs stores user_id/org_id as plain strings — no FK, clean up separately
+        await db.execute(
+            text("DELETE FROM audit_logs WHERE organization_id = :oid_str"),
+            {"oid_str": oid_str},
+        )
+
+        await db.commit()
+    except Exception as exc:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=f"Delete failed: {exc}") from exc
+
     return {"message": f"Organisation '{org_name}' and all its data have been permanently deleted."}
 
 
