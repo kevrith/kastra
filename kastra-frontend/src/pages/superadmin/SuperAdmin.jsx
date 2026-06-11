@@ -141,11 +141,11 @@ function Pagination({ meta, page, setPage }) {
 
 function Modal({ title, onClose, children }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
-      <div className="bg-gray-800 border border-gray-700 rounded-2xl w-full max-w-md p-6">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 px-3 pb-3 sm:px-4 sm:pb-0">
+      <div className="bg-gray-800 border border-gray-700 rounded-2xl w-full max-w-md p-4 sm:p-6 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="font-bold text-white">{title}</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-white"><X size={18} /></button>
+          <h3 className="font-bold text-white text-sm sm:text-base">{title}</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-white ml-2 shrink-0"><X size={18} /></button>
         </div>
         {children}
       </div>
@@ -674,19 +674,19 @@ export default function SuperAdmin() {
       <main className="flex-1 overflow-auto bg-gray-950 lg:ml-0">
         {/* Mobile top bar */}
         <div className="lg:hidden flex items-center gap-3 px-4 py-3 bg-gray-900 border-b border-gray-800 sticky top-0 z-20">
-          <button onClick={() => setSidebarOpen(true)} className="text-gray-400 hover:text-white p-1">
+          <button onClick={() => setSidebarOpen(true)} className="text-gray-400 hover:text-white p-1 shrink-0">
             <Menu size={20} />
           </button>
-          <div className="flex items-center gap-2">
-            <img src="/kastra1.png" alt="" className="h-6 w-6 object-contain" />
-            <span className="text-sm font-bold text-white">Admin Console</span>
+          <div className="flex items-center gap-2 min-w-0">
+            <img src="/kastra1.png" alt="" className="h-6 w-6 object-contain shrink-0" />
+            <span className="text-sm font-bold text-white truncate">Admin Console</span>
           </div>
         </div>
         <div className="p-4 md:p-6 max-w-6xl mx-auto space-y-6">
 
           {/* Flash message */}
           {actionMsg.text && (
-            <div className={`fixed top-4 right-4 z-50 px-4 py-3 rounded-xl text-sm font-medium shadow-xl border flex items-center gap-2 max-w-[calc(100vw-2rem)] ${
+            <div className={`fixed top-16 lg:top-4 right-4 z-50 px-4 py-3 rounded-xl text-sm font-medium shadow-xl border flex items-center gap-2 max-w-[calc(100vw-2rem)] ${
               actionMsg.type === "error" ? "bg-red-900 border-red-700 text-red-200" : "bg-green-900 border-green-700 text-green-200"
             }`}>
               {actionMsg.type === "error" ? <AlertCircle size={14} /> : <CheckCircle2 size={14} />}
@@ -699,7 +699,7 @@ export default function SuperAdmin() {
             <>
               <div className="flex items-center justify-between">
                 <div>
-                  <h1 className="text-xl font-bold text-white">Dashboard</h1>
+                  <h1 className="text-lg md:text-xl font-bold text-white">Dashboard</h1>
                   <p className="text-xs text-gray-500 mt-0.5">Platform overview · {new Date().toLocaleDateString("en-KE", { day: "2-digit", month: "long", year: "numeric" })}</p>
                 </div>
                 <button onClick={loadStats} className="text-gray-500 hover:text-gray-300 p-1.5 rounded-lg hover:bg-gray-800"><RefreshCw size={15} /></button>
@@ -758,7 +758,7 @@ export default function SuperAdmin() {
                   </div>
 
                   {/* Plan distribution + Conversion funnel + Feature adoption */}
-                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     <div className="bg-gray-800 border border-gray-700 rounded-xl p-5">
                       <SectionTitle title="Paid Plan Distribution" />
                       <div className="space-y-3">
@@ -871,7 +871,7 @@ export default function SuperAdmin() {
           {view === "revenue" && (
             <>
               <div className="flex items-center justify-between">
-                <h1 className="text-xl font-bold text-white">Revenue</h1>
+                <h1 className="text-lg md:text-xl font-bold text-white">Revenue</h1>
                 <button onClick={() => { loadRevenue(); loadPayments(); }} className="text-gray-500 hover:text-gray-300 p-1.5 rounded-lg hover:bg-gray-800"><RefreshCw size={15} /></button>
               </div>
 
@@ -955,7 +955,7 @@ export default function SuperAdmin() {
             <>
               <div className="flex items-center justify-between">
                 <div>
-                  <h1 className="text-xl font-bold text-white">Active Trials</h1>
+                  <h1 className="text-lg md:text-xl font-bold text-white">Active Trials</h1>
                   <p className="text-xs text-gray-500 mt-0.5">{trials.length} organisations on trial · sorted by expiry</p>
                 </div>
                 <button onClick={loadTrials} className="text-gray-500 hover:text-gray-300 p-1.5 rounded-lg hover:bg-gray-800"><RefreshCw size={15} /></button>
@@ -995,12 +995,12 @@ export default function SuperAdmin() {
           {view === "orgs" && (
             <>
               <div className="flex items-center justify-between flex-wrap gap-3">
-                <h1 className="text-xl font-bold text-white">Organisations</h1>
+                <h1 className="text-lg md:text-xl font-bold text-white">Organisations</h1>
                 <div className="flex items-center gap-2 flex-wrap">
                   <div className="relative">
                     <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-500" />
                     <input
-                      className="bg-gray-800 border border-gray-700 text-white rounded-lg pl-8 pr-3 py-1.5 text-sm focus:outline-none focus:border-green-500 w-44"
+                      className="bg-gray-800 border border-gray-700 text-white rounded-lg pl-8 pr-3 py-1.5 text-sm focus:outline-none focus:border-green-500 w-full sm:w-44"
                       placeholder="Search name…"
                       value={orgsSearch}
                       onChange={(e) => { setOrgsSearch(e.target.value); setOrgsPage(1); }}
@@ -1068,7 +1068,7 @@ export default function SuperAdmin() {
           {view === "invoices" && (
             <>
               <div className="flex items-center justify-between flex-wrap gap-3">
-                <h1 className="text-xl font-bold text-white">All Invoices</h1>
+                <h1 className="text-lg md:text-xl font-bold text-white">All Invoices</h1>
                 <button onClick={loadSaInvoices} className="text-gray-500 hover:text-gray-300 p-1.5 rounded-lg hover:bg-gray-800"><RefreshCw size={15} /></button>
               </div>
               <div className="flex flex-wrap gap-3">
@@ -1117,7 +1117,7 @@ export default function SuperAdmin() {
           {view === "quotations" && (
             <>
               <div className="flex items-center justify-between flex-wrap gap-3">
-                <h1 className="text-xl font-bold text-white">All Quotations</h1>
+                <h1 className="text-lg md:text-xl font-bold text-white">All Quotations</h1>
                 <button onClick={loadSaQuotations} className="text-gray-500 hover:text-gray-300 p-1.5 rounded-lg hover:bg-gray-800"><RefreshCw size={15} /></button>
               </div>
               <div className="flex flex-wrap gap-3">
@@ -1168,7 +1168,7 @@ export default function SuperAdmin() {
           {view === "suppliers" && (
             <>
               <div className="flex items-center justify-between flex-wrap gap-3">
-                <h1 className="text-xl font-bold text-white">All Suppliers</h1>
+                <h1 className="text-lg md:text-xl font-bold text-white">All Suppliers</h1>
                 <button onClick={loadSaSuppliers} className="text-gray-500 hover:text-gray-300 p-1.5 rounded-lg hover:bg-gray-800"><RefreshCw size={15} /></button>
               </div>
               <div className="flex flex-wrap gap-3">
@@ -1200,7 +1200,7 @@ export default function SuperAdmin() {
           {view === "supplier_requests" && (
             <>
               <div className="flex items-center justify-between flex-wrap gap-3">
-                <h1 className="text-xl font-bold text-white">All Price Requests</h1>
+                <h1 className="text-lg md:text-xl font-bold text-white">All Price Requests</h1>
                 <button onClick={loadSaRequests} className="text-gray-500 hover:text-gray-300 p-1.5 rounded-lg hover:bg-gray-800"><RefreshCw size={15} /></button>
               </div>
               <div className="flex flex-wrap gap-3">
@@ -1241,7 +1241,7 @@ export default function SuperAdmin() {
           {view === "audit" && (
             <>
               <div className="flex items-center justify-between">
-                <h1 className="text-xl font-bold text-white">Audit Log</h1>
+                <h1 className="text-lg md:text-xl font-bold text-white">Audit Log</h1>
                 <button onClick={loadAuditLog} className="text-gray-500 hover:text-gray-300 p-1.5 rounded-lg hover:bg-gray-800"><RefreshCw size={15} /></button>
               </div>
               <div className="bg-gray-800 border border-gray-700 rounded-xl overflow-hidden">
@@ -1250,7 +1250,7 @@ export default function SuperAdmin() {
                 ) : (
                   <div className="divide-y divide-gray-700">
                     {auditLog.map((e) => (
-                      <div key={e.id} className="px-5 py-3 flex items-start gap-3">
+                      <div key={e.id} className="px-3 md:px-5 py-3 flex items-start gap-3">
                         <div className={`mt-0.5 p-1.5 rounded-lg shrink-0 ${
                           e.action.includes("suspend") ? "bg-red-900/50 text-red-400" :
                           e.action.includes("payment") ? "bg-green-900/50 text-green-400" :
@@ -1289,7 +1289,7 @@ export default function SuperAdmin() {
             <>
               <div className="flex items-center gap-3 flex-wrap">
                 <button onClick={() => setView("orgs")} className="text-gray-500 hover:text-gray-300 p-1 rounded"><ChevronLeft size={20} /></button>
-                <h1 className="text-xl font-bold text-white">{selectedOrg.name}</h1>
+                <h1 className="text-lg md:text-xl font-bold text-white">{selectedOrg.name}</h1>
                 <Badge text={selectedOrg.plan} colorClass={PLAN_COLORS[selectedOrg.plan] || ""} />
                 <Badge text={selectedOrg.plan_status} colorClass={STATUS_COLORS[selectedOrg.plan_status] || ""} />
                 {selectedOrg.is_trial && (
@@ -1314,7 +1314,7 @@ export default function SuperAdmin() {
                 <StatCard label="Price Requests" value={selectedOrg.total_supplier_requests ?? 0} icon={FileText} color="text-orange-400" />
               </div>
 
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {/* Plan management */}
                 <div className="bg-gray-800 border border-gray-700 rounded-xl p-5">
                   <SectionTitle title="Plan Management" />
@@ -1511,7 +1511,7 @@ export default function SuperAdmin() {
                 {/* Header */}
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <SectionTitle title="Testimonials" onRefresh={loadTestimonials} />
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <button
                       onClick={() => { setRequestForm({ email: "", name: "", role_hint: "", phone: "" }); setWhatsappLink(null); setRequestModal(true); }}
                       className="flex items-center gap-1.5 bg-green-600 hover:bg-green-500 text-white text-xs font-semibold px-3 py-1.5 rounded-lg"
@@ -1528,7 +1528,7 @@ export default function SuperAdmin() {
                 </div>
 
                 {/* Tabs */}
-                <div className="flex gap-1 bg-gray-800 p-1 rounded-xl w-fit">
+                <div className="flex gap-1 bg-gray-800 p-1 rounded-xl w-fit overflow-x-auto max-w-full">
                   {[
                     { key: "pending",  label: "Pending",  count: pendingCount },
                     { key: "approved", label: "Approved", count: testimonials.filter((t) => t.status === "approved").length },
@@ -1657,6 +1657,122 @@ export default function SuperAdmin() {
               </div>
             );
           })()}
+
+          {/* ── Affiliates ── */}
+          {view === "affiliates" && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <h2 className="text-lg md:text-xl font-bold text-white">Affiliates / Partners</h2>
+                <span className="text-xs text-gray-400">{affiliates.length} total · {affiliates.filter(a => a.status === "pending").length} pending</span>
+              </div>
+
+              {selectedAffiliate && (
+                <div className="bg-gray-900 rounded-xl p-4 sm:p-5 border border-gray-700 space-y-4">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="font-semibold text-white truncate">{selectedAffiliate.name}</p>
+                      <p className="text-xs text-gray-400 truncate">{selectedAffiliate.email} · {selectedAffiliate.phone}</p>
+                      <p className="text-xs text-gray-500 mt-0.5">Code: <span className="font-mono text-green-400">{selectedAffiliate.code}</span> · Payout M-Pesa: {selectedAffiliate.payout_phone}</p>
+                    </div>
+                    <button onClick={() => setSelectedAffiliate(null)} className="text-gray-500 hover:text-white shrink-0"><X size={18} /></button>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-center">
+                    <div className="bg-gray-800 rounded-lg p-3">
+                      <p className="text-lg font-bold text-green-400">KSh {selectedAffiliate.balance_ksh?.toFixed(0)}</p>
+                      <p className="text-xs text-gray-400">Balance</p>
+                    </div>
+                    <div className="bg-gray-800 rounded-lg p-3">
+                      <p className="text-lg font-bold text-white">KSh {selectedAffiliate.total_earned_ksh?.toFixed(0)}</p>
+                      <p className="text-xs text-gray-400">Total Earned</p>
+                    </div>
+                    <div className="bg-gray-800 rounded-lg p-3">
+                      <p className="text-lg font-bold text-white">{selectedAffiliate.referrals?.length ?? 0}</p>
+                      <p className="text-xs text-gray-400">Referrals</p>
+                    </div>
+                  </div>
+                  {selectedAffiliate.referrals?.length > 0 && (
+                    <div>
+                      <p className="text-xs text-gray-400 font-semibold uppercase mb-2">Referred Clients</p>
+                      <div className="space-y-1">
+                        {selectedAffiliate.referrals.map(r => (
+                          <div key={r.org_id} className="flex items-center justify-between text-sm">
+                            <span className="text-gray-200">{r.org_name}</span>
+                            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${r.is_paying ? "bg-green-900 text-green-300" : r.is_trial ? "bg-blue-900 text-blue-300" : "bg-gray-700 text-gray-400"}`}>
+                              {r.is_paying ? "Paying" : r.is_trial ? "Trial" : r.plan}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  <p className="text-xs text-gray-500">Commission rate: KSh {selectedAffiliate.commission_rate_ksh}/month per paying client</p>
+                </div>
+              )}
+
+              <div className="bg-gray-900 rounded-xl border border-gray-800 overflow-x-auto">
+                <table className="w-full text-sm min-w-[480px]">
+                  <thead>
+                    <tr className="border-b border-gray-800 text-xs text-gray-400 uppercase">
+                      <th className="text-left px-4 py-3">Name</th>
+                      <th className="text-left px-4 py-3">Code</th>
+                      <th className="text-left px-4 py-3 hidden md:table-cell">Phone</th>
+                      <th className="text-right px-4 py-3 hidden md:table-cell">Balance</th>
+                      <th className="text-center px-4 py-3">Status</th>
+                      <th className="text-right px-4 py-3">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {affiliates.length === 0 && (
+                      <tr><td colSpan={6} className="text-center py-8 text-gray-500">No affiliates yet</td></tr>
+                    )}
+                    {affiliates.map(a => (
+                      <tr key={a.id} className="border-b border-gray-800/50 hover:bg-gray-800/40 transition-colors">
+                        <td className="px-4 py-3">
+                          <button onClick={async () => {
+                            try { const { data } = await superadminGetAffiliate(token, a.id); setSelectedAffiliate(data); }
+                            catch { flash("Failed to load affiliate detail", "error"); }
+                          }} className="font-medium text-white hover:text-green-400 text-left">{a.name}</button>
+                          <p className="text-xs text-gray-500">{a.email}</p>
+                        </td>
+                        <td className="px-4 py-3 font-mono text-green-400 text-xs">{a.code}</td>
+                        <td className="px-4 py-3 text-gray-300 hidden md:table-cell">{a.phone}</td>
+                        <td className="px-4 py-3 text-right text-gray-200 hidden md:table-cell">KSh {a.balance_ksh?.toFixed(0)}</td>
+                        <td className="px-4 py-3 text-center">
+                          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                            a.status === "active" ? "bg-green-900 text-green-300" :
+                            a.status === "pending" ? "bg-yellow-900 text-yellow-300" :
+                            "bg-red-900 text-red-300"
+                          }`}>{a.status}</span>
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            {a.status === "pending" && (
+                              <button onClick={async () => {
+                                try { await superadminUpdateAffiliateStatus(token, a.id, "active"); flash("Affiliate approved", "success"); loadAffiliates(); }
+                                catch { flash("Failed to approve", "error"); }
+                              }} className="text-xs px-2 py-1 bg-green-700 hover:bg-green-600 text-white rounded-lg">Approve</button>
+                            )}
+                            {a.status === "active" && (
+                              <button onClick={async () => {
+                                try { await superadminUpdateAffiliateStatus(token, a.id, "suspended"); flash("Affiliate suspended", "success"); loadAffiliates(); }
+                                catch { flash("Failed to suspend", "error"); }
+                              }} className="text-xs px-2 py-1 bg-gray-700 hover:bg-gray-600 text-white rounded-lg">Suspend</button>
+                            )}
+                            {a.status === "suspended" && (
+                              <button onClick={async () => {
+                                try { await superadminUpdateAffiliateStatus(token, a.id, "active"); flash("Reactivated", "success"); loadAffiliates(); }
+                                catch { flash("Failed to reactivate", "error"); }
+                              }} className="text-xs px-2 py-1 bg-blue-700 hover:bg-blue-600 text-white rounded-lg">Reactivate</button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
 
         </div>
       </main>
@@ -2111,22 +2227,24 @@ export default function SuperAdmin() {
             {/* Items requested */}
             <div>
               <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Items Requested</p>
-              <table className="w-full text-sm border border-gray-700 rounded-lg overflow-hidden">
-                <thead className="bg-gray-800">
-                  <tr>
-                    <th className="px-3 py-2 text-left text-xs text-gray-400">Description</th>
-                    <th className="px-3 py-2 text-right text-xs text-gray-400">Qty</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-700">
-                  {viewingRequest.items.map((item, i) => (
-                    <tr key={i}>
-                      <td className="px-3 py-2 text-gray-200">{item.description}</td>
-                      <td className="px-3 py-2 text-right text-gray-400">{item.quantity ?? "—"}</td>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm border border-gray-700 rounded-lg overflow-hidden">
+                  <thead className="bg-gray-800">
+                    <tr>
+                      <th className="px-3 py-2 text-left text-xs text-gray-400">Description</th>
+                      <th className="px-3 py-2 text-right text-xs text-gray-400">Qty</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y divide-gray-700">
+                    {viewingRequest.items.map((item, i) => (
+                      <tr key={i}>
+                        <td className="px-3 py-2 text-gray-200">{item.description}</td>
+                        <td className="px-3 py-2 text-right text-gray-400">{item.quantity ?? "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
 
             {/* Supplier responses */}
@@ -2145,32 +2263,34 @@ export default function SuperAdmin() {
                         <Badge text={inv.status} colorClass={inv.status === "responded" ? "bg-green-900 text-green-300" : "bg-gray-700 text-gray-400"} />
                       </div>
                       {inv.status === "responded" && inv.response_items.length > 0 && (
-                        <table className="w-full text-sm bg-gray-900">
-                          <thead className="bg-gray-800">
-                            <tr>
-                              <th className="px-3 py-1.5 text-left text-xs text-gray-500">Item</th>
-                              <th className="px-3 py-1.5 text-right text-xs text-gray-500">Qty</th>
-                              <th className="px-3 py-1.5 text-right text-xs text-gray-500">Unit Price</th>
-                              <th className="px-3 py-1.5 text-right text-xs text-gray-500">Total</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-gray-800">
-                            {inv.response_items.map((r, j) => (
-                              <tr key={j}>
-                                <td className="px-3 py-2 text-gray-300">{r.description}</td>
-                                <td className="px-3 py-2 text-right text-gray-400">{r.quantity ?? "—"}</td>
-                                <td className="px-3 py-2 text-right text-gray-300">{fmtKES(r.unit_price)}</td>
-                                <td className="px-3 py-2 text-right text-green-400 font-semibold">{fmtKES(r.unit_price * (r.quantity || 1))}</td>
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-sm bg-gray-900 min-w-[320px]">
+                            <thead className="bg-gray-800">
+                              <tr>
+                                <th className="px-3 py-1.5 text-left text-xs text-gray-500">Item</th>
+                                <th className="px-3 py-1.5 text-right text-xs text-gray-500">Qty</th>
+                                <th className="px-3 py-1.5 text-right text-xs text-gray-500">Unit Price</th>
+                                <th className="px-3 py-1.5 text-right text-xs text-gray-500">Total</th>
                               </tr>
-                            ))}
-                          </tbody>
-                          <tfoot>
-                            <tr className="border-t border-gray-700 bg-gray-800">
-                              <td colSpan={3} className="px-3 py-2 text-right text-xs font-bold text-gray-400">Grand Total</td>
-                              <td className="px-3 py-2 text-right font-extrabold text-green-400">{fmtKES(grandTotal)}</td>
-                            </tr>
-                          </tfoot>
-                        </table>
+                            </thead>
+                            <tbody className="divide-y divide-gray-800">
+                              {inv.response_items.map((r, j) => (
+                                <tr key={j}>
+                                  <td className="px-3 py-2 text-gray-300">{r.description}</td>
+                                  <td className="px-3 py-2 text-right text-gray-400">{r.quantity ?? "—"}</td>
+                                  <td className="px-3 py-2 text-right text-gray-300">{fmtKES(r.unit_price)}</td>
+                                  <td className="px-3 py-2 text-right text-green-400 font-semibold">{fmtKES(r.unit_price * (r.quantity || 1))}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                            <tfoot>
+                              <tr className="border-t border-gray-700 bg-gray-800">
+                                <td colSpan={3} className="px-3 py-2 text-right text-xs font-bold text-gray-400">Grand Total</td>
+                                <td className="px-3 py-2 text-right font-extrabold text-green-400">{fmtKES(grandTotal)}</td>
+                              </tr>
+                            </tfoot>
+                          </table>
+                        </div>
                       )}
                       {inv.supplier_notes && (
                         <p className="px-3 py-2 text-xs text-gray-500 italic bg-gray-900">Note: "{inv.supplier_notes}"</p>
@@ -2187,121 +2307,6 @@ export default function SuperAdmin() {
         </Modal>
       )}
 
-          {/* ── Affiliates ── */}
-          {view === "affiliates" && (
-            <div className="p-6 space-y-4">
-              <div className="flex items-center justify-between">
-                <h2 className="text-xl font-bold text-white">Affiliates / Partners</h2>
-                <span className="text-xs text-gray-400">{affiliates.length} total · {affiliates.filter(a => a.status === "pending").length} pending</span>
-              </div>
-
-              {selectedAffiliate && (
-                <div className="bg-gray-900 rounded-xl p-5 border border-gray-700 space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-semibold text-white">{selectedAffiliate.name}</p>
-                      <p className="text-xs text-gray-400">{selectedAffiliate.email} · {selectedAffiliate.phone}</p>
-                      <p className="text-xs text-gray-500 mt-0.5">Code: <span className="font-mono text-green-400">{selectedAffiliate.code}</span> · Payout M-Pesa: {selectedAffiliate.payout_phone}</p>
-                    </div>
-                    <button onClick={() => setSelectedAffiliate(null)} className="text-gray-500 hover:text-white"><X size={18} /></button>
-                  </div>
-                  <div className="grid grid-cols-3 gap-3 text-center">
-                    <div className="bg-gray-800 rounded-lg p-3">
-                      <p className="text-lg font-bold text-green-400">KSh {selectedAffiliate.balance_ksh?.toFixed(0)}</p>
-                      <p className="text-xs text-gray-400">Balance</p>
-                    </div>
-                    <div className="bg-gray-800 rounded-lg p-3">
-                      <p className="text-lg font-bold text-white">KSh {selectedAffiliate.total_earned_ksh?.toFixed(0)}</p>
-                      <p className="text-xs text-gray-400">Total Earned</p>
-                    </div>
-                    <div className="bg-gray-800 rounded-lg p-3">
-                      <p className="text-lg font-bold text-white">{selectedAffiliate.referrals?.length ?? 0}</p>
-                      <p className="text-xs text-gray-400">Referrals</p>
-                    </div>
-                  </div>
-                  {selectedAffiliate.referrals?.length > 0 && (
-                    <div>
-                      <p className="text-xs text-gray-400 font-semibold uppercase mb-2">Referred Clients</p>
-                      <div className="space-y-1">
-                        {selectedAffiliate.referrals.map(r => (
-                          <div key={r.org_id} className="flex items-center justify-between text-sm">
-                            <span className="text-gray-200">{r.org_name}</span>
-                            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${r.is_paying ? "bg-green-900 text-green-300" : r.is_trial ? "bg-blue-900 text-blue-300" : "bg-gray-700 text-gray-400"}`}>
-                              {r.is_paying ? "Paying" : r.is_trial ? "Trial" : r.plan}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  <p className="text-xs text-gray-500">Commission rate: KSh {selectedAffiliate.commission_rate_ksh}/month per paying client</p>
-                </div>
-              )}
-
-              <div className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-gray-800 text-xs text-gray-400 uppercase">
-                      <th className="text-left px-4 py-3">Name</th>
-                      <th className="text-left px-4 py-3">Code</th>
-                      <th className="text-left px-4 py-3 hidden md:table-cell">Phone</th>
-                      <th className="text-right px-4 py-3 hidden md:table-cell">Balance</th>
-                      <th className="text-center px-4 py-3">Status</th>
-                      <th className="text-right px-4 py-3">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {affiliates.length === 0 && (
-                      <tr><td colSpan={6} className="text-center py-8 text-gray-500">No affiliates yet</td></tr>
-                    )}
-                    {affiliates.map(a => (
-                      <tr key={a.id} className="border-b border-gray-800/50 hover:bg-gray-800/40 transition-colors">
-                        <td className="px-4 py-3">
-                          <button onClick={async () => {
-                            try { const { data } = await superadminGetAffiliate(token, a.id); setSelectedAffiliate(data); }
-                            catch { flash("Failed to load affiliate detail", "error"); }
-                          }} className="font-medium text-white hover:text-green-400 text-left">{a.name}</button>
-                          <p className="text-xs text-gray-500">{a.email}</p>
-                        </td>
-                        <td className="px-4 py-3 font-mono text-green-400 text-xs">{a.code}</td>
-                        <td className="px-4 py-3 text-gray-300 hidden md:table-cell">{a.phone}</td>
-                        <td className="px-4 py-3 text-right text-gray-200 hidden md:table-cell">KSh {a.balance_ksh?.toFixed(0)}</td>
-                        <td className="px-4 py-3 text-center">
-                          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                            a.status === "active" ? "bg-green-900 text-green-300" :
-                            a.status === "pending" ? "bg-yellow-900 text-yellow-300" :
-                            "bg-red-900 text-red-300"
-                          }`}>{a.status}</span>
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          <div className="flex items-center justify-end gap-2">
-                            {a.status === "pending" && (
-                              <button onClick={async () => {
-                                try { await superadminUpdateAffiliateStatus(token, a.id, "active"); flash("Affiliate approved", "success"); loadAffiliates(); }
-                                catch { flash("Failed to approve", "error"); }
-                              }} className="text-xs px-2 py-1 bg-green-700 hover:bg-green-600 text-white rounded-lg">Approve</button>
-                            )}
-                            {a.status === "active" && (
-                              <button onClick={async () => {
-                                try { await superadminUpdateAffiliateStatus(token, a.id, "suspended"); flash("Affiliate suspended", "success"); loadAffiliates(); }
-                                catch { flash("Failed to suspend", "error"); }
-                              }} className="text-xs px-2 py-1 bg-gray-700 hover:bg-gray-600 text-white rounded-lg">Suspend</button>
-                            )}
-                            {a.status === "suspended" && (
-                              <button onClick={async () => {
-                                try { await superadminUpdateAffiliateStatus(token, a.id, "active"); flash("Reactivated", "success"); loadAffiliates(); }
-                                catch { flash("Failed to reactivate", "error"); }
-                              }} className="text-xs px-2 py-1 bg-blue-700 hover:bg-blue-600 text-white rounded-lg">Reactivate</button>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
     </div>
   );
 }
