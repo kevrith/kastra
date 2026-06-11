@@ -544,12 +544,12 @@ async def delete_org(org_id: str, db: AsyncSession = Depends(get_db)):
             "DELETE FROM affiliate_commissions WHERE organization_id = :oid",
             "DELETE FROM affiliate_referrals   WHERE organization_id = :oid",
             # Supplier sub-tables (response items → invites → request items → requests → suppliers)
-            """DELETE FROM supplier_response_items WHERE supplier_request_invite_id IN (
-                  SELECT id FROM supplier_request_invites WHERE supplier_request_id IN (
+            """DELETE FROM supplier_response_items WHERE invite_id IN (
+                  SELECT id FROM supplier_request_invites WHERE request_id IN (
                     SELECT id FROM supplier_requests WHERE organization_id = :oid))""",
-            """DELETE FROM supplier_request_invites WHERE supplier_request_id IN (
+            """DELETE FROM supplier_request_invites WHERE request_id IN (
                   SELECT id FROM supplier_requests WHERE organization_id = :oid)""",
-            """DELETE FROM supplier_request_items WHERE supplier_request_id IN (
+            """DELETE FROM supplier_request_items WHERE request_id IN (
                   SELECT id FROM supplier_requests WHERE organization_id = :oid)""",
             "DELETE FROM supplier_requests WHERE organization_id = :oid",
             "DELETE FROM suppliers        WHERE organization_id = :oid",
@@ -589,7 +589,9 @@ async def delete_org(org_id: str, db: AsyncSession = Depends(get_db)):
             "DELETE FROM organizations WHERE id = :oid",
         ]
 
+        failed_stmt = None
         for stmt in stmts_oid:
+            failed_stmt = stmt
             await db.execute(text(stmt), {"oid": oid})
 
         # audit_logs stores user_id/org_id as plain strings — no FK, clean up separately
@@ -601,7 +603,10 @@ async def delete_org(org_id: str, db: AsyncSession = Depends(get_db)):
         await db.commit()
     except Exception as exc:
         await db.rollback()
-        raise HTTPException(status_code=500, detail=f"Delete failed: {exc}") from exc
+        raise HTTPException(
+            status_code=500,
+            detail=f"Delete failed at: {failed_stmt!r} — {exc}",
+        ) from exc
 
     return {"message": f"Organisation '{org_name}' and all its data have been permanently deleted."}
 
