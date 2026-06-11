@@ -4,9 +4,10 @@ import api from "../api/axios";
 import { getOrganization, updateOrganization } from "../api/organization";
 import { testEtimsConnection } from "../api/invoices";
 import { getMyPlan, upgradePlan } from "../api/subscriptions";
-import { Building2, User, Lock, Upload, X, Palette, ShieldCheck, Eye, EyeOff, Loader, Package, ArrowRight, CreditCard, Smartphone, CheckCircle, Zap, Phone } from "lucide-react";
+import { Building2, User, Lock, Upload, X, Palette, ShieldCheck, Eye, EyeOff, Loader, Package, ArrowRight, CreditCard, Smartphone, CheckCircle, Zap, Phone, Shield, Download, Trash2 } from "lucide-react";
 import ConfirmDialog from "../components/ui/ConfirmDialog";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useSearchParams, useNavigate } from "react-router-dom";
+import { exportMyData, deleteMyAccount } from "../api/auth";
 
 const TEMPLATES = [
   {
@@ -162,8 +163,9 @@ function Section({ title, icon: Icon, children }) {
 }
 
 export default function Settings() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const isAdmin = user?.role === 'admin';
+  const navigate = useNavigate();
   const fileInputRef = useRef(null);
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -203,10 +205,39 @@ export default function Settings() {
   const [planInfo, setPlanInfo] = useState(null);
   const [upgradeModal, setUpgradeModal] = useState(null); // { plan, price }
   const [confirmDowngrade, setConfirmDowngrade] = useState(false);
+  const [confirmDeleteAccount, setConfirmDeleteAccount] = useState(false);
+  const [exportingData, setExportingData] = useState(false);
   const [payMethod, setPayMethod] = useState("mpesa"); // "mpesa" | "card"
   const [mpesaPhone, setMpesaPhone] = useState("");
   const [upgrading, setUpgrading] = useState(false);
   const [upgradeMsg, setUpgradeMsg] = useState({ text: "", type: "success" });
+
+  const handleExportData = async () => {
+    setExportingData(true);
+    try {
+      const { data } = await exportMyData();
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `kastra-my-data-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } finally {
+      setExportingData(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    try {
+      await deleteMyAccount();
+      logout?.();
+      navigate("/login");
+    } catch {
+      // account deleted — force redirect anyway
+      navigate("/login");
+    }
+  };
 
   const refreshPlan = async () => {
     const { data } = await getMyPlan();
@@ -1029,6 +1060,22 @@ export default function Settings() {
         </Section>
       </form>
 
+      <Section title="Privacy &amp; Data" icon={Shield}>
+        <p className="text-sm text-gray-500">
+          Under the Kenya Data Protection Act 2019, you have the right to export a copy of your personal data and the right to erasure.
+        </p>
+        <div className="flex flex-wrap gap-3 mt-1">
+          <button className="btn-secondary inline-flex items-center gap-2" onClick={handleExportData} disabled={exportingData}>
+            {exportingData ? <Loader size={15} className="animate-spin" /> : <Download size={15} />}
+            {exportingData ? "Exporting…" : "Download my data"}
+          </button>
+          <button className="btn-secondary inline-flex items-center gap-2 text-red-600 hover:text-red-700 border-red-200 hover:border-red-300"
+            onClick={() => setConfirmDeleteAccount(true)}>
+            <Trash2 size={15} /> Delete my account
+          </button>
+        </div>
+      </Section>
+
       <Section title="Products &amp; Services Catalog" icon={Package}>
         <p className="text-sm text-gray-500">
           Manage your saved products and services. They autofill line items when creating invoices and quotations — no more typing the same thing twice.
@@ -1044,6 +1091,15 @@ export default function Settings() {
         onConfirm={handleDowngradeToFree}
         title="Downgrade to Free Plan"
         message="Your current plan features will be removed at the end of this billing cycle. You can upgrade again at any time."
+        danger
+      />
+
+      <ConfirmDialog
+        open={confirmDeleteAccount}
+        onClose={() => setConfirmDeleteAccount(false)}
+        onConfirm={handleDeleteAccount}
+        title="Delete my account"
+        message="This permanently anonymises your personal data (email, name, password). Your organisation's financial records are retained for 5 years as required by the Kenya Tax Procedures Act. This action cannot be undone."
         danger
       />
     </div>

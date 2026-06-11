@@ -7,10 +7,11 @@ import { getInvoices } from "../../api/invoices";
 import { getOrganization } from "../../api/organization";
 import { getClientRisk } from "../../api/ai";
 import { ksh, phone, date, statusBadgeClass, normalizePhone } from "../../utils/formatters";
-import { ArrowLeft, Edit2, Check, X, Copy, MessageCircle, ExternalLink, Lock, LockOpen, RefreshCw, Sparkles, ShieldAlert } from "lucide-react";
+import { ArrowLeft, Edit2, Check, X, Copy, MessageCircle, ExternalLink, Lock, LockOpen, RefreshCw, Sparkles, ShieldAlert, Star } from "lucide-react";
 import Spinner from "../../components/ui/Spinner";
 import Modal from "../../components/ui/Modal";
 import api from "../../api/axios";
+import { requestTestimonial } from "../../api/testimonials";
 
 const PIN_KEY = (id) => `kastra_pin_${id}`;
 
@@ -33,6 +34,10 @@ export default function ClientDetail() {
   const [risk, setRisk] = useState(null);
   const [riskLoading, setRiskLoading] = useState(false);
   const [riskError, setRiskError] = useState("");
+  const [showTestimonialModal, setShowTestimonialModal] = useState(false);
+  const [testimonialForm, setTestimonialForm] = useState({ name: "", email: "", phone: "", role_hint: "" });
+  const [testimonialSending, setTestimonialSending] = useState(false);
+  const [testimonialResult, setTestimonialResult] = useState(null);
 
   const load = async () => {
     setLoading(true);
@@ -54,6 +59,36 @@ export default function ClientDetail() {
   useEffect(() => { getOrganization().then(({ data }) => setOrgName(data.data.name)).catch(() => {}); }, []);
 
   const portalUrl = client ? `${publicOrigin()}/portal/c/${client.portal_token}` : "";
+
+  const openTestimonialModal = () => {
+    setTestimonialResult(null);
+    setTestimonialForm({
+      name: client?.name || "",
+      email: client?.email || "",
+      phone: client?.phone || "",
+      role_hint: "",
+    });
+    setShowTestimonialModal(true);
+  };
+
+  const handleSendTestimonialRequest = async () => {
+    if (!testimonialForm.email && !testimonialForm.phone) return;
+    setTestimonialSending(true);
+    try {
+      const { data } = await requestTestimonial({
+        client_id: id,
+        name: testimonialForm.name,
+        email: testimonialForm.email || undefined,
+        phone: testimonialForm.phone || undefined,
+        role_hint: testimonialForm.role_hint || undefined,
+      });
+      setTestimonialResult({ ok: true, message: data.message, whatsapp_link: data.whatsapp_link });
+    } catch (err) {
+      setTestimonialResult({ ok: false, message: err.response?.data?.detail || "Failed to send request." });
+    } finally {
+      setTestimonialSending(false);
+    }
+  };
 
   const handleCopyPortalLink = () => {
     navigator.clipboard.writeText(portalUrl).then(() => {
@@ -339,6 +374,69 @@ export default function ClientDetail() {
             </button>
           </div>
         </div>
+      </Modal>
+
+      {/* Request Testimonial */}
+      <div className="card p-4 space-y-3">
+        <div>
+          <h2 className="text-sm font-semibold text-gray-800">Client Testimonial</h2>
+          <p className="text-xs text-gray-500 mt-0.5">
+            Send {client.name} a link to leave a testimonial. Approved testimonials appear on the Kastra landing page.
+          </p>
+        </div>
+        <button onClick={openTestimonialModal} className="btn-secondary text-xs inline-flex items-center gap-1.5">
+          <Star size={13} /> Request Testimonial
+        </button>
+      </div>
+
+      <Modal open={showTestimonialModal} onClose={() => setShowTestimonialModal(false)} title="Request a Testimonial" size="sm">
+        {testimonialResult ? (
+          <div className="space-y-4">
+            <div className={`text-sm px-3 py-2 rounded-lg ${testimonialResult.ok ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"}`}>
+              {testimonialResult.message}
+            </div>
+            {testimonialResult.ok && testimonialResult.whatsapp_link && (
+              <a href={testimonialResult.whatsapp_link} target="_blank" rel="noopener noreferrer"
+                className="btn-secondary text-xs inline-flex items-center gap-1.5 w-full justify-center">
+                <MessageCircle size={13} /> Send via WhatsApp too
+              </a>
+            )}
+            <div className="flex justify-end">
+              <button className="btn-secondary" onClick={() => setShowTestimonialModal(false)}>Close</button>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <p className="text-sm text-gray-500">We'll email the client a link where they can write a short testimonial.</p>
+            <div>
+              <label className="label">Client Name</label>
+              <input className="input" value={testimonialForm.name}
+                onChange={(e) => setTestimonialForm({ ...testimonialForm, name: e.target.value })} />
+            </div>
+            <div>
+              <label className="label">Email <span className="text-gray-400">(required if no phone)</span></label>
+              <input className="input" type="email" value={testimonialForm.email}
+                onChange={(e) => setTestimonialForm({ ...testimonialForm, email: e.target.value })} />
+            </div>
+            <div>
+              <label className="label">Phone <span className="text-gray-400">(optional — for WhatsApp link)</span></label>
+              <input className="input" type="tel" value={testimonialForm.phone}
+                onChange={(e) => setTestimonialForm({ ...testimonialForm, phone: e.target.value })} />
+            </div>
+            <div>
+              <label className="label">Their Role / Title <span className="text-gray-400">(optional)</span></label>
+              <input className="input" placeholder="e.g. CEO, Freelancer" value={testimonialForm.role_hint}
+                onChange={(e) => setTestimonialForm({ ...testimonialForm, role_hint: e.target.value })} />
+            </div>
+            <div className="flex gap-2 justify-end">
+              <button className="btn-secondary" onClick={() => setShowTestimonialModal(false)}>Cancel</button>
+              <button className="btn-primary" onClick={handleSendTestimonialRequest}
+                disabled={testimonialSending || (!testimonialForm.email && !testimonialForm.phone)}>
+                {testimonialSending ? "Sending…" : "Send Request"}
+              </button>
+            </div>
+          </div>
+        )}
       </Modal>
 
       {/* Quotations */}
