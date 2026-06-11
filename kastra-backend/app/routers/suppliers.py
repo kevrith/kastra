@@ -240,7 +240,7 @@ _load_request_full = (
 
 
 def _request_to_out(req: SupplierRequest) -> SupplierRequestOut:
-    base_url = settings.frontend_url
+    base_url = settings.primary_frontend_url
     return SupplierRequestOut(
         id=req.id,
         title=req.title,
@@ -475,7 +475,7 @@ async def add_invite(
         )
     )
     inv = result2.scalar_one()
-    return Response(data=InviteOut.from_invite(inv, settings.frontend_url))
+    return Response(data=InviteOut.from_invite(inv, settings.primary_frontend_url))
 
 
 @router.delete("/requests/{request_id}/invites/{invite_id}", response_model=MessageResponse)

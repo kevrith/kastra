@@ -657,7 +657,7 @@ async def _send_temp_password_email(email: str, temp_password: str) -> None:
         <p style="margin:0;font-size:18px;font-family:monospace;font-weight:700;color:#111">{temp_password}</p>
       </div>
       <p style="color:#dc2626;font-weight:600">⚠️ Please change this password immediately after logging in.</p>
-      <p><a href="{settings.frontend_url}/login" style="background:#16a34a;color:#fff;padding:10px 22px;border-radius:8px;text-decoration:none;display:inline-block;font-weight:600">Login to Kastra</a></p>
+      <p><a href="{settings.primary_frontend_url}/login" style="background:#16a34a;color:#fff;padding:10px 22px;border-radius:8px;text-decoration:none;display:inline-block;font-weight:600">Login to Kastra</a></p>
       <p style="font-size:12px;color:#6b7280;margin-top:24px">For security reasons, this temporary password should only be used once.</p>
     </div>
     """
@@ -1275,7 +1275,7 @@ async def sa_request_testimonial(
     db.add(t)
     await db.commit()
 
-    form_url = f"{settings.frontend_url}/testimonial/{token}"
+    form_url = f"{settings.primary_frontend_url}/testimonial/{token}"
 
     sent_via: list[str] = []
     if payload.email.strip():
@@ -1312,7 +1312,7 @@ async def sa_resend_testimonial(testimonial_id: str, db: AsyncSession = Depends(
     if not t.request_token or (not t.requested_email and not t.requested_phone):
         raise HTTPException(400, "No contact info to resend to")
 
-    form_url = f"{settings.frontend_url}/testimonial/{t.request_token}"
+    form_url = f"{settings.primary_frontend_url}/testimonial/{t.request_token}"
 
     sent_via: list[str] = []
     if t.requested_email:

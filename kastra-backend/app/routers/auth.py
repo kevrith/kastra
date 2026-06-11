@@ -206,7 +206,7 @@ async def google_callback(code: str, response: Response, db: AsyncSession = Depe
     _set_refresh_cookie(response, refresh_token)
 
     from fastapi.responses import RedirectResponse
-    return RedirectResponse(url=f"{settings.frontend_url}/auth/callback?token={access_token}")
+    return RedirectResponse(url=f"{settings.primary_frontend_url}/auth/callback?token={access_token}")
 
 
 # ---------------------------------------------------------------------------

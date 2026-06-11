@@ -395,7 +395,7 @@ async def send_reminder(
         raise HTTPException(status_code=404, detail="Invoice not found")
 
     phone = inv.client.phone or ""
-    pay_link = f"{settings.frontend_url}/pay/{invoice_id}"
+    pay_link = f"{settings.primary_frontend_url}/pay/{invoice_id}"
     message = (
         f"Hello {inv.client.name}, this is a reminder that invoice *{invoice_id}* "
         f"for *KSh {inv.grand_total:,.2f}* is due.\n\n"

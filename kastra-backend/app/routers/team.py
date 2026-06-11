@@ -46,7 +46,7 @@ async def list_team_members(
     for m in members:
         item = TeamMemberOut.model_validate(m)
         if m.invite_token:
-            item.invite_link = f"{settings.frontend_url}/auth/accept-invite?token={m.invite_token}"
+            item.invite_link = f"{settings.primary_frontend_url}/auth/accept-invite?token={m.invite_token}"
         out.append(item)
     return out
 
@@ -89,7 +89,7 @@ async def invite_user(
     )
 
     from app.config import settings
-    invite_link = f"{settings.frontend_url}/auth/accept-invite?token={user.invite_token}"
+    invite_link = f"{settings.primary_frontend_url}/auth/accept-invite?token={user.invite_token}"
 
     # Return the invite link directly — admin shares it via WhatsApp/SMS
     result = TeamMemberOut.model_validate(user)

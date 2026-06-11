@@ -52,7 +52,7 @@ async def _send(to_email: str, subject: str, html: str) -> None:
 
 
 async def send_password_reset_email(email: str, reset_token: str) -> None:
-    reset_url = f"{settings.frontend_url}/reset-password?token={reset_token}"
+    reset_url = f"{settings.primary_frontend_url}/reset-password?token={reset_token}"
     html = f"""
     <p>Hi,</p>
     <p>Click the link below to reset your Kastra password. It expires in 30 minutes.</p>
@@ -73,7 +73,7 @@ async def send_plan_activated_email(
     """Confirmation sent to org admin immediately after a successful subscription payment."""
     plan_label = plan.capitalize()
     due_str = next_billing_date.strftime("%d %b %Y")
-    settings_url = f"{settings.frontend_url}/settings"
+    settings_url = f"{settings.primary_frontend_url}/settings"
     html = f"""
     <div style="font-family:sans-serif;max-width:480px;color:#1f2937">
       <div style="background:#0f172a;padding:24px 28px;border-radius:10px 10px 0 0">
@@ -121,7 +121,7 @@ async def send_payment_received_email(
       <p><strong>Client:</strong> {client_name}</p>
       <p><strong>Amount:</strong> KSh {amount:,.2f}</p>
       {receipt_line}
-      <p><a href="{settings.frontend_url}/invoices/{invoice_id}"
+      <p><a href="{settings.primary_frontend_url}/invoices/{invoice_id}"
             style="background:#16a34a;color:#fff;padding:8px 18px;border-radius:6px;text-decoration:none">
          View Invoice</a></p>
     </div>
@@ -137,7 +137,7 @@ async def send_invoice_email(
     business_name: str,
     due_date: str | None = None,
 ) -> None:
-    pay_url = f"{settings.frontend_url}/pay/{invoice_id}"
+    pay_url = f"{settings.primary_frontend_url}/pay/{invoice_id}"
     due_line = f"<p><strong>Due:</strong> {due_date}</p>" if due_date else ""
     html = f"""
     <div style="font-family:sans-serif;max-width:520px">
@@ -162,7 +162,7 @@ async def send_quotation_email(
     business_name: str,
     expires_at: str | None = None,
 ) -> None:
-    portal_url = f"{settings.frontend_url}/portal/q/{quotation_id}"
+    portal_url = f"{settings.primary_frontend_url}/portal/q/{quotation_id}"
     exp_line = f"<p><strong>Valid until:</strong> {expires_at}</p>" if expires_at else ""
     html = f"""
     <div style="font-family:sans-serif;max-width:520px">
@@ -211,7 +211,7 @@ async def send_subscription_renewal_reminder_email(
     """Remind the org admin that their subscription renews in 5 days."""
     due_str = next_billing_date.strftime("%d %b %Y")
     plan_label = plan.capitalize()
-    settings_url = f"{settings.frontend_url}/settings"
+    settings_url = f"{settings.primary_frontend_url}/settings"
     html = f"""
     <div style="font-family:sans-serif;max-width:480px;color:#1f2937">
       <div style="background:#0f172a;padding:24px 28px;border-radius:10px 10px 0 0">
@@ -250,7 +250,7 @@ async def send_subscription_downgraded_email(
 ) -> None:
     """Notify the org admin their plan was downgraded to free due to non-renewal."""
     old_plan_label = old_plan.capitalize()
-    settings_url = f"{settings.frontend_url}/settings"
+    settings_url = f"{settings.primary_frontend_url}/settings"
     html = f"""
     <div style="font-family:sans-serif;max-width:480px;color:#1f2937">
       <div style="background:#0f172a;padding:24px 28px;border-radius:10px 10px 0 0">
@@ -307,7 +307,7 @@ async def send_due_soon_reminder_email(
         <p style="font-size:13px;color:#6b7280;margin:0 0 20px">
           Please arrange payment before the due date to avoid any late fees.
         </p>
-        <a href="{settings.frontend_url}/pay/{invoice_id}"
+        <a href="{settings.primary_frontend_url}/pay/{invoice_id}"
            style="display:inline-block;background:#16a34a;color:#fff;padding:10px 22px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px">
           Pay Now — KSh {amount:,.2f}
         </a>
@@ -443,7 +443,7 @@ async def send_overdue_reminder_email(
           Please settle this invoice immediately to avoid further action.
           Contact us if you have already made payment or need to discuss a payment arrangement.
         </p>
-        <a href="{settings.frontend_url}/pay/{invoice_id}"
+        <a href="{settings.primary_frontend_url}/pay/{invoice_id}"
            style="display:inline-block;background:#dc2626;color:#fff;padding:10px 22px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px">
           Pay Now — KSh {display_amount:,.2f}
         </a>

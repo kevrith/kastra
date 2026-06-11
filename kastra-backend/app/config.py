@@ -39,6 +39,10 @@ class Settings(BaseSettings):
     def allowed_origins(self) -> list[str]:
         return [o.strip() for o in self.frontend_url.split(",") if o.strip()]
 
+    @property
+    def primary_frontend_url(self) -> str:
+        return self.allowed_origins[0] if self.allowed_origins else self.frontend_url
+
     # M-Pesa
     mpesa_consumer_key: str = ""
     mpesa_consumer_secret: str = ""

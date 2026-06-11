@@ -184,7 +184,7 @@ async def initialize_payment(payload: PaystackInitRequest, db: AsyncSession = De
         raise HTTPException(status_code=400, detail=f"Amount must be between 1 and {balance_due:.2f}")
 
     amount_cents = int(charge * 100)
-    callback_url = f"{settings.frontend_url}/portal/paystack/verify"
+    callback_url = f"{settings.primary_frontend_url}/portal/paystack/verify"
     secret_key = _org_paystack_key(inv.organization)
 
     if not secret_key or secret_key in ("sk_test_placeholder", ""):

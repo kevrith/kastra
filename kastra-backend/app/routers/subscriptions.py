@@ -169,7 +169,7 @@ async def upgrade_via_paystack(
     amount_kobo = price * 100
 
     reference = f"SUB-{org.id}-{int(datetime.now().timestamp())}"
-    callback_url = f"{settings.frontend_url}/settings?sub_ref={reference}"
+    callback_url = f"{settings.primary_frontend_url}/settings?sub_ref={reference}"
 
     async with httpx.AsyncClient() as client:
         resp = await client.post(
