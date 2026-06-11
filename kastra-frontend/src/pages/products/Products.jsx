@@ -4,6 +4,7 @@ import { Plus, Edit2, Trash2 } from "lucide-react";
 import Modal from "../../components/ui/Modal";
 import ConfirmDialog from "../../components/ui/ConfirmDialog";
 import Spinner from "../../components/ui/Spinner";
+import UpgradeGate from "../../components/ui/UpgradeGate";
 
 function ksh(val) {
   return `KSh ${Number(val).toLocaleString("en-KE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -52,6 +53,12 @@ export default function Products() {
   };
 
   return (
+    <UpgradeGate
+      feature="products"
+      title="Products & Services"
+      description="Build a catalogue of your products and services so line items fill in automatically on invoices."
+      bullets={["Auto-fill prices when creating invoices", "Track cost price for profit margins", "Remember per-client agreed rates"]}
+    >
     <div className="p-4 md:p-6 max-w-3xl mx-auto space-y-5">
       <div className="flex items-center justify-between">
         <div>
@@ -125,5 +132,6 @@ export default function Products() {
         danger
       />
     </div>
+    </UpgradeGate>
   );
 }

@@ -8,6 +8,7 @@ import { Plus, Edit2, Trash2, FileText, ArrowRight, CheckCircle, Clock, Users } 
 import Modal from "../../components/ui/Modal";
 import ConfirmDialog from "../../components/ui/ConfirmDialog";
 import Spinner from "../../components/ui/Spinner";
+import UpgradeGate from "../../components/ui/UpgradeGate";
 
 const EMPTY_SUPPLIER = { name: "", company_name: "", email: "", phone: "", notes: "" };
 
@@ -110,6 +111,12 @@ export default function Suppliers() {
   };
 
   return (
+    <UpgradeGate
+      feature="suppliers"
+      title="Supplier Management"
+      description="Manage your suppliers and send price comparison requests to get the best deal."
+      bullets={["Keep a supplier directory with contacts", "Send quote requests to multiple suppliers", "Compare prices side-by-side before ordering"]}
+    >
     <div className="p-4 md:p-6 max-w-4xl mx-auto space-y-5">
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
@@ -249,5 +256,6 @@ export default function Suppliers() {
         danger
       />
     </div>
+    </UpgradeGate>
   );
 }

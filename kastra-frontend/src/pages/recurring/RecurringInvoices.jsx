@@ -6,6 +6,7 @@ import Modal from "../../components/ui/Modal";
 import ConfirmDialog from "../../components/ui/ConfirmDialog";
 import ProductAutocomplete from "../../components/ui/ProductAutocomplete";
 import Spinner from "../../components/ui/Spinner";
+import UpgradeGate from "../../components/ui/UpgradeGate";
 
 function ksh(val) {
   return `KSh ${Number(val).toLocaleString("en-KE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -64,6 +65,12 @@ export default function RecurringInvoices() {
   };
 
   return (
+    <UpgradeGate
+      feature="recurring"
+      title="Recurring Invoices"
+      description="Automatically generate invoices on a schedule for retainer clients and subscription services."
+      bullets={["Weekly, monthly, or custom billing cycles", "Invoice generated automatically on the due date", "Works with your existing clients and products"]}
+    >
     <div className="p-4 md:p-6 max-w-4xl mx-auto space-y-5">
       <div className="flex items-center justify-between">
         <div>
@@ -184,5 +191,6 @@ export default function RecurringInvoices() {
         danger
       />
     </div>
+    </UpgradeGate>
   );
 }

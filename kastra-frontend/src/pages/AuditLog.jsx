@@ -3,6 +3,7 @@ import { getAuditLogs, exportAuditCsv } from "../api/auditLogs";
 import { Download, ShieldCheck, Filter } from "lucide-react";
 import Spinner from "../components/ui/Spinner";
 import Pagination from "../components/ui/Pagination";
+import UpgradeGate from "../components/ui/UpgradeGate";
 
 const ACTION_COLORS = {
   create: "bg-green-100 text-green-700",
@@ -58,6 +59,12 @@ export default function AuditLog() {
   };
 
   return (
+    <UpgradeGate
+      feature="audit_logs"
+      title="Audit Log"
+      description="A complete tamper-proof history of every action taken in your account — who did what and when."
+      bullets={["Track invoice creation, edits, and deletions", "See who on your team made changes", "Export for compliance and dispute resolution"]}
+    >
     <div className="p-4 md:p-6 max-w-6xl mx-auto space-y-5">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-2">
@@ -166,5 +173,6 @@ export default function AuditLog() {
         </div>
       )}
     </div>
+    </UpgradeGate>
   );
 }

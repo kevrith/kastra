@@ -4,6 +4,7 @@ import { ksh } from "../utils/formatters";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { Download } from "lucide-react";
 import Spinner from "../components/ui/Spinner";
+import UpgradeGate from "../components/ui/UpgradeGate";
 
 const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
@@ -50,6 +51,12 @@ export default function Reports() {
   };
 
   return (
+    <UpgradeGate
+      feature="reports"
+      title="Full Reports"
+      description="Get detailed income, expense, and client reports to understand your business performance."
+      bullets={["Monthly income & expense breakdown with charts", "Top clients by revenue", "Export to CSV for your accountant"]}
+    >
     <div className="p-4 md:p-6 max-w-5xl mx-auto space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <h1 className="text-xl font-bold text-gray-900">Reports</h1>
@@ -146,5 +153,6 @@ export default function Reports() {
         </>
       )}
     </div>
+    </UpgradeGate>
   );
 }

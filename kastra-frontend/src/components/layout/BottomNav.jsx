@@ -3,9 +3,10 @@ import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
   Home, FileText, Receipt, Users, Settings,
   TrendingDown, RefreshCw, BarChart2, Package, MoreHorizontal, X, Kanban,
-  FolderKanban, UserCog, LogOut, Truck, UserCheck, Wallet, ShieldCheck,
+  FolderKanban, UserCog, LogOut, Truck, UserCheck, Wallet, ShieldCheck, Lock,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
+import { hasFeature, SIDEBAR_FEATURE, UNLOCK_PLAN, PLAN_LABELS } from "../../utils/planFeatures";
 
 const PRIMARY = [
   { to: "/dashboard", icon: Home, label: "Home" },
@@ -85,23 +86,36 @@ export default function BottomNav() {
 
         {/* Nav items — simple list, always readable on any screen width */}
         <div className="px-3 py-2">
-          {visibleDrawer.map(({ to, icon: Icon, label }) => (
-            <NavLink
-              key={to}
-              to={to}
-              onClick={() => setOpen(false)}
-              className={({ isActive }) =>
-                `flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors ${
-                  isActive
-                    ? "bg-green-50 text-green-700"
-                    : "text-gray-600 active:bg-gray-100"
-                }`
-              }
-            >
-              <Icon size={20} />
-              {label}
-            </NavLink>
-          ))}
+          {visibleDrawer.map(({ to, icon: Icon, label }) => {
+            const featureKey = SIDEBAR_FEATURE[to];
+            const plan = role ? (user?.organization?.plan ?? "free") : "free";
+            const locked = featureKey ? !hasFeature(plan, featureKey) : false;
+            const requiredPlan = locked ? PLAN_LABELS[UNLOCK_PLAN[featureKey]] : null;
+            return (
+              <NavLink
+                key={to}
+                to={to}
+                onClick={() => setOpen(false)}
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors ${
+                    isActive
+                      ? "bg-green-50 text-green-700"
+                      : locked
+                      ? "text-gray-400 active:bg-gray-50"
+                      : "text-gray-600 active:bg-gray-100"
+                  }`
+                }
+              >
+                <Icon size={20} />
+                <span className="flex-1">{label}</span>
+                {locked && (
+                  <span className="flex items-center gap-1 text-[10px] font-semibold text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded-full">
+                    <Lock size={9} /> {requiredPlan}
+                  </span>
+                )}
+              </NavLink>
+            );
+          })}
           
           {/* User info & logout */}
           <div className="mt-3 pt-3 border-t border-gray-100">

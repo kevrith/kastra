@@ -5,6 +5,7 @@ import { Plus, Edit2, Trash2, X, Check, ScanLine } from "lucide-react";
 import Modal from "../../components/ui/Modal";
 import ConfirmDialog from "../../components/ui/ConfirmDialog";
 import Spinner from "../../components/ui/Spinner";
+import UpgradeGate from "../../components/ui/UpgradeGate";
 
 const CATEGORIES = ["rent", "salaries", "utilities", "supplies", "materials", "labour", "lunch", "transport", "fuel", "other"];
 
@@ -120,6 +121,12 @@ export default function Expenses() {
   const totalThisPage = expenses.reduce((s, e) => s + Number(e.amount), 0);
 
   return (
+    <UpgradeGate
+      feature="expenses"
+      title="Expense Tracking"
+      description="Track business expenses, attach receipts, and see your profit margins clearly."
+      bullets={["Record materials, labour, fuel, and more", "Attach receipt photos via OCR scan", "See expenses per invoice for job profitability"]}
+    >
     <div className="p-4 md:p-6 max-w-4xl mx-auto space-y-5">
       <div className="flex items-center justify-between gap-3">
         <div>
@@ -264,5 +271,6 @@ export default function Expenses() {
         danger
       />
     </div>
+    </UpgradeGate>
   );
 }
