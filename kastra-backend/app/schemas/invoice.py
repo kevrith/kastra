@@ -142,6 +142,7 @@ class InvoiceOut(BaseModel):
     vat_amount: Decimal
     grand_total: Decimal
     amount_paid: Decimal
+    amount_credited: Decimal = Decimal("0")
     invoice_date: datetime | None
     due_date: datetime | None
     mpesa_checkout_request_id: str | None
@@ -173,7 +174,7 @@ class InvoiceOut(BaseModel):
     @computed_field
     @property
     def balance_due(self) -> Decimal:
-        return self.amount_payable - self.amount_paid
+        return self.amount_payable - self.amount_paid - self.amount_credited
 
     @computed_field
     @property

@@ -14,7 +14,12 @@ async def next_id(db: AsyncSession, entity_type: str, organization_id: uuid.UUID
     
     logger = logging.getLogger(__name__)
     year = datetime.now(timezone.utc).year
-    prefix_type = "QT" if entity_type == "quotation" else "INV"
+    prefix_type = {
+        "quotation": "QT",
+        "invoice": "INV",
+        "credit_note": "CN",
+        "delivery_note": "DN",
+    }.get(entity_type, "INV")
 
     # Get organization prefix
     from app.models.organization import Organization

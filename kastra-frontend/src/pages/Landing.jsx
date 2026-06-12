@@ -4,6 +4,7 @@ import {
   FileText, Receipt, CreditCard, Users, BarChart2, Shield,
   CheckCircle, Smartphone, Zap, Globe, ArrowRight, Star,
   TrendingUp, Clock, Lock, UserCog, FolderKanban, Camera, DollarSign, Truck, Sparkles, Wallet,
+  FileMinus, Landmark, ClipboardList,
 } from "lucide-react";
 
 const features = [
@@ -86,6 +87,26 @@ const features = [
     icon: Wallet,
     title: "Payroll & Payslips",
     desc: "Keep employee records and run monthly payroll in a click — Kastra computes PAYE, NSSF, SHIF and the Affordable Housing Levy automatically, then generates payslips and a payroll register so you can pay your staff with confidence.",
+  },
+  {
+    icon: FileMinus,
+    title: "Credit Notes (KRA Compliant)",
+    desc: "Correct or reverse any issued invoice the compliant way. Issue a credit note for returns or overbilling, apply it to the balance, and submit it to eTIMS as a refund receipt.",
+  },
+  {
+    icon: ClipboardList,
+    title: "Statements & Debtor Aging",
+    desc: "Download a professional statement of account for any client — invoices, payments and credit notes with a running balance — plus an aging report showing who owes you and for how long.",
+  },
+  {
+    icon: Landmark,
+    title: "Payment Reconciliation",
+    desc: "Upload your M-Pesa or bank statement CSV and Kastra matches incoming payments to open invoices automatically. Review the matches, confirm, and your books are up to date.",
+  },
+  {
+    icon: Truck,
+    title: "Delivery Notes",
+    desc: "Generate delivery notes from any invoice — items and quantities without prices, with signature lines for driver and recipient. Complete the LPO → delivery → invoice paper trail.",
   },
 ];
 

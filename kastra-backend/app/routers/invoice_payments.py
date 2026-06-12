@@ -56,12 +56,15 @@ class InvoiceSummaryOut(BaseModel):
 
 def _recalculate_status(inv: Invoice) -> None:
     paid = Decimal(str(inv.amount_paid))
+    credited = Decimal(str(inv.amount_credited or 0))
     total = Decimal(str(inv.grand_total))
-    if paid <= 0:
+    covered = paid + credited
+    if covered <= 0:
         inv.payment_status = "unpaid"
-    elif paid >= total:
+    elif covered >= total:
         inv.payment_status = "paid"
-        inv.amount_paid = float(total)  # cap at total
+        if paid > total - credited:
+            inv.amount_paid = float(total - credited)  # cap at remaining total
     else:
         inv.payment_status = "partial"
 
@@ -79,7 +82,7 @@ async def get_payments(
     )).scalar_one_or_none()
     if not inv:
         raise HTTPException(status_code=404, detail="Invoice not found")
-    balance = float(Decimal(str(inv.grand_total)) - Decimal(str(inv.amount_paid)))
+    balance = float(Decimal(str(inv.grand_total)) - Decimal(str(inv.amount_paid)) - Decimal(str(inv.amount_credited or 0)))
     return InvoiceSummaryOut(
         id=inv.id,
         grand_total=float(inv.grand_total),
@@ -107,7 +110,7 @@ async def record_payment(
     if inv.payment_status == "paid":
         raise HTTPException(status_code=400, detail="Invoice is already fully paid")
 
-    balance = float(Decimal(str(inv.grand_total)) - Decimal(str(inv.amount_paid)))
+    balance = float(Decimal(str(inv.grand_total)) - Decimal(str(inv.amount_paid)) - Decimal(str(inv.amount_credited or 0)))
     if payload.amount <= 0:
         raise HTTPException(status_code=400, detail="Payment amount must be positive")
     if payload.amount > balance + 0.01:

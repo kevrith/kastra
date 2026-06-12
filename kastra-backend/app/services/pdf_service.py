@@ -168,3 +168,34 @@ def render_payslip_html(payslip: dict, run: dict, org: dict) -> str:
 async def generate_payslip_pdf(payslip: dict, run: dict, org: dict) -> bytes:
     html = render_payslip_html(payslip, run, org)
     return await html_to_pdf(html)
+
+
+async def generate_credit_note_pdf(doc: dict, org: dict) -> bytes:
+    template = _jinja_env.get_template("credit_note.html")
+    html = template.render(
+        doc=doc,
+        org=org,
+        org_initials=_org_initials(org.get("name", "")),
+        currency=(doc.get("currency") or "KES").upper(),
+    )
+    return await html_to_pdf(html)
+
+
+async def generate_delivery_note_pdf(doc: dict, org: dict) -> bytes:
+    template = _jinja_env.get_template("delivery_note.html")
+    html = template.render(
+        doc=doc,
+        org=org,
+        org_initials=_org_initials(org.get("name", "")),
+    )
+    return await html_to_pdf(html)
+
+
+async def generate_statement_pdf(ctx: dict, org: dict) -> bytes:
+    template = _jinja_env.get_template("statement.html")
+    html = template.render(
+        org=org,
+        org_initials=_org_initials(org.get("name", "")),
+        **ctx,
+    )
+    return await html_to_pdf(html)

@@ -15,6 +15,7 @@ import Modal from "../../components/ui/Modal";
 import ConfirmDialog from "../../components/ui/ConfirmDialog";
 import PDFPreviewModal from "../../components/ui/PDFPreviewModal";
 import InvoiceDocument from "../../components/documents/InvoiceDocument";
+import { CreditNotesSection, DeliveryNotesSection } from "./InvoiceNotesSections";
 
 const JOB_EXPENSE_CATEGORIES = [
   { value: "materials", label: "Materials / Buying Price" },
@@ -797,6 +798,12 @@ export default function InvoiceDetail() {
               <span>− {fmt(invoice.deposit_amount)}</span>
             </div>
           )}
+          {Number(invoice.amount_credited) > 0 && (
+            <div className="flex justify-between text-red-500 text-xs">
+              <span>Credit notes applied</span>
+              <span>− {fmt(invoice.amount_credited)}</span>
+            </div>
+          )}
           {(Number(invoice.wht_amount) > 0 || Number(invoice.deposit_amount) > 0) && (
             <div className="flex justify-between font-bold text-gray-900 border-t pt-2">
               <span>Amount Payable</span>
@@ -842,6 +849,12 @@ export default function InvoiceDetail() {
           </table>
         </div>
       )}
+
+      {/* Credit Notes */}
+      <CreditNotesSection invoice={invoice} org={org} onRefresh={load} />
+
+      {/* Delivery Notes */}
+      <DeliveryNotesSection invoice={invoice} />
 
       {/* Job Expenses */}
       <JobExpensesSection

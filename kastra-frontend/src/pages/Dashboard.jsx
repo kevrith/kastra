@@ -1,12 +1,74 @@
 import { useEffect, useState } from "react";
-import { getDashboardStats } from "../api/dashboard";
+import { Link } from "react-router-dom";
+import { getDashboardStats, getOnboarding } from "../api/dashboard";
 import { getCashFlowForecast } from "../api/ai";
 import { ksh } from "../utils/formatters";
 import { statusBadgeClass } from "../utils/formatters";
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
-import { FileText, Receipt, TrendingUp, TrendingDown, Users, DollarSign, Sparkles, RefreshCw, AlertTriangle } from "lucide-react";
+import { FileText, Receipt, TrendingUp, TrendingDown, Users, DollarSign, Sparkles, RefreshCw, AlertTriangle, CheckCircle, Circle, Rocket, X } from "lucide-react";
 import Spinner from "../components/ui/Spinner";
 import TeamOverview from "../components/dashboard/TeamOverview";
+
+const ONBOARDING_DISMISSED_KEY = "kastra_onboarding_dismissed";
+
+function OnboardingChecklist() {
+  const [data, setData] = useState(null);
+  const [dismissed, setDismissed] = useState(
+    () => localStorage.getItem(ONBOARDING_DISMISSED_KEY) === "1"
+  );
+
+  useEffect(() => {
+    if (dismissed) return;
+    getOnboarding().then(({ data }) => setData(data.data)).catch(() => {});
+  }, [dismissed]);
+
+  if (dismissed || !data || data.complete) return null;
+
+  const dismiss = () => {
+    localStorage.setItem(ONBOARDING_DISMISSED_KEY, "1");
+    setDismissed(true);
+  };
+
+  return (
+    <div className="card p-5 border-green-200 bg-green-50/50">
+      <div className="flex items-start justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <div className="h-8 w-8 rounded-lg bg-green-100 flex items-center justify-center">
+            <Rocket size={16} className="text-green-600" />
+          </div>
+          <div>
+            <h2 className="text-sm font-semibold text-gray-800">Getting Started</h2>
+            <p className="text-xs text-gray-500">{data.completed} of {data.total} done</p>
+          </div>
+        </div>
+        <button onClick={dismiss} className="text-gray-300 hover:text-gray-500" title="Dismiss">
+          <X size={15} />
+        </button>
+      </div>
+      <div className="h-1.5 bg-green-100 rounded-full overflow-hidden mb-4">
+        <div
+          className="h-1.5 bg-green-500 rounded-full transition-all"
+          style={{ width: `${(data.completed / data.total) * 100}%` }}
+        />
+      </div>
+      <ul className="grid sm:grid-cols-2 gap-x-6 gap-y-1.5">
+        {data.steps.map((s) => (
+          <li key={s.key}>
+            {s.done ? (
+              <span className="flex items-center gap-2 text-sm text-gray-400 line-through">
+                <CheckCircle size={15} className="text-green-500 shrink-0" /> {s.label}
+              </span>
+            ) : (
+              <Link to={s.link} className="flex items-center gap-2 text-sm text-gray-700 hover:text-green-700">
+                <Circle size={15} className="text-gray-300 shrink-0" /> {s.label}
+              </Link>
+            )}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
 
 function CashFlowWidget() {
   const [forecast, setForecast] = useState(null);
@@ -131,6 +193,9 @@ export default function Dashboard() {
   return (
     <div className="p-4 md:p-6 space-y-6 max-w-7xl mx-auto">
       <h1 className="text-xl font-bold text-gray-900">Dashboard</h1>
+
+      {/* Getting started checklist (hidden once complete or dismissed) */}
+      <OnboardingChecklist />
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">

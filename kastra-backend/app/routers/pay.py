@@ -52,7 +52,7 @@ async def get_public_invoice(invoice_id: str, db: AsyncSession = Depends(get_db)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invoice not found")
 
     amount_paid = Decimal(str(inv.amount_paid or 0))
-    balance_due = Decimal(str(inv.grand_total)) - amount_paid
+    balance_due = Decimal(str(inv.grand_total)) - amount_paid - Decimal(str(inv.amount_credited or 0))
 
     org = inv.organization
     is_kes = inv.currency == "KES"
@@ -94,7 +94,7 @@ async def public_mpesa_pay(
     if not (org.mpesa_consumer_key and org.mpesa_shortcode and org.mpesa_passkey):
         raise HTTPException(status_code=400, detail="M-Pesa payments are not configured for this business.")
 
-    balance_due = float(inv.grand_total) - float(inv.amount_paid or 0)
+    balance_due = float(inv.grand_total) - float(inv.amount_paid or 0) - float(inv.amount_credited or 0)
     charge = payload.amount if payload.amount else balance_due
 
     if charge <= 0 or charge > balance_due + 0.01:

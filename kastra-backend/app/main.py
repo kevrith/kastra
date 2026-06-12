@@ -16,6 +16,7 @@ logger = logging.getLogger(__name__)
 
 from app.routers import auth, clients, dashboard, invoices, mpesa, organization, quotations, reports
 from app.routers import pay, portal, paystack
+from app.routers import credit_notes, delivery_notes, reconciliation
 from app.routers import expenses, products, notifications, search, invoice_payments, recurring_invoices
 from app.routers import ocr, subscriptions, superadmin, team, projects
 from app.routers import suppliers, supplier_portal
@@ -189,6 +190,9 @@ app.include_router(superadmin.router)
 app.include_router(audit_logs.router)
 app.include_router(testimonials.router)
 app.include_router(affiliate_router.router)
+app.include_router(credit_notes.router)
+app.include_router(delivery_notes.router)
+app.include_router(reconciliation.router)
 
 
 @app.api_route("/health", methods=["GET", "HEAD"])

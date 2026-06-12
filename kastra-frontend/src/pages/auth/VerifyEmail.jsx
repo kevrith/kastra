@@ -38,7 +38,9 @@ export default function VerifyEmail() {
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
       <div className="w-full max-w-sm text-center">
-        <img src="/kastra1.png" alt="Kastra" className="h-12 w-12 object-contain mx-auto mb-6" />
+        <Link to="/" className="inline-block">
+          <img src="/kastra1.png" alt="Kastra" className="h-12 w-12 object-contain mx-auto mb-6" />
+        </Link>
 
         {status === "checking" && (
           <>

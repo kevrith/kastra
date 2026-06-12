@@ -7,7 +7,8 @@ import { getInvoices } from "../../api/invoices";
 import { getOrganization } from "../../api/organization";
 import { getClientRisk } from "../../api/ai";
 import { ksh, phone, date, statusBadgeClass, normalizePhone } from "../../utils/formatters";
-import { ArrowLeft, Edit2, Check, X, Copy, MessageCircle, ExternalLink, Lock, LockOpen, RefreshCw, Sparkles, ShieldAlert, Star } from "lucide-react";
+import { ArrowLeft, Edit2, Check, X, Copy, MessageCircle, ExternalLink, Lock, LockOpen, RefreshCw, Sparkles, ShieldAlert, Star, FileDown } from "lucide-react";
+import { downloadStatementPdf } from "../../api/reports";
 import Spinner from "../../components/ui/Spinner";
 import Modal from "../../components/ui/Modal";
 import api from "../../api/axios";
@@ -38,6 +39,8 @@ export default function ClientDetail() {
   const [testimonialForm, setTestimonialForm] = useState({ name: "", email: "", phone: "", role_hint: "" });
   const [testimonialSending, setTestimonialSending] = useState(false);
   const [testimonialResult, setTestimonialResult] = useState(null);
+  const [statementRange, setStatementRange] = useState("90");
+  const [statementBusy, setStatementBusy] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -59,6 +62,27 @@ export default function ClientDetail() {
   useEffect(() => { getOrganization().then(({ data }) => setOrgName(data.data.name)).catch(() => {}); }, []);
 
   const portalUrl = client ? `${publicOrigin()}/portal/c/${client.portal_token}` : "";
+
+  const handleDownloadStatement = async () => {
+    setStatementBusy(true);
+    try {
+      const params = {};
+      if (statementRange !== "all") {
+        const from = new Date();
+        from.setDate(from.getDate() - Number(statementRange));
+        params.date_from = from.toISOString();
+      }
+      const { data } = await downloadStatementPdf(id, params);
+      const url = URL.createObjectURL(data);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `statement-${client?.name?.replace(/\s+/g, "-").toLowerCase() ?? id}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } finally {
+      setStatementBusy(false);
+    }
+  };
 
   const openTestimonialModal = () => {
     setTestimonialResult(null);
@@ -308,6 +332,27 @@ export default function ClientDetail() {
         {!client.phone && (
           <p className="text-xs text-amber-600">Add a phone number to this client to enable WhatsApp sharing.</p>
         )}
+      </div>
+
+      {/* Statement of Account */}
+      <div className="card p-4 space-y-3">
+        <div>
+          <h2 className="text-sm font-semibold text-gray-800">Statement of Account</h2>
+          <p className="text-xs text-gray-500 mt-0.5">
+            A PDF listing all invoices, payments and credit notes for {client.name} with a running balance.
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <select className="input w-auto text-xs" value={statementRange} onChange={(e) => setStatementRange(e.target.value)}>
+            <option value="30">Last 30 days</option>
+            <option value="90">Last 90 days</option>
+            <option value="365">Last 12 months</option>
+            <option value="all">All time</option>
+          </select>
+          <button className="btn-secondary text-xs flex-1" onClick={handleDownloadStatement} disabled={statementBusy}>
+            <FileDown size={13} /> {statementBusy ? "Generating…" : "Download Statement PDF"}
+          </button>
+        </div>
       </div>
 
       {/* Portal PIN */}

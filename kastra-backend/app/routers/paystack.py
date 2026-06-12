@@ -58,7 +58,7 @@ async def _record_card_payment(db: AsyncSession, invoice: Invoice, paid_amount: 
     invoice.amount_paid = new_total_paid
     invoice.payment_method = "card"
 
-    if new_total_paid >= float(invoice.grand_total) - 0.01:
+    if new_total_paid + float(invoice.amount_credited or 0) >= float(invoice.grand_total) - 0.01:
         invoice.payment_status = "paid"
         status_label = "paid"
     else:
@@ -82,7 +82,7 @@ async def _record_card_payment(db: AsyncSession, invoice: Invoice, paid_amount: 
         paid_at=now,
     ))
 
-    remaining = float(invoice.grand_total) - new_total_paid
+    remaining = max(0.0, float(invoice.grand_total) - new_total_paid - float(invoice.amount_credited or 0))
     notif_body = (
         f"{client_name} paid KSh {paid_amount:,.2f} on invoice {invoice.id} via card."
         + (f" Balance remaining: KSh {remaining:,.2f}." if status_label == "partial" else " Invoice fully paid.")
@@ -177,7 +177,7 @@ async def initialize_payment(payload: PaystackInitRequest, db: AsyncSession = De
     if inv.currency != "KES":
         raise HTTPException(status_code=400, detail="Card payments are only available for invoices in KES.")
 
-    balance_due = float(inv.grand_total) - float(inv.amount_paid or 0)
+    balance_due = float(inv.grand_total) - float(inv.amount_paid or 0) - float(inv.amount_credited or 0)
     charge = payload.amount if payload.amount else balance_due
 
     if charge <= 0 or charge > balance_due + 0.01:

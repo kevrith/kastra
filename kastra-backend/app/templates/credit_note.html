@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Credit Note {{ doc.id }}</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    font-size: 13px;
+    color: #1f2937;
+    background: #fff;
+    line-height: 1.55;
+  }
+  .page { padding: 44px 52px; max-width: 700px; margin: 0 auto; min-height: 900px; }
+  @page { size: A4; margin: 10mm 12mm; }
+
+  .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 28px; }
+  .header-left { display: flex; align-items: flex-start; gap: 14px; }
+  .logo-box {
+    width: 56px; height: 56px; border-radius: 8px;
+    border: 2px solid #dc2626; background: #fef2f2;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 21px; font-weight: 700; color: #dc2626;
+    flex-shrink: 0;
+  }
+  .logo-box img { width: 56px; height: 56px; object-fit: contain; border-radius: 8px; }
+  .org-name { font-size: 20px; font-weight: 700; color: #16a34a; letter-spacing: -0.5px; }
+  .org-detail { font-size: 11px; color: #6b7280; margin-top: 2px; }
+  .header-right { text-align: right; }
+  .doc-label { font-size: 11px; color: #dc2626; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 4px; font-weight: 700; }
+  .doc-id { font-size: 22px; font-weight: 800; color: #111827; letter-spacing: -0.5px; }
+  .doc-meta { font-size: 11px; color: #6b7280; margin-top: 6px; }
+  .divider { border-top: 3px solid #dc2626; margin-bottom: 28px; }
+
+  .info-block { display: flex; justify-content: space-between; margin-bottom: 28px; }
+  .section-label { font-size: 10px; font-weight: 700; color: #9ca3af; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 6px; }
+  .info-name { font-weight: 700; font-size: 15px; color: #111827; }
+  .info-detail { color: #4b5563; margin-top: 2px; font-size: 12px; }
+
+  table { width: 100%; border-collapse: collapse; margin-bottom: 18px; font-size: 13px; }
+  thead tr { background: #f9fafb; border-bottom: 2px solid #dc2626; }
+  th { text-align: left; padding: 9px 12px; font-weight: 600; color: #374151; font-size: 11px; text-transform: uppercase; letter-spacing: 0.6px; }
+  th.right, td.right { text-align: right; }
+  td { padding: 8px 12px; color: #1f2937; border-bottom: 1px solid #f3f4f6; }
+  tr:nth-child(even) td { background: #f9fafb; }
+
+  .totals { display: flex; justify-content: flex-end; }
+  .totals-inner { width: 260px; }
+  .total-row { display: flex; justify-content: space-between; padding: 5px 0; color: #6b7280; }
+  .total-row.grand {
+    font-weight: 800; font-size: 17px; color: #111827;
+    margin-top: 6px; padding: 12px 0 6px; border-top: 2px solid #dc2626;
+  }
+  .total-row.grand span:last-child { color: #dc2626; }
+
+  .reason-block {
+    background: #fef2f2; border: 1px solid #fecaca;
+    border-radius: 8px; padding: 14px 16px; margin: 24px 0 18px;
+    font-size: 12px; color: #7f1d1d;
+  }
+  .block {
+    background: #f9fafb; border: 1px solid #e5e7eb;
+    border-radius: 8px; padding: 14px 16px; margin: 12px 0 18px;
+    font-size: 11px; color: #6b7280;
+  }
+  .footer { text-align: center; color: #9ca3af; font-size: 10px; margin-top: 36px; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="header">
+    <div class="header-left">
+      <div class="logo-box">
+        {% if org.logo_url %}<img src="{{ org.logo_url }}" alt="logo">{% else %}{{ org_initials }}{% endif %}
+      </div>
+      <div>
+        <div class="org-name">{{ org.name }}</div>
+        {% if org.address %}<div class="org-detail">{{ org.address }}</div>{% endif %}
+        {% if org.kra_pin %}<div class="org-detail">KRA PIN: {{ org.kra_pin }}</div>{% endif %}
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="doc-label">Credit Note</div>
+      <div class="doc-id">{{ doc.id }}</div>
+      <div class="doc-meta">Date: {{ doc.created_at | fmtdate }}</div>
+      <div class="doc-meta">Against Invoice: {{ doc.invoice_id }}</div>
+      {% if doc.etims_cu_invoice_no %}<div class="doc-meta">KRA CU No: {{ doc.etims_cu_invoice_no }}</div>{% endif %}
+    </div>
+  </div>
+  <div class="divider"></div>
+
+  <div class="info-block">
+    <div>
+      <div class="section-label">Credit To</div>
+      <div class="info-name">{{ doc.client.name }}</div>
+      {% if doc.client.address %}<div class="info-detail">{{ doc.client.address }}</div>{% endif %}
+      {% if doc.client.email %}<div class="info-detail">{{ doc.client.email }}</div>{% endif %}
+      {% if doc.client.phone %}<div class="info-detail">{{ doc.client.phone }}</div>{% endif %}
+    </div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Description</th>
+        <th class="right">Qty</th>
+        <th class="right">Unit Price</th>
+        <th class="right">Amount</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in doc.items %}
+      <tr>
+        <td>{{ item.description }}</td>
+        <td class="right">{{ item.quantity }}</td>
+        <td class="right">{{ item.unit_price | money(currency) }}</td>
+        <td class="right">{{ item.line_total | money(currency) }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <div class="totals">
+    <div class="totals-inner">
+      <div class="total-row"><span>Subtotal</span><span>{{ doc.subtotal | money(currency) }}</span></div>
+      <div class="total-row"><span>VAT (16%)</span><span>{{ doc.vat_amount | money(currency) }}</span></div>
+      <div class="total-row grand"><span>Total Credit</span><span>− {{ doc.grand_total | money(currency) }}</span></div>
+    </div>
+  </div>
+
+  <div class="reason-block">
+    <strong>Reason for credit:</strong> {{ doc.reason }}
+  </div>
+
+  <div class="block">
+    This credit note reduces the amount owed on invoice {{ doc.invoice_id }}.
+    {% if doc.etims_cu_invoice_no %}It has been submitted to KRA eTIMS as a refund receipt.{% endif %}
+  </div>
+
+  <div class="footer">Generated by Kastra · {{ org.name }}</div>
+</div>
+</body>
+</html>

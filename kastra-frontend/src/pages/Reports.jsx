@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { getIncomeReport, getClientReport, exportCsv } from "../api/reports";
+import { getIncomeReport, getClientReport, exportCsv, getAgingReport } from "../api/reports";
 import { ksh } from "../utils/formatters";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { Download } from "lucide-react";
@@ -13,11 +13,13 @@ export default function Reports() {
   const [year, setYear] = useState(currentYear);
   const [income, setIncome] = useState([]);
   const [clients, setClients] = useState([]);
+  const [aging, setAging] = useState(null);
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
 
   const load = () => {
     setLoading(true);
+    getAgingReport().then(({ data }) => setAging(data)).catch(() => {});
     Promise.all([getIncomeReport({ year }), getClientReport()])
       .then(([incRes, cliRes]) => {
         const monthMap = Object.fromEntries(incRes.data.data.map((r) => [r.month, r]));
@@ -120,6 +122,57 @@ export default function Reports() {
               </tbody>
             </table>
             </div>
+          </div>
+
+          {/* Debtor Aging */}
+          <div className="card overflow-hidden">
+            <div className="p-4 border-b border-gray-100">
+              <h2 className="text-sm font-semibold text-gray-700">Debtor Aging — Outstanding Balances</h2>
+              <p className="text-xs text-gray-400 mt-0.5">Who owes you, and for how long (KES equivalent)</p>
+            </div>
+            {!aging || aging.data.length === 0 ? (
+              <div className="px-4 py-6 text-center text-sm text-gray-400">
+                Nothing outstanding — all invoices are paid. 🎉
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+              <table className="w-full text-sm min-w-[560px]">
+                <thead className="bg-gray-50 text-left text-xs text-gray-500 uppercase tracking-wide">
+                  <tr>
+                    <th className="px-4 py-3">Client</th>
+                    <th className="px-4 py-3 text-right">Current</th>
+                    <th className="px-4 py-3 text-right">1–30 days</th>
+                    <th className="px-4 py-3 text-right">31–60 days</th>
+                    <th className="px-4 py-3 text-right">61–90 days</th>
+                    <th className="px-4 py-3 text-right">90+ days</th>
+                    <th className="px-4 py-3 text-right">Total</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {aging.data.map((c) => (
+                    <tr key={c.client_id}>
+                      <td className="px-4 py-2.5 font-medium text-gray-900">{c.client_name}</td>
+                      <td className="px-4 py-2.5 text-right text-gray-600">{c.current > 0 ? ksh(c.current) : "—"}</td>
+                      <td className="px-4 py-2.5 text-right text-amber-600">{c.d1_30 > 0 ? ksh(c.d1_30) : "—"}</td>
+                      <td className="px-4 py-2.5 text-right text-orange-600">{c.d31_60 > 0 ? ksh(c.d31_60) : "—"}</td>
+                      <td className="px-4 py-2.5 text-right text-red-500">{c.d61_90 > 0 ? ksh(c.d61_90) : "—"}</td>
+                      <td className="px-4 py-2.5 text-right text-red-700 font-medium">{c.d90_plus > 0 ? ksh(c.d90_plus) : "—"}</td>
+                      <td className="px-4 py-2.5 text-right font-semibold">{ksh(c.total)}</td>
+                    </tr>
+                  ))}
+                  <tr className="bg-gray-50 font-bold">
+                    <td className="px-4 py-2.5">Total</td>
+                    <td className="px-4 py-2.5 text-right">{ksh(aging.totals.current)}</td>
+                    <td className="px-4 py-2.5 text-right">{ksh(aging.totals.d1_30)}</td>
+                    <td className="px-4 py-2.5 text-right">{ksh(aging.totals.d31_60)}</td>
+                    <td className="px-4 py-2.5 text-right">{ksh(aging.totals.d61_90)}</td>
+                    <td className="px-4 py-2.5 text-right">{ksh(aging.totals.d90_plus)}</td>
+                    <td className="px-4 py-2.5 text-right">{ksh(aging.totals.total)}</td>
+                  </tr>
+                </tbody>
+              </table>
+              </div>
+            )}
           </div>
 
           {/* Client Revenue Table */}

@@ -191,3 +191,39 @@ async def dashboard_stats(
         recent_quotations=recent_quotations,
         recent_invoices=recent_invoices,
     )
+
+
+@router.get("/onboarding")
+async def onboarding_checklist(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Getting-started checklist: computed from live data, nothing stored."""
+    from app.models.organization import Organization
+
+    org_id = current_user.organization_id
+    org = (await db.execute(select(Organization).where(Organization.id == org_id))).scalar_one()
+
+    has_client = (await db.execute(
+        select(func.count()).select_from(Client).where(Client.organization_id == org_id)
+    )).scalar_one() > 0
+    has_quotation = (await db.execute(
+        select(func.count()).select_from(Quotation).where(Quotation.organization_id == org_id)
+    )).scalar_one() > 0
+    has_invoice = (await db.execute(
+        select(func.count()).select_from(Invoice).where(Invoice.organization_id == org_id)
+    )).scalar_one() > 0
+    team_size = (await db.execute(
+        select(func.count()).select_from(User).where(User.organization_id == org_id)
+    )).scalar_one()
+
+    steps = [
+        {"key": "logo", "label": "Add your business logo", "done": bool(org.logo_url), "link": "/settings"},
+        {"key": "client", "label": "Add your first client", "done": has_client, "link": "/clients"},
+        {"key": "quotation", "label": "Create a quotation", "done": has_quotation, "link": "/quotations/new"},
+        {"key": "invoice", "label": "Send your first invoice", "done": has_invoice, "link": "/invoices/new"},
+        {"key": "payments", "label": "Connect M-Pesa or Paystack", "done": bool(org.mpesa_consumer_key or org.paystack_secret_key), "link": "/settings"},
+        {"key": "team", "label": "Invite a team member", "done": team_size > 1, "link": "/team"},
+    ]
+    completed = sum(1 for s in steps if s["done"])
+    return {"data": {"steps": steps, "completed": completed, "total": len(steps), "complete": completed == len(steps)}}

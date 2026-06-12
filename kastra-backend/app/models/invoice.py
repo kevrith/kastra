@@ -40,6 +40,7 @@ class Invoice(Base):
     deposit_amount: Mapped[Decimal] = mapped_column(Numeric(15, 2), nullable=False, default=0)
     mpesa_checkout_request_id: Mapped[str | None] = mapped_column(String(100), nullable=True, index=True)
     amount_paid: Mapped[float] = mapped_column(Numeric(15, 2), nullable=False, default=0)
+    amount_credited: Mapped[Decimal] = mapped_column(Numeric(15, 2), nullable=False, default=0)
     reminders_sent: Mapped[int] = mapped_column(Integer, default=0)
     last_reminded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     # eTIMS / KRA

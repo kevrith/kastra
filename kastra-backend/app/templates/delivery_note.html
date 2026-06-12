@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Delivery Note {{ doc.id }}</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    font-size: 13px;
+    color: #1f2937;
+    background: #fff;
+    line-height: 1.55;
+  }
+  .page { padding: 44px 52px; max-width: 700px; margin: 0 auto; min-height: 900px; }
+  @page { size: A4; margin: 10mm 12mm; }
+
+  .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 28px; }
+  .header-left { display: flex; align-items: flex-start; gap: 14px; }
+  .logo-box {
+    width: 56px; height: 56px; border-radius: 8px;
+    border: 2px solid #16a34a; background: #f0fdf4;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 21px; font-weight: 700; color: #16a34a;
+    flex-shrink: 0;
+  }
+  .logo-box img { width: 56px; height: 56px; object-fit: contain; border-radius: 8px; }
+  .org-name { font-size: 20px; font-weight: 700; color: #16a34a; letter-spacing: -0.5px; }
+  .org-detail { font-size: 11px; color: #6b7280; margin-top: 2px; }
+  .header-right { text-align: right; }
+  .doc-label { font-size: 11px; color: #9ca3af; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 4px; }
+  .doc-id { font-size: 22px; font-weight: 800; color: #111827; letter-spacing: -0.5px; }
+  .doc-meta { font-size: 11px; color: #6b7280; margin-top: 6px; }
+  .divider { border-top: 3px solid #16a34a; margin-bottom: 28px; }
+
+  .info-block { display: flex; justify-content: space-between; margin-bottom: 28px; }
+  .section-label { font-size: 10px; font-weight: 700; color: #9ca3af; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 6px; }
+  .info-name { font-weight: 700; font-size: 15px; color: #111827; }
+  .info-detail { color: #4b5563; margin-top: 2px; font-size: 12px; }
+
+  table { width: 100%; border-collapse: collapse; margin-bottom: 18px; font-size: 13px; }
+  thead tr { background: #f9fafb; border-bottom: 2px solid #16a34a; }
+  th { text-align: left; padding: 9px 12px; font-weight: 600; color: #374151; font-size: 11px; text-transform: uppercase; letter-spacing: 0.6px; }
+  th.right, td.right { text-align: right; }
+  td { padding: 8px 12px; color: #1f2937; border-bottom: 1px solid #f3f4f6; }
+  tr:nth-child(even) td { background: #f9fafb; }
+
+  .sign-grid { display: flex; gap: 24px; margin-top: 48px; }
+  .sign-box { flex: 1; }
+  .sign-line { border-top: 1px solid #9ca3af; margin-top: 44px; padding-top: 6px; font-size: 11px; color: #6b7280; }
+
+  .block {
+    background: #f9fafb; border: 1px solid #e5e7eb;
+    border-radius: 8px; padding: 14px 16px; margin: 24px 0 18px;
+    font-size: 11px; color: #6b7280;
+  }
+  .footer { text-align: center; color: #9ca3af; font-size: 10px; margin-top: 36px; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="header">
+    <div class="header-left">
+      <div class="logo-box">
+        {% if org.logo_url %}<img src="{{ org.logo_url }}" alt="logo">{% else %}{{ org_initials }}{% endif %}
+      </div>
+      <div>
+        <div class="org-name">{{ org.name }}</div>
+        {% if org.address %}<div class="org-detail">{{ org.address }}</div>{% endif %}
+        {% if org.phone %}<div class="org-detail">{{ org.phone }}</div>{% endif %}
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="doc-label">Delivery Note</div>
+      <div class="doc-id">{{ doc.id }}</div>
+      <div class="doc-meta">Date: {{ (doc.delivery_date or doc.created_at) | fmtdate }}</div>
+      {% if doc.invoice_id %}<div class="doc-meta">Invoice: {{ doc.invoice_id }}</div>{% endif %}
+      {% if doc.lpo_number %}<div class="doc-meta">LPO No: {{ doc.lpo_number }}</div>{% endif %}
+    </div>
+  </div>
+  <div class="divider"></div>
+
+  <div class="info-block">
+    <div>
+      <div class="section-label">Deliver To</div>
+      <div class="info-name">{{ doc.client.name }}</div>
+      {% if doc.client.address %}<div class="info-detail">{{ doc.client.address }}</div>{% endif %}
+      {% if doc.client.phone %}<div class="info-detail">{{ doc.client.phone }}</div>{% endif %}
+    </div>
+    <div style="text-align:right">
+      {% if doc.driver_name %}
+      <div class="section-label">Driver</div>
+      <div class="info-detail">{{ doc.driver_name }}</div>
+      {% endif %}
+      {% if doc.vehicle_reg %}
+      <div class="section-label" style="margin-top:8px">Vehicle</div>
+      <div class="info-detail">{{ doc.vehicle_reg }}</div>
+      {% endif %}
+    </div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width:50px">#</th>
+        <th>Description</th>
+        <th class="right">Quantity</th>
+        <th class="right">Unit</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in doc.items %}
+      <tr>
+        <td>{{ loop.index }}</td>
+        <td>{{ item.description }}</td>
+        <td class="right">{{ item.quantity }}</td>
+        <td class="right">{{ item.unit or "—" }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  {% if doc.notes %}
+  <div class="block">{{ doc.notes }}</div>
+  {% endif %}
+
+  <div class="sign-grid">
+    <div class="sign-box">
+      <div class="section-label">Delivered By</div>
+      <div class="sign-line">Name, Signature &amp; Date</div>
+    </div>
+    <div class="sign-box">
+      <div class="section-label">Received By {% if doc.received_by %}({{ doc.received_by }}){% endif %}</div>
+      <div class="sign-line">Name, Signature &amp; Date</div>
+    </div>
+  </div>
+
+  <div class="block" style="margin-top:36px">
+    Goods received in good order and condition. Please verify quantities before signing.
+  </div>
+
+  <div class="footer">Generated by Kastra · {{ org.name }}</div>
+</div>
+</body>
+</html>

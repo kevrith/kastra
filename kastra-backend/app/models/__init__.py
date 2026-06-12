@@ -16,6 +16,8 @@ from app.models.supplier import Supplier, SupplierRequest, SupplierRequestInvite
 from app.models.employee import Employee
 from app.models.payroll import PayrollRun, Payslip
 from app.models.testimonial import Testimonial
+from app.models.credit_note import CreditNote, CreditNoteItem
+from app.models.delivery_note import DeliveryNote, DeliveryNoteItem
 
 __all__ = [
     "Organization",
@@ -47,4 +49,8 @@ __all__ = [
     "PayrollRun",
     "Payslip",
     "Testimonial",
+    "CreditNote",
+    "CreditNoteItem",
+    "DeliveryNote",
+    "DeliveryNoteItem",
 ]

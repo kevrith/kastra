@@ -2,7 +2,7 @@ import { NavLink, useNavigate } from "react-router-dom";
 import {
   BarChart2, FileText, Home, LogOut, Settings, Users, Receipt,
   TrendingDown, RefreshCw, Package, Kanban, UserCog, FolderKanban, Truck,
-  UserCheck, Wallet, ShieldCheck, HelpCircle, Lock, Download,
+  UserCheck, Wallet, ShieldCheck, HelpCircle, Lock, Download, Landmark,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import GlobalSearch from "../ui/GlobalSearch";
@@ -16,6 +16,7 @@ const links = [
   { to: "/quotations/pipeline", icon: Kanban, label: "Pipeline", roles: ["admin", "manager", "viewer"] },
   { to: "/projects", icon: FolderKanban, label: "Projects" },
   { to: "/invoices", icon: Receipt, label: "Invoices", roles: ["admin", "manager", "viewer"] },
+  { to: "/reconciliation", icon: Landmark, label: "Reconcile", roles: ["admin", "manager"] },
   { to: "/clients", icon: Users, label: "Clients", roles: ["admin", "manager", "viewer"] },
   { to: "/products", icon: Package, label: "Products", roles: ["admin", "manager"] },
   { to: "/suppliers", icon: Truck, label: "Suppliers", roles: ["admin", "manager"] },
