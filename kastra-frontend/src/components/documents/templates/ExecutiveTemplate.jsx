@@ -57,7 +57,7 @@ function ItemsTable({ items }) {
         </tr>
       </thead>
       <tbody>
-        {items.map((item, i) => (
+        {items.map((item) => (
           <tr key={item.id} style={{ borderBottom: "1px solid #f1f5f9" }}>
             <td style={{ padding: "11px 8px", color: "#1e293b" }}>{item.description}</td>
             <td style={{ padding: "11px 8px", textAlign: "right", color: SLATE }}>{item.quantity}</td>

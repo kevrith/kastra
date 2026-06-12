@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { getInvoice, markPaid, mpesaPay, sendReminder, submitEtims, sendInvoiceEmail } from "../../api/invoices";
+import { getInvoice, mpesaPay, sendReminder, submitEtims, sendInvoiceEmail } from "../../api/invoices";
 import { getOrganization } from "../../api/organization";
 import { getInvoicePayments, recordPayment, deletePayment } from "../../api/invoice_payments";
 import { createInvoiceExpense, updateInvoiceExpense, deleteInvoiceExpense } from "../../api/expenses";
-import { ksh, money, date, phone, statusBadgeClass, normalizePhone } from "../../utils/formatters";
+import { ksh, money, date, phone, normalizePhone } from "../../utils/formatters";
 import { publicOrigin } from "../../utils/publicUrl";
 import {
   ArrowLeft, MessageCircle, Smartphone, CheckCircle, FileDown, ShieldCheck,
@@ -491,7 +491,6 @@ export default function InvoiceDetail() {
   const [reminderSent, setReminderSent] = useState(false);
   const [etimsLoading, setEtimsLoading] = useState(false);
   const [etimsError, setEtimsError] = useState("");
-  const [linkCopied, setLinkCopied] = useState(false);
   const [deletePaymentTarget, setDeletePaymentTarget] = useState(null);
   const [emailSent, setEmailSent] = useState(false);
   const pollRef = useRef(null);
@@ -527,20 +526,6 @@ export default function InvoiceDetail() {
     }
     return () => clearInterval(pollRef.current);
   }, [showMpesa]);
-
-  const handleCopyLink = () => {
-    navigator.clipboard.writeText(`${publicOrigin()}/pay/${id}`).then(() => {
-      setLinkCopied(true);
-      setTimeout(() => setLinkCopied(false), 2000);
-    });
-  };
-
-  const handleShareWhatsApp = () => {
-    if (!invoice) return;
-    const payLink = `${publicOrigin()}/pay/${id}`;
-    const msg = [`Hello ${invoice.client?.name ?? ""},`, ``, `Please find your invoice *${id}* for *${money(invoice.grand_total, invoice.currency)}*.`, ``, `Pay online here: ${payLink}`, ``, `Thank you.`].join("\n");
-    window.open(`https://wa.me/${normalizePhone(invoice.client?.phone)}?text=${encodeURIComponent(msg)}`, "_blank");
-  };
 
   const handleEtimsSubmit = async () => {
     setEtimsLoading(true);

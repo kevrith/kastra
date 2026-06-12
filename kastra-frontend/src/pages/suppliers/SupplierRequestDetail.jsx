@@ -5,7 +5,6 @@ import {
   closeSupplierRequest, updateSupplierRequest, getSuppliers,
 } from "../../api/suppliers";
 import { ksh, normalizePhone } from "../../utils/formatters";
-import { publicOrigin } from "../../utils/publicUrl";
 import {
   ArrowLeft, Copy, MessageCircle, CheckCircle, Clock, Plus, Trash2,
   BarChart2, Users, Lock, Edit2,

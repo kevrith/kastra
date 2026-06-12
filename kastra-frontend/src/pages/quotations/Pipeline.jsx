@@ -54,7 +54,7 @@ export default function Pipeline() {
         <div className="flex h-64 items-center justify-center"><Spinner /></div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 items-start">
-          {COLUMNS.map(({ status, label, color, dot }) => {
+          {COLUMNS.map(({ status, label, dot }) => {
             const list = columns[status] ?? [];
             return (
               <div key={status} className="bg-gray-50 rounded-xl border border-gray-200 flex flex-col">

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  Bell, CheckCheck, CreditCard, FileText, RefreshCw, AlertCircle,
+  Bell, CheckCheck, CreditCard, FileText, RefreshCw,
 } from "lucide-react";
 import { getNotifications, markRead, markAllRead } from "../../api/notifications";
 

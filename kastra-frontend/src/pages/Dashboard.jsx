@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { getDashboardStats } from "../api/dashboard";
 import { getCashFlowForecast } from "../api/ai";
-import { ksh, date } from "../utils/formatters";
+import { ksh } from "../utils/formatters";
 import { statusBadgeClass } from "../utils/formatters";
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { FileText, Receipt, TrendingUp, TrendingDown, Users, DollarSign, Sparkles, RefreshCw, AlertTriangle } from "lucide-react";

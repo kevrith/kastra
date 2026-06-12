@@ -8,7 +8,7 @@ import {
   superadminResetUserPassword, superadminDeactivateUser, superadminReactivateUser,
   superadminChangeUserRole,
   superadminInvoices, superadminQuotations, superadminSuppliers, superadminSupplierRequests,
-  superadminInvoiceDetail, superadminInvoicePdfBlob, superadminQuotationPdfBlob,
+  superadminInvoicePdfBlob, superadminQuotationPdfBlob,
   superadminSupplierRequestDetail,
   superadminGetTestimonials, superadminCreateTestimonial,
   superadminUpdateTestimonial, superadminDeleteTestimonial,
@@ -33,12 +33,6 @@ const PLAN_COLORS = {
   starter:  "bg-blue-900 text-blue-200",
   business: "bg-green-900 text-green-200",
   premium:  "bg-purple-900 text-purple-200",
-};
-const PLAN_COLORS_LIGHT = {
-  free:     "bg-gray-100 text-gray-700",
-  starter:  "bg-blue-100 text-blue-700",
-  business: "bg-green-100 text-green-700",
-  premium:  "bg-purple-100 text-purple-700",
 };
 const STATUS_COLORS = {
   active:        "bg-emerald-900 text-emerald-300",
@@ -1126,7 +1120,7 @@ export default function SuperAdmin() {
                 rows={saInvoices}
               />
               {saInvoicesMeta && saInvoicesMeta.pages > 1 && (
-                <Paginator meta={saInvoicesMeta} page={saInvoicesPage} setPage={setSaInvoicesPage} />
+                <Pagination meta={saInvoicesMeta} page={saInvoicesPage} setPage={setSaInvoicesPage} />
               )}
               {saInvoices.length === 0 && !loading && <p className="text-center text-gray-500 py-10">No invoices found.</p>}
             </>
@@ -1177,7 +1171,7 @@ export default function SuperAdmin() {
                 rows={saQuotations}
               />
               {saQuotationsMeta && saQuotationsMeta.pages > 1 && (
-                <Paginator meta={saQuotationsMeta} page={saQuotationsPage} setPage={setSaQuotationsPage} />
+                <Pagination meta={saQuotationsMeta} page={saQuotationsPage} setPage={setSaQuotationsPage} />
               )}
               {saQuotations.length === 0 && !loading && <p className="text-center text-gray-500 py-10">No quotations found.</p>}
             </>
@@ -1209,7 +1203,7 @@ export default function SuperAdmin() {
                 rows={saSuppliers}
               />
               {saSuppliersMeta && saSuppliersMeta.pages > 1 && (
-                <Paginator meta={saSuppliersMeta} page={saSuppliersPage} setPage={setSaSuppliersPage} />
+                <Pagination meta={saSuppliersMeta} page={saSuppliersPage} setPage={setSaSuppliersPage} />
               )}
               {saSuppliers.length === 0 && !loading && <p className="text-center text-gray-500 py-10">No suppliers found.</p>}
             </>
@@ -1250,7 +1244,7 @@ export default function SuperAdmin() {
                 rows={saRequests}
               />
               {saRequestsMeta && saRequestsMeta.pages > 1 && (
-                <Paginator meta={saRequestsMeta} page={saRequestsPage} setPage={setSaRequestsPage} />
+                <Pagination meta={saRequestsMeta} page={saRequestsPage} setPage={setSaRequestsPage} />
               )}
               {saRequests.length === 0 && !loading && <p className="text-center text-gray-500 py-10">No price requests found.</p>}
             </>

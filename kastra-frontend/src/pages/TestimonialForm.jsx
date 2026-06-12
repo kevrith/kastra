@@ -8,7 +8,7 @@ export default function TestimonialForm() {
   const { token } = useParams();
 
   const [phase, setPhase] = useState("loading"); // loading | form | submitted | used | invalid
-  const [prefill, setPrefill] = useState({ name: "", role_hint: "" });
+  const [, setPrefill] = useState({ name: "", role_hint: "" });
   const [form, setForm] = useState({ name: "", role: "", text: "", stars: 5, consent: false });
   const [hovered, setHovered] = useState(0);
   const [submitting, setSubmitting] = useState(false);

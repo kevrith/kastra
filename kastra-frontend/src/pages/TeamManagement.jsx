@@ -126,7 +126,7 @@ export default function TeamManagement() {
     try {
       await updateTeamMember(member.id, { is_active: !member.is_active });
       loadMembers();
-    } catch (err) {
+    } catch {
       setToast({ message: 'Failed to update member status', type: 'error' });
     }
   };
@@ -140,7 +140,7 @@ export default function TeamManagement() {
         try {
           await removeTeamMember(member.id);
           loadMembers();
-        } catch (err) {
+        } catch {
           setToast({ message: 'Failed to remove member', type: 'error' });
         }
       },
@@ -155,7 +155,7 @@ export default function TeamManagement() {
         try {
           await resetTeamMemberPassword(member.id);
           setToast({ message: 'Password reset link sent!', type: 'success' });
-        } catch (err) {
+        } catch {
           setToast({ message: 'Failed to send reset link', type: 'error' });
         }
       },

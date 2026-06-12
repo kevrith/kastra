@@ -11,7 +11,7 @@ const emptyCharge = () => ({ description: "", amount: "", vat_exempt: false });
  * Reusable section for the financial extras on quotation / invoice forms.
  *
  * Props:
- *   items / setItems  — line items array + setter
+ *   items — line items array (read-only here; edited via ProductAutocomplete rows in the parent)
  *   charges / setCharges — extra charges array + setter
  *   discountPct / setDiscountPct
  *   whtPct / setWhtPct
@@ -21,7 +21,6 @@ const emptyCharge = () => ({ description: "", amount: "", vat_exempt: false });
  */
 export default function FinancialsForm({
   items,
-  setItems,
   charges,
   setCharges,
   discountPct,
@@ -57,8 +56,6 @@ export default function FinancialsForm({
     }
   };
 
-  const setItem = (i, field, value) =>
-    setItems((prev) => prev.map((item, idx) => (idx === i ? { ...item, [field]: value } : item)));
 
   const addCharge = () => setCharges((prev) => [...prev, emptyCharge()]);
   const removeCharge = (i) => setCharges((prev) => prev.filter((_, idx) => idx !== i));

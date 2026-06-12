@@ -3,7 +3,7 @@ import { useAuth } from "../context/AuthContext";
 import api from "../api/axios";
 import { getOrganization, updateOrganization } from "../api/organization";
 import { testEtimsConnection } from "../api/invoices";
-import { getMyPlan, upgradePlan } from "../api/subscriptions";
+import { getMyPlan } from "../api/subscriptions";
 import { Building2, User, Lock, Upload, X, Palette, ShieldCheck, Eye, EyeOff, Loader, Package, ArrowRight, CreditCard, Smartphone, CheckCircle, Zap, Phone, Shield, Download, Trash2 } from "lucide-react";
 import ConfirmDialog from "../components/ui/ConfirmDialog";
 import { Link, useSearchParams, useNavigate } from "react-router-dom";

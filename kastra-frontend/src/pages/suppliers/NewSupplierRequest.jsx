@@ -1,7 +1,6 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { createSupplierRequest } from "../../api/suppliers";
-import { getProducts } from "../../api/products";
 import { Plus, Trash2, ArrowLeft } from "lucide-react";
 
 const emptyItem = () => ({ description: "", quantity: "", unit: "" });

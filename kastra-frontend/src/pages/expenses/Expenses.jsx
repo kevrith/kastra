@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { getExpenses, createExpense, updateExpense, deleteExpense } from "../../api/expenses";
 import { categorizeExpense } from "../../api/ai";
-import { Plus, Edit2, Trash2, X, Check, ScanLine } from "lucide-react";
+import { Plus, Edit2, Trash2, ScanLine } from "lucide-react";
 import Modal from "../../components/ui/Modal";
 import ConfirmDialog from "../../components/ui/ConfirmDialog";
 import Spinner from "../../components/ui/Spinner";

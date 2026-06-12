@@ -2,8 +2,8 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import {
   ChevronDown, ChevronUp, FileText, Receipt, Users, CreditCard,
-  TrendingDown, BarChart2, Settings, Package, UserCog, HelpCircle,
-  BookOpen, Repeat, Truck, Wallet, Mail, MessageCircle,
+  TrendingDown, BarChart2, Package, UserCog, HelpCircle,
+  BookOpen, Repeat, Truck, Wallet, Mail,
 } from "lucide-react";
 
 const sections = [

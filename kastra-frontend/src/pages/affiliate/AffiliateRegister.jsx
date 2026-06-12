@@ -1,10 +1,9 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { affiliateRegister } from "../../api/affiliate";
 import { Eye, EyeOff } from "lucide-react";
 
 export default function AffiliateRegister() {
-  const navigate = useNavigate();
   const [form, setForm] = useState({ name: "", email: "", phone: "", password: "", payout_phone: "" });
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
