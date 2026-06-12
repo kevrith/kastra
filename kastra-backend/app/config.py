@@ -96,6 +96,11 @@ class Settings(BaseSettings):
     # Error tracking (optional — set SENTRY_DSN in production)
     sentry_dsn: str = ""
 
+    # Shared rate-limit storage (optional — set REDIS_URL when running more
+    # than one instance/worker so limits are enforced globally, e.g.
+    # redis://default:password@host:6379/0). Empty = per-process memory.
+    redis_url: str = ""
+
     # Super admin (separate credentials, never linked to org accounts)
     superadmin_username: str = "superadmin"
     superadmin_password: str = "change-me-superadmin"

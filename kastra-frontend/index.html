@@ -38,7 +38,10 @@
     <meta name="twitter:description" content="Create professional invoices, accept M-Pesa and card payments, and manage your clients — built for Kenyan small businesses. KRA eTIMS compliant." />
     <meta name="twitter:image" content="https://kastra.app/kastra.png" />
 
-    <!-- Structured Data (JSON-LD) -->
+    <!-- Structured Data (JSON-LD).
+         CSP NOTE: if you edit ANYTHING between the script tags below, regenerate the
+         sha256 hash in vercel.json (Content-Security-Policy script-src):
+         python3 -c "import hashlib,base64,re;h=base64.b64encode(hashlib.sha256(re.search(r'<script type=\"application/ld\+json\">(.*?)</script>',open('index.html').read(),re.S).group(1).encode()).digest()).decode();print(f'sha256-{h}')" -->
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",

@@ -42,8 +42,12 @@ class SecurityHeadersMiddleware:
         (b"referrer-policy", b"strict-origin-when-cross-origin"),
         (b"permissions-policy", b"camera=(), microphone=(), geolocation=()"),
         (b"cache-control", b"no-store"),
+        # API serves JSON only — lock everything down. Swagger UI paths are exempted
+        # below because they load assets from a CDN (dev-only; docs are off in prod).
+        (b"content-security-policy", b"default-src 'none'; frame-ancestors 'none'"),
     ]
     _HSTS = (b"strict-transport-security", b"max-age=31536000; includeSubDomains; preload")
+    _DOCS_PATHS = ("/docs", "/redoc", "/openapi.json")
 
     def __init__(self, app: ASGIApp) -> None:
         self.app = app
@@ -56,13 +60,17 @@ class SecurityHeadersMiddleware:
             await self.app(scope, receive, send)
             return
 
-        is_health = scope.get("path") == "/health"
+        path = scope.get("path", "")
+        is_health = path == "/health"
+        is_docs = path.startswith(self._DOCS_PATHS)
 
         async def send_with_headers(message: dict) -> None:
             if message["type"] == "http.response.start":
                 headers = list(message.get("headers", []))
                 for key, val in self._extra:
                     if is_health and key == b"cache-control":
+                        continue
+                    if is_docs and key == b"content-security-policy":
                         continue
                     headers.append((key, val))
                 message = {**message, "headers": headers}
@@ -87,43 +95,6 @@ async def lifespan(app: FastAPI):
             )
         except ImportError:
             pass
-
-    # Backfill products from existing quotation/invoice items (idempotent upsert)
-    try:
-        from app.database import AsyncSessionLocal
-        from app.models.product import Product
-        from sqlalchemy import text
-        from sqlalchemy.dialects.postgresql import insert as pg_insert
-        import uuid as _uuid
-        from decimal import Decimal as _Decimal
-
-        async with AsyncSessionLocal() as db:
-            rows = (await db.execute(text("""
-                SELECT description, unit_price, organization_id FROM (
-                    SELECT qi.description, qi.unit_price, q.organization_id
-                    FROM quotation_items qi JOIN quotations q ON q.id = qi.quotation_id
-                    UNION ALL
-                    SELECT ii.description, ii.unit_price, i.organization_id
-                    FROM invoice_items ii JOIN invoices i ON i.id = ii.invoice_id
-                ) src
-            """))).all()
-            catalog: dict[tuple, _Decimal] = {}
-            for desc, price, org_id in rows:
-                catalog[(str(org_id), desc)] = _Decimal(str(price))
-            for (org_id, name), unit_price in catalog.items():
-                await db.execute(
-                    pg_insert(Product).values(
-                        id=_uuid.uuid4(), organization_id=org_id,
-                        name=name, unit_price=unit_price,
-                    ).on_conflict_do_update(
-                        index_elements=["organization_id", "name"],
-                        set_={"unit_price": unit_price},
-                    )
-                )
-            await db.commit()
-            logger.info("Products backfill: %d entries synced", len(catalog))
-    except Exception:
-        logger.exception("Products backfill failed (non-fatal)")
 
     start_scheduler()
     yield

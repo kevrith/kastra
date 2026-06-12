@@ -1,12 +1,13 @@
+import hashlib
 import logging
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.orm import selectinload
 
-from app.database import AsyncSessionLocal
+from app.database import AsyncSessionLocal, engine
 from app.models.affiliate import Affiliate, AffiliateCommission, AffiliateReferral
 from app.models.invoice import Invoice, InvoiceItem
 from app.models.organization import Organization
@@ -25,6 +26,47 @@ from app.utils.id_generator import next_id
 logger = logging.getLogger(__name__)
 
 scheduler = AsyncIOScheduler(timezone="Africa/Nairobi")
+
+# Namespace for Postgres advisory locks so our keys can't collide with other
+# tooling using advisory locks on the same database.
+_LOCK_NAMESPACE = 0x4B415354  # "KAST"
+
+
+def _lock_key(job_id: str) -> int:
+    digest = hashlib.sha256(job_id.encode()).digest()
+    return int.from_bytes(digest[:4], "big", signed=True)
+
+
+def _locked(job_id: str, fn):
+    """
+    Wrap a job so only one instance/worker runs it at a time. Every worker
+    fires the cron, but only the one that wins the Postgres advisory lock
+    executes; the rest skip. The lock is session-scoped: held on a dedicated
+    connection for the job's duration and auto-released if the process dies.
+    """
+
+    async def runner():
+        key = _lock_key(job_id)
+        async with engine.connect() as conn:
+            got = (
+                await conn.execute(
+                    text("SELECT pg_try_advisory_lock(:ns, :key)"),
+                    {"ns": _LOCK_NAMESPACE, "key": key},
+                )
+            ).scalar()
+            if not got:
+                logger.info("[scheduler] %s: another instance holds the lock — skipping.", job_id)
+                return
+            try:
+                await fn()
+            finally:
+                await conn.execute(
+                    text("SELECT pg_advisory_unlock(:ns, :key)"),
+                    {"ns": _LOCK_NAMESPACE, "key": key},
+                )
+
+    runner.__name__ = f"locked_{fn.__name__}"
+    return runner
 
 
 """
@@ -500,17 +542,23 @@ async def _credit_affiliate_commissions():
 
 
 def start_scheduler():
-    # Run jobs daily at midnight EAT (21:00 UTC)
-    scheduler.add_job(_process_smart_reminders, "cron", hour=21, minute=0, id="smart_reminders")
-    scheduler.add_job(_expire_quotations, "cron", hour=21, minute=5, id="expire_quotations")
-    scheduler.add_job(_fire_recurring_invoices, "cron", hour=21, minute=10, id="recurring_invoices")
-    scheduler.add_job(_reset_monthly_counters, "cron", hour=21, minute=15, id="reset_monthly_counters")
-    scheduler.add_job(_expire_trials, "cron", hour=21, minute=20, id="expire_trials")
-    scheduler.add_job(_expire_complimentary, "cron", hour=21, minute=25, id="expire_complimentary")
-    scheduler.add_job(_send_billing_reminders, "cron", hour=21, minute=30, id="billing_reminders")
-    scheduler.add_job(_expire_subscriptions, "cron", hour=21, minute=35, id="expire_subscriptions")
-    # Affiliate commissions — runs on the 1st of each month at 00:40 EAT (21:40 UTC)
-    scheduler.add_job(_credit_affiliate_commissions, "cron", day=1, hour=21, minute=40, id="affiliate_commissions")
+    # Run jobs daily at midnight EAT (21:00 UTC). Every job is wrapped in a
+    # Postgres advisory lock so running multiple workers/instances never
+    # double-fires reminders, counter resets, or commission credits.
+    _jobs = [
+        ("smart_reminders", _process_smart_reminders, {"hour": 21, "minute": 0}),
+        ("expire_quotations", _expire_quotations, {"hour": 21, "minute": 5}),
+        ("recurring_invoices", _fire_recurring_invoices, {"hour": 21, "minute": 10}),
+        ("reset_monthly_counters", _reset_monthly_counters, {"hour": 21, "minute": 15}),
+        ("expire_trials", _expire_trials, {"hour": 21, "minute": 20}),
+        ("expire_complimentary", _expire_complimentary, {"hour": 21, "minute": 25}),
+        ("billing_reminders", _send_billing_reminders, {"hour": 21, "minute": 30}),
+        ("expire_subscriptions", _expire_subscriptions, {"hour": 21, "minute": 35}),
+        # Affiliate commissions — runs on the 1st of each month at 00:40 EAT (21:40 UTC)
+        ("affiliate_commissions", _credit_affiliate_commissions, {"day": 1, "hour": 21, "minute": 40}),
+    ]
+    for job_id, fn, cron in _jobs:
+        scheduler.add_job(_locked(job_id, fn), "cron", id=job_id, **cron)
     scheduler.start()
     logger.info("[scheduler] Started. Jobs run daily at 00:00 EAT.")
 
