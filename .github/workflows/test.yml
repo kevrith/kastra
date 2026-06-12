@@ -1,19 +1,28 @@
-name: Backend Tests
+name: CI
 
 on:
   push:
     branches: [main, develop]
-    paths:
-      - "kastra-backend/**"
-      - ".github/workflows/test.yml"
   pull_request:
     branches: [main, develop]
-    paths:
-      - "kastra-backend/**"
 
 jobs:
-  test:
-    name: pytest
+  backend-lint:
+    name: backend lint (ruff)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: kastra-backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install ruff
+      - run: ruff check app/ tests/ alembic/
+
+  backend-test:
+    name: backend tests (pytest)
     runs-on: ubuntu-latest
 
     services:
@@ -61,3 +70,38 @@ jobs:
           FRONTEND_URL: http://localhost:5200
           BACKEND_URL: http://localhost:8080
         run: pytest -v --tb=short
+
+  backend-audit:
+    name: dependency audit (pip-audit)
+    runs-on: ubuntu-latest
+    # Visibility, not a merge gate: new CVEs in pinned deps shouldn't block
+    # unrelated PRs — Dependabot opens the fix PRs.
+    continue-on-error: true
+    defaults:
+      run:
+        working-directory: kastra-backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install pip-audit
+      - run: pip-audit -r requirements.txt
+
+  frontend:
+    name: frontend lint + tests + build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: kastra-frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: kastra-frontend/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build

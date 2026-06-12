@@ -76,3 +76,8 @@ services:
       # Error tracking (optional)
       - key: SENTRY_DSN
         sync: false
+
+      # Shared rate-limit storage (optional — set when scaling beyond one
+      # instance/worker so login limits are enforced globally)
+      - key: REDIS_URL
+        sync: false
