@@ -1,4 +1,15 @@
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# Insecure shipped defaults — the app must refuse to start in production
+# while any of these are still in effect.
+_PLACEHOLDER_SECRETS = {
+    "secret_key": "change-me-in-production",
+    "refresh_secret_key": "change-me-refresh-in-production",
+    "superadmin_password": "change-me-superadmin",
+    "superadmin_secret_key": "change-me-superadmin-secret",
+}
+_MIN_SECRET_LENGTH = 32
 
 
 class Settings(BaseSettings):
@@ -93,6 +104,27 @@ class Settings(BaseSettings):
     @property
     def is_production(self) -> bool:
         return self.environment == "production"
+
+    @model_validator(mode="after")
+    def _require_real_secrets_in_production(self) -> "Settings":
+        if not self.is_production:
+            return self
+        problems = []
+        for field, placeholder in _PLACEHOLDER_SECRETS.items():
+            value = getattr(self, field)
+            if not value or value == placeholder:
+                problems.append(f"{field.upper()} is unset or still the shipped placeholder")
+        for field in ("secret_key", "refresh_secret_key", "superadmin_secret_key"):
+            if len(getattr(self, field)) < _MIN_SECRET_LENGTH:
+                problems.append(f"{field.upper()} must be at least {_MIN_SECRET_LENGTH} characters")
+        if self.secret_key == self.refresh_secret_key:
+            problems.append("SECRET_KEY and REFRESH_SECRET_KEY must differ")
+        if problems:
+            raise ValueError(
+                "Refusing to start in production with insecure configuration:\n  - "
+                + "\n  - ".join(problems)
+            )
+        return self
 
     @property
     def mpesa_base_url(self) -> str:

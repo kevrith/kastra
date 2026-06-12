@@ -5,7 +5,7 @@ import string
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
 from pydantic import BaseModel
@@ -26,6 +26,7 @@ from app.models.testimonial import Testimonial
 from app.models.user import User
 from app.utils.billing_events import record_audit, record_subscription_payment
 from app.utils.plan_limits import PLAN_PRICES_KES, VALID_PLANS, get_limits
+from app.utils.rate_limit import limiter
 from app.utils.security import hash_password
 
 router = APIRouter(prefix="/api/superadmin", tags=["superadmin"])
@@ -82,10 +83,17 @@ class ChangeUserRoleRequest(BaseModel):
 
 
 @router.post("/login")
-async def superadmin_login(payload: SALoginRequest):
-    if payload.username != settings.superadmin_username:
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid credentials")
-    if payload.password != settings.superadmin_password:
+@limiter.limit("5/minute;20/hour")
+async def superadmin_login(request: Request, payload: SALoginRequest):
+    # Constant-time comparison on both fields; evaluate both before deciding
+    # so a username miss is indistinguishable from a password miss.
+    username_ok = secrets.compare_digest(
+        payload.username.encode(), settings.superadmin_username.encode()
+    )
+    password_ok = secrets.compare_digest(
+        payload.password.encode(), settings.superadmin_password.encode()
+    )
+    if not (username_ok and password_ok):
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid credentials")
     return {"access_token": _create_sa_token(), "token_type": "bearer"}
 
