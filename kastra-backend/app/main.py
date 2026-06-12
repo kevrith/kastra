@@ -1,5 +1,4 @@
 from contextlib import asynccontextmanager
-from typing import Callable
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -9,9 +8,12 @@ from slowapi.middleware import SlowAPIMiddleware
 from starlette.types import ASGIApp, Receive, Scope, Send
 import logging
 
+from app.config import settings
+from app.logging_config import RequestIDMiddleware, setup_logging
+
+setup_logging(production=settings.is_production)
 logger = logging.getLogger(__name__)
 
-from app.config import settings
 from app.routers import auth, clients, dashboard, invoices, mpesa, organization, quotations, reports
 from app.routers import pay, portal, paystack
 from app.routers import expenses, products, notifications, search, invoice_payments, recurring_invoices
@@ -79,6 +81,22 @@ class SecurityHeadersMiddleware:
         await self.app(scope, receive, send_with_headers)
 
 
+class APIVersionAliasMiddleware:
+    """
+    Serves every route under /api/v1/* as an alias of /api/*. Existing
+    consumers keep working on /api/*; new integrations should use /api/v1/*
+    so a future breaking v2 can coexist instead of breaking everyone.
+    """
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] == "http" and scope.get("path", "").startswith("/api/v1/"):
+            scope = {**scope, "path": "/api/" + scope["path"][len("/api/v1/"):]}
+        await self.app(scope, receive, send)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     if settings.sentry_dsn:
@@ -113,8 +131,10 @@ app = FastAPI(
 app.state.limiter = limiter
 # Middlewares are applied in reverse order — last added = outermost (runs first).
 # CORSMiddleware must be outermost so CORS headers survive even on 500s.
+app.add_middleware(APIVersionAliasMiddleware)
 app.add_middleware(SlowAPIMiddleware)
 app.add_middleware(SecurityHeadersMiddleware)
+app.add_middleware(RequestIDMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.allowed_origins,
