@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
 from pydantic import BaseModel
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -1104,8 +1104,7 @@ async def sa_list_supplier_requests(
 @router.get("/invoices/{invoice_id}/detail", dependencies=[Depends(_verify_sa_token)])
 async def sa_get_invoice(invoice_id: str, db: AsyncSession = Depends(get_db)):
     from sqlalchemy.orm import selectinload
-    from app.models.client import Client
-    from app.models.invoice import Invoice, InvoiceCharge, InvoiceItem
+    from app.models.invoice import Invoice
     from app.schemas.invoice import InvoiceOut
     from app.schemas.organization import OrganizationOut
 

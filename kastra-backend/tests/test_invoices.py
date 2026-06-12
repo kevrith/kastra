@@ -1,7 +1,6 @@
 from datetime import datetime, timezone
 from decimal import Decimal
 
-import pytest
 from httpx import AsyncClient
 
 
@@ -184,7 +183,7 @@ async def test_send_reminder_not_found(client: AsyncClient, auth_headers: dict):
 # ---------------------------------------------------------------------------
 
 async def test_client_history_reflects_invoice(client: AsyncClient, auth_headers: dict, sample_client_id: str):
-    inv_id = await _setup_invoice(client, auth_headers, sample_client_id)
+    await _setup_invoice(client, auth_headers, sample_client_id)
     resp = await client.get(f"/api/clients/{sample_client_id}/history", headers=auth_headers)
     stats = resp.json()["data"]
     assert stats["invoice_count"] == 1

@@ -4,8 +4,6 @@ from urllib.parse import urlencode
 
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response, status
 from jose import JWTError
-from slowapi import Limiter
-from slowapi.util import get_remote_address
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload

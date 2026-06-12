@@ -107,11 +107,8 @@ async def test_form_get_prefills_name(client: AsyncClient):
 
     # Retrieve the request_token — need to query directly; expose via list
     list_resp = await client.get("/api/superadmin/testimonials?status=pending", headers=_h(sa))
-    t = next(t for t in list_resp.json() if t["id"] == entry["id"])
+    next(t for t in list_resp.json() if t["id"] == entry["id"])  # asserts the entry is listed
     # We can't get the token from the API (security). We'll use the DB directly.
-    from app.models.testimonial import Testimonial
-    from sqlalchemy import select
-    import uuid
 
     # Use the conftest db_session via a fresh query
     # Instead, call the superadmin request endpoint again and intercept (simpler: use DB fixture in separate test)

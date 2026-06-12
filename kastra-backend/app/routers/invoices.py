@@ -15,7 +15,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from app.config import settings
 from app.database import get_db
-from app.dependencies import get_current_user, require_permission
+from app.dependencies import require_permission
 from app.models.client import Client
 from app.models.client_price import ClientPrice
 from app.models.expense import Expense
@@ -27,7 +27,7 @@ from app.schemas.common import MessageResponse, Meta, PaginatedResponse, Respons
 from app.schemas.invoice import EtimsSubmitRequest, InvoiceCreate, InvoiceExpenseOut, InvoiceListOut, InvoiceOut, MarkPaidRequest, MpesaPayRequest
 from app.schemas.organization import OrganizationOut
 from app.services.email_service import send_invoice_email
-from app.services.etims_service import submit_to_kra, verification_url
+from app.services.etims_service import submit_to_kra
 from app.services.mpesa_service import initiate_stk_push
 from app.services.pdf_service import generate_pdf
 from app.services.sms_service import sms_invoice_sent

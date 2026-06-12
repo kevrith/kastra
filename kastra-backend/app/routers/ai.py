@@ -14,7 +14,7 @@ from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.client import Client
 from app.models.expense import Expense
-from app.models.invoice import Invoice, InvoiceItem
+from app.models.invoice import Invoice
 from app.models.organization import Organization
 from app.models.user import User
 from app.utils.plan_limits import get_limits

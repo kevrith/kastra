@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime, timezone
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException
 from jose import JWTError, jwt
 from pydantic import BaseModel, EmailStr
 from sqlalchemy import select, func

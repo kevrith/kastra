@@ -1,6 +1,5 @@
 from decimal import Decimal
 
-import pytest
 from httpx import AsyncClient
 
 from app.services import payroll_service

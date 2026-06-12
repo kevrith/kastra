@@ -6,7 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
-from app.dependencies import get_current_user, require_admin
+from app.dependencies import require_admin
 from app.models.user import User
 from app.schemas.team import (
     AcceptInviteRequest,
@@ -248,7 +248,6 @@ async def get_member_permissions(
     db: AsyncSession = Depends(get_db),
 ):
     """Get effective permission overrides for a team member (admin only)"""
-    from app.dependencies import ROLE_DEFAULTS
     result = await db.execute(
         select(User).where(
             User.id == user_id,

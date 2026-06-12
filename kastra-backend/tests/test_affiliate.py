@@ -33,7 +33,8 @@ def _make_affiliate(status="active", balance=Decimal("0"), code="TESTCODE"):
 
 
 def _make_org(plan="business", is_trial=False):
-    import random, string
+    import random
+    import string
     prefix = "".join(random.choices(string.ascii_uppercase, k=4))
     return Organization(
         id=uuid.uuid4(),

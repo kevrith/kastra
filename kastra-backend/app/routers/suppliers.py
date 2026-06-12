@@ -1,6 +1,6 @@
 import math
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -15,7 +15,7 @@ from app.dependencies import get_current_user
 from app.models.organization import Organization
 from app.models.supplier import (
     Supplier, SupplierRequest, SupplierRequestInvite,
-    SupplierRequestItem, SupplierResponseItem,
+    SupplierRequestItem,
 )
 from app.models.user import User
 from app.schemas.common import MessageResponse, Meta, PaginatedResponse, Response

@@ -8,7 +8,6 @@ from sqlalchemy.orm import selectinload
 
 from app.database import get_db
 from app.dependencies import get_current_user, require_manager_or_above
-from app.models.client import Client
 from app.models.project import Project, ProjectPhoto, ProjectUpdate
 from app.models.quotation import Quotation
 from app.models.user import User

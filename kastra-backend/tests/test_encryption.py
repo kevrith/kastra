@@ -1,8 +1,5 @@
 """Tests for field-level encryption of payment credentials."""
-import os
-from decimal import Decimal
 
-import pytest
 from cryptography.fernet import Fernet
 from httpx import AsyncClient
 

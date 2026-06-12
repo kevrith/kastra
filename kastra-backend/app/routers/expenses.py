@@ -8,7 +8,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
-from app.dependencies import get_current_user, require_permission
+from app.dependencies import require_permission
 from app.models.expense import Expense
 from app.models.user import User
 from app.schemas.common import Meta, PaginatedResponse, Response, MessageResponse

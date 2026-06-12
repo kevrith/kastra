@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.database import get_db
-from app.dependencies import get_current_user, require_permission
+from app.dependencies import require_permission
 from app.models.client import Client
 from app.models.client_price import ClientPrice
 from app.models.invoice import Invoice, InvoiceCharge, InvoiceItem

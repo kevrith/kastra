@@ -2,7 +2,6 @@
 
 import json
 import uuid
-from datetime import datetime, timezone
 
 from sqlalchemy.ext.asyncio import AsyncSession
 

@@ -1,5 +1,4 @@
 import httpx
-import pytest
 from httpx import AsyncClient
 
 from app.routers import currency as currency_router

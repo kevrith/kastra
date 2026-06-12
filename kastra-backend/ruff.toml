@@ -1,0 +1,12 @@
+target-version = "py312"
+line-length = 120
+
+[lint]
+# Defaults (E4/E7/E9 + F = real errors, undefined names, unused imports).
+# E402 ignored: main.py and several routers intentionally import after
+# runtime setup (logging config, circular-import guards).
+ignore = ["E402"]
+
+[lint.per-file-ignores]
+# Alembic templates/migrations are generated code
+"alembic/*" = ["F401"]

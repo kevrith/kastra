@@ -3,7 +3,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
-from app.dependencies import get_current_user, require_admin, require_permission
+from app.dependencies import require_admin
 from app.models.organization import Organization
 from app.models.user import User
 from app.schemas.common import Response
