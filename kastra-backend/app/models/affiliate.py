@@ -71,6 +71,7 @@ class AffiliatePayout(Base):
     payout_phone: Mapped[str] = mapped_column(String(20), nullable=False)
     paystack_transfer_code: Mapped[str | None] = mapped_column(String(100), nullable=True)
     paystack_reference: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    method: Mapped[str] = mapped_column(String(10), nullable=False, default="manual")  # manual|auto
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")  # pending|processing|completed|failed
     failure_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     requested_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

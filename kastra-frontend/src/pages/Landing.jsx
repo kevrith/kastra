@@ -440,6 +440,7 @@ export default function Landing() {
                 <li><a href="#features" className="hover:text-white transition-colors">Features</a></li>
                 <li><a href="#pricing" className="hover:text-white transition-colors">Pricing</a></li>
                 <li><Link to="/register" className="hover:text-white transition-colors">Get started</Link></li>
+                <li><Link to="/affiliate/register" className="hover:text-white transition-colors">Become a Partner</Link></li>
               </ul>
             </div>
             <div>

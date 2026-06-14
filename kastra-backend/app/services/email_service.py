@@ -498,6 +498,114 @@ async def send_affiliate_approved_email(name: str, email: str) -> None:
     await _send(email, "You've been approved — Kastra Partner Portal", html)
 
 
+async def send_affiliate_application_email(name: str, email: str, phone: str) -> None:
+    """Notify the admin ops inbox that a new affiliate has applied and needs review."""
+    if not settings.admin_email:
+        return
+    review_url = f"{settings.primary_frontend_url}/superadmin"
+    html = f"""
+    <div style="font-family:sans-serif;max-width:480px;color:#1f2937">
+      <div style="background:#0f172a;padding:24px 28px;border-radius:10px 10px 0 0">
+        <p style="color:#94a3b8;font-size:11px;text-transform:uppercase;letter-spacing:1.5px;margin:0 0 4px">Kastra Partners</p>
+        <h2 style="color:#f8fafc;margin:0;font-size:20px">New affiliate application</h2>
+      </div>
+      <div style="background:#fff;border:1px solid #e2e8f0;border-top:none;padding:24px 28px;border-radius:0 0 10px 10px">
+        <p style="margin:0 0 16px;font-size:13px">A new partner has applied and is awaiting approval:</p>
+        <table style="font-size:13px;color:#374151;border-collapse:collapse;margin-bottom:20px">
+          <tr><td style="padding:2px 12px 2px 0;color:#6b7280">Name</td><td style="font-weight:600">{name}</td></tr>
+          <tr><td style="padding:2px 12px 2px 0;color:#6b7280">Email</td><td>{email}</td></tr>
+          <tr><td style="padding:2px 12px 2px 0;color:#6b7280">Phone</td><td>{phone}</td></tr>
+        </table>
+        <a href="{review_url}"
+           style="display:inline-block;background:#16a34a;color:#fff;padding:12px 26px;
+                  border-radius:8px;text-decoration:none;font-weight:700;font-size:14px">
+          Review in Super Admin
+        </a>
+      </div>
+    </div>
+    """
+    await _send(settings.admin_email, f"New affiliate application — {name}", html)
+
+
+async def send_affiliate_application_whatsapp(name: str, phone: str) -> bool:
+    """WhatsApp ping to the admin's phone when a new affiliate applies, for a faster nudge than email.
+
+    Returns True on success, False if the admin phone or Africa's Talking aren't configured.
+    """
+    if not settings.admin_phone:
+        return False
+    if not settings.at_api_key or not settings.at_whatsapp_number:
+        logger.info("[WHATSAPP] AT not configured — skipping affiliate application ping")
+        return False
+
+    message = (
+        "New Kastra affiliate application 🎉\n"
+        f"Name: {name}\n"
+        f"Phone: {phone}\n"
+        "Review and approve in Super Admin."
+    )
+    to = _format_phone(settings.admin_phone) or settings.admin_phone
+    try:
+        async with httpx.AsyncClient(timeout=10) as http:
+            resp = await http.post(
+                "https://api.africastalking.com/version1/messaging/whatsapp/text/send",
+                headers={
+                    "apiKey": settings.at_api_key,
+                    "Accept": "application/json",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "username": settings.at_username,
+                    "to": to,
+                    "from": settings.at_whatsapp_number,
+                    "message": message,
+                },
+            )
+        if resp.is_success:
+            logger.info("[WHATSAPP] Affiliate application ping sent to admin")
+            return True
+        logger.warning("[WHATSAPP] AT returned %s: %s", resp.status_code, resp.text[:200])
+        return False
+    except Exception:
+        logger.exception("[WHATSAPP] Failed to send affiliate application ping to admin")
+        return False
+
+
+async def send_affiliate_payout_shortfall_email(needed_ksh: float, available_ksh: float, affiliate_count: int) -> None:
+    """Alert the admin that the Paystack balance can't cover the monthly affiliate payout batch."""
+    if not settings.admin_email:
+        return
+    html = f"""
+    <div style="font-family:sans-serif;max-width:480px;color:#1f2937">
+      <div style="background:#7f1d1d;padding:24px 28px;border-radius:10px 10px 0 0">
+        <p style="color:#fca5a5;font-size:11px;text-transform:uppercase;letter-spacing:1.5px;margin:0 0 4px">Kastra Partners</p>
+        <h2 style="color:#fff;margin:0;font-size:20px">Top up needed for affiliate payouts</h2>
+      </div>
+      <div style="background:#fff;border:1px solid #e2e8f0;border-top:none;padding:24px 28px;border-radius:0 0 10px 10px">
+        <p style="margin:0 0 16px;font-size:13px">
+          This month's automatic affiliate payout ran, but your Paystack balance is too low to pay everyone.
+          Affiliates that fit within the balance were paid; the rest were skipped and will roll over.
+        </p>
+        <table style="font-size:13px;color:#374151;border-collapse:collapse;margin-bottom:20px">
+          <tr><td style="padding:2px 12px 2px 0;color:#6b7280">Eligible affiliates</td><td style="font-weight:600">{affiliate_count}</td></tr>
+          <tr><td style="padding:2px 12px 2px 0;color:#6b7280">Total needed</td><td style="font-weight:600">KSh {needed_ksh:,.0f}</td></tr>
+          <tr><td style="padding:2px 12px 2px 0;color:#6b7280">Available balance</td><td style="font-weight:600;color:#b91c1c">KSh {available_ksh:,.0f}</td></tr>
+          <tr><td style="padding:2px 12px 2px 0;color:#6b7280">Shortfall</td><td style="font-weight:600;color:#b91c1c">KSh {max(0, needed_ksh - available_ksh):,.0f}</td></tr>
+        </table>
+        <a href="https://dashboard.paystack.com"
+           style="display:inline-block;background:#16a34a;color:#fff;padding:12px 26px;
+                  border-radius:8px;text-decoration:none;font-weight:700;font-size:14px">
+          Top up Paystack balance
+        </a>
+        <p style="font-size:12px;color:#6b7280;margin-top:16px">
+          Once topped up, skipped affiliates are paid on the next monthly run, or you can pay them sooner from Super Admin.
+        </p>
+      </div>
+    </div>
+    """
+    await _send(settings.admin_email, "Action needed: Paystack balance too low for affiliate payouts", html)
+
+
 async def send_overdue_reminder_email(
     client_email: str,
     invoice_id: str,

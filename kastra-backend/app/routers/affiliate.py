@@ -1,8 +1,9 @@
+import re
 import uuid
 from datetime import datetime, timezone
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from jose import JWTError, jwt
 from pydantic import BaseModel, EmailStr
 from sqlalchemy import select, func
@@ -13,6 +14,7 @@ from app.config import settings
 from app.database import get_db
 from app.models.affiliate import Affiliate, AffiliateCommission, AffiliatePayout, AffiliateReferral
 from app.models.organization import Organization
+from app.services.email_service import send_affiliate_application_email, send_affiliate_application_whatsapp
 from app.utils.security import hash_password, verify_password
 
 router = APIRouter(prefix="/api/affiliate", tags=["affiliate"])
@@ -94,6 +96,9 @@ class AffiliateOut(BaseModel):
     total_paid_ksh: float
     active_referrals: int = 0
     commission_rate_ksh: int = 50
+    min_payout_ksh: int = 100
+    manual_payouts_limit: int = 2
+    manual_payouts_used: int = 0
 
     model_config = {"from_attributes": True}
 
@@ -138,6 +143,29 @@ class PayoutRequest(BaseModel):
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+def _normalize_mpesa_phone(phone: str) -> str:
+    """Normalise a Kenyan mobile number to canonical 2547XXXXXXXX / 2541XXXXXXXX form.
+
+    Raises HTTPException(422) if the number isn't a well-formed Kenyan mobile.
+    This validates format only — the carrier/M-Pesa guarantee is enforced by
+    Paystack at payout time (a non-M-Pesa number fails the transfer and the
+    balance is auto-refunded via the webhook). We deliberately do not reject by
+    prefix, since number portability makes prefix an unreliable carrier signal.
+    """
+    digits = re.sub(r"\D", "", phone)
+    if digits.startswith("254"):
+        digits = digits[3:]
+    elif digits.startswith("0"):
+        digits = digits[1:]
+    if not re.fullmatch(r"[17]\d{8}", digits):
+        raise HTTPException(
+            422,
+            "Enter a valid Kenyan mobile number, e.g. 0712 345 678. "
+            "Payouts are sent via M-Pesa, so use your Safaricom M-Pesa number.",
+        )
+    return "254" + digits
+
 
 def _generate_code(name: str, suffix: str) -> str:
     base = "".join(c.upper() for c in name if c.isalpha())[:6]
@@ -184,6 +212,28 @@ async def _paystack_create_recipient(name: str, phone: str, secret_key: str) -> 
     return None
 
 
+async def _paystack_balance_ksh(secret_key: str) -> float | None:
+    """Return the available Paystack KES balance, or None if it can't be read.
+
+    Paystack reports the balance in the currency subunit (cents), so we divide by 100.
+    """
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(
+                "https://api.paystack.co/balance",
+                headers={"Authorization": f"Bearer {secret_key}"},
+                timeout=15,
+            )
+            data = resp.json()
+            if data.get("status"):
+                for entry in data.get("data", []):
+                    if entry.get("currency") == "KES":
+                        return entry["balance"] / 100
+    except Exception:
+        pass
+    return None
+
+
 async def _paystack_transfer(recipient_code: str, amount_ksh: float, reference: str, secret_key: str) -> dict | None:
     try:
         async with httpx.AsyncClient() as client:
@@ -213,9 +263,10 @@ async def _paystack_transfer(recipient_code: str, amount_ksh: float, reference: 
 # ---------------------------------------------------------------------------
 
 @router.post("/register", status_code=201)
-async def affiliate_register(payload: AffiliateRegisterRequest, db: AsyncSession = Depends(get_db)):
+async def affiliate_register(payload: AffiliateRegisterRequest, background_tasks: BackgroundTasks, db: AsyncSession = Depends(get_db)):
     if len(payload.password) < 8:
         raise HTTPException(422, "Password must be at least 8 characters")
+    payout_phone = _normalize_mpesa_phone(payload.payout_phone)
     existing = (await db.execute(select(Affiliate).where(Affiliate.email == payload.email))).scalar_one_or_none()
     if existing:
         raise HTTPException(409, "Email already registered")
@@ -227,11 +278,14 @@ async def affiliate_register(payload: AffiliateRegisterRequest, db: AsyncSession
         phone=payload.phone,
         password_hash=hash_password(payload.password),
         code=code,
-        payout_phone=payload.payout_phone,
+        payout_phone=payout_phone,
         status="pending",
     )
     db.add(aff)
     await db.commit()
+    # Notify the admin so applications can be reviewed quickly (runs after the response).
+    background_tasks.add_task(send_affiliate_application_email, aff.name, aff.email, aff.phone)
+    background_tasks.add_task(send_affiliate_application_whatsapp, aff.name, aff.phone)
     return {"message": "Application received. You will be notified once approved.", "code": code}
 
 
@@ -281,6 +335,9 @@ async def affiliate_me(aff: Affiliate = Depends(get_affiliate), db: AsyncSession
         total_paid_ksh=float(aff.total_paid_ksh),
         active_referrals=active_count,
         commission_rate_ksh=settings.affiliate_commission_ksh,
+        min_payout_ksh=settings.affiliate_min_payout_ksh,
+        manual_payouts_limit=settings.affiliate_max_manual_payouts_per_month,
+        manual_payouts_used=await _manual_payouts_this_month(db, aff.id),
     )
 
 
@@ -349,15 +406,32 @@ async def affiliate_payouts(aff: Affiliate = Depends(get_affiliate), db: AsyncSe
     ) for r in rows]
 
 
-@router.post("/payout", response_model=PayoutOut)
-async def request_payout(payload: PayoutRequest, aff: Affiliate = Depends(get_affiliate), db: AsyncSession = Depends(get_db)):
-    amount = payload.amount_ksh
-    if amount <= 0:
-        raise HTTPException(422, "Amount must be greater than 0")
-    if float(aff.balance_ksh) < amount:
-        raise HTTPException(400, "Insufficient balance")
+async def _manual_payouts_this_month(db: AsyncSession, affiliate_id: uuid.UUID) -> int:
+    """Count an affiliate's manual payouts in the current calendar month.
 
-    # Create Paystack recipient if not cached
+    Only payouts that actually went out (processing/completed) count — a failed
+    transfer is auto-refunded and must not burn the affiliate's monthly quota.
+    """
+    now = datetime.now(timezone.utc)
+    month_start = datetime(now.year, now.month, 1, tzinfo=timezone.utc)
+    return (await db.execute(
+        select(func.count(AffiliatePayout.id)).where(
+            AffiliatePayout.affiliate_id == affiliate_id,
+            AffiliatePayout.method == "manual",
+            AffiliatePayout.status.in_(["processing", "completed"]),
+            AffiliatePayout.requested_at >= month_start,
+        )
+    )).scalar() or 0
+
+
+async def execute_payout(aff: Affiliate, amount: float, db: AsyncSession, method: str = "manual") -> AffiliatePayout:
+    """Create and initiate a Paystack transfer of `amount` from `aff`'s balance.
+
+    Shared by the manual withdrawal endpoint and the automatic monthly batch.
+    The caller validates amount/balance beforehand and commits the session after.
+    On a successful (processing) transfer the balance is debited; a failed transfer
+    leaves the balance untouched and is later auto-refunded if Paystack reverses it.
+    """
     secret_key = settings.paystack_secret_key
     if not aff.paystack_recipient_code:
         recipient_code = await _paystack_create_recipient(aff.name, aff.payout_phone, secret_key)
@@ -369,6 +443,7 @@ async def request_payout(payload: PayoutRequest, aff: Affiliate = Depends(get_af
         affiliate_id=aff.id,
         amount_ksh=amount,
         payout_phone=aff.payout_phone,
+        method=method,
         status="pending",
     )
     db.add(payout)
@@ -393,6 +468,28 @@ async def request_payout(payload: PayoutRequest, aff: Affiliate = Depends(get_af
         aff.balance_ksh = float(aff.balance_ksh) - amount
         aff.total_paid_ksh = float(aff.total_paid_ksh) + amount
 
+    return payout
+
+
+@router.post("/payout", response_model=PayoutOut)
+async def request_payout(payload: PayoutRequest, aff: Affiliate = Depends(get_affiliate), db: AsyncSession = Depends(get_db)):
+    amount = payload.amount_ksh
+    if amount <= 0:
+        raise HTTPException(422, "Amount must be greater than 0")
+    if amount < settings.affiliate_min_payout_ksh:
+        raise HTTPException(400, f"Minimum withdrawal is KSh {settings.affiliate_min_payout_ksh}")
+    if float(aff.balance_ksh) < amount:
+        raise HTTPException(400, "Insufficient balance")
+
+    limit = settings.affiliate_max_manual_payouts_per_month
+    if await _manual_payouts_this_month(db, aff.id) >= limit:
+        raise HTTPException(
+            429,
+            f"You've reached the limit of {limit} manual withdrawals this month. "
+            "Your remaining balance is paid out automatically at the start of next month.",
+        )
+
+    payout = await execute_payout(aff, amount, db, method="manual")
     await db.commit()
     await db.refresh(payout)
     return PayoutOut(

@@ -541,6 +541,70 @@ async def _credit_affiliate_commissions():
             await db.rollback()
 
 
+async def _auto_payout_affiliates():
+    """
+    Runs on the 1st of each month, just after commissions are credited.
+    Automatically pays out every active affiliate whose balance is at or above
+    the minimum, via the same Paystack transfer path as manual withdrawals.
+
+    Before paying, it checks the Paystack balance: if it can't cover everyone,
+    it pays the affiliates that fit (oldest first), skips the rest so they roll
+    over, and emails the admin to top up — so we never fire a wave of doomed
+    transfers. Each affiliate is committed independently so one failed transfer
+    can't roll back the rest of the batch.
+    """
+    from app.config import settings as _settings
+    from app.routers.affiliate import execute_payout, _paystack_balance_ksh
+    from app.services.email_service import send_affiliate_payout_shortfall_email
+
+    min_payout = _settings.affiliate_min_payout_ksh
+    async with AsyncSessionLocal() as db:
+        affiliates = (await db.execute(
+            select(Affiliate).where(
+                Affiliate.status == "active",
+                Affiliate.balance_ksh >= min_payout,
+            ).order_by(Affiliate.created_at)
+        )).scalars().all()
+
+        if not affiliates:
+            logger.info("[scheduler] Auto affiliate payouts: no eligible affiliates.")
+            return
+
+        total_needed = sum(float(a.balance_ksh) for a in affiliates)
+        # None means the balance couldn't be read — fall back to paying through and
+        # letting per-transfer failure handling cover any shortfall.
+        available = await _paystack_balance_ksh(_settings.paystack_secret_key)
+        if available is not None and available < total_needed:
+            logger.warning(
+                "[scheduler] Paystack balance KSh %.0f < needed KSh %.0f for %d affiliates — paying what fits.",
+                available, total_needed, len(affiliates),
+            )
+            try:
+                await send_affiliate_payout_shortfall_email(total_needed, available, len(affiliates))
+            except Exception:
+                logger.exception("[scheduler] Failed to send payout shortfall alert")
+
+        remaining = available  # budget tracker; None disables the budget gate
+        paid = 0
+        skipped = 0
+        for aff in affiliates:
+            amount = float(aff.balance_ksh)  # pay out the full available balance
+            if remaining is not None and amount > remaining:
+                skipped += 1
+                continue
+            try:
+                payout = await execute_payout(aff, amount, db, method="auto")
+                await db.commit()
+                if payout.status == "processing":
+                    paid += 1
+                    if remaining is not None:
+                        remaining -= amount
+            except Exception:
+                logger.exception("[scheduler] Auto payout failed for affiliate %s", aff.id)
+                await db.rollback()
+        logger.info("[scheduler] Auto affiliate payouts: %d transfers initiated, %d skipped (insufficient balance).", paid, skipped)
+
+
 def start_scheduler():
     # Run jobs daily at midnight EAT (21:00 UTC). Every job is wrapped in a
     # Postgres advisory lock so running multiple workers/instances never
@@ -556,6 +620,8 @@ def start_scheduler():
         ("expire_subscriptions", _expire_subscriptions, {"hour": 21, "minute": 35}),
         # Affiliate commissions — runs on the 1st of each month at 00:40 EAT (21:40 UTC)
         ("affiliate_commissions", _credit_affiliate_commissions, {"day": 1, "hour": 21, "minute": 40}),
+        # Affiliate auto-payout — 10 min after commissions are credited, same day
+        ("affiliate_auto_payout", _auto_payout_affiliates, {"day": 1, "hour": 21, "minute": 50}),
     ]
     for job_id, fn, cron in _jobs:
         scheduler.add_job(_locked(job_id, fn), "cron", id=job_id, **cron)

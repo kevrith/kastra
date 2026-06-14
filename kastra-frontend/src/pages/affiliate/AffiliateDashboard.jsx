@@ -67,6 +67,7 @@ export default function AffiliateDashboard() {
     setPayoutSuccess("");
     const amount = parseFloat(payoutAmount);
     if (!amount || amount <= 0) { setPayoutError("Enter a valid amount"); return; }
+    if (amount < me.min_payout_ksh) { setPayoutError(`Minimum withdrawal is KSh ${me.min_payout_ksh}`); return; }
     setPayoutLoading(true);
     try {
       await requestPayout(amount);
@@ -146,34 +147,49 @@ export default function AffiliateDashboard() {
         </div>
 
         {/* Payout */}
-        {me.balance_ksh > 0 && (
-          <div className="bg-green-50 border border-green-200 rounded-xl p-4">
-            <p className="text-sm font-semibold text-green-800 mb-3">
-              Withdraw to M-Pesa ({me.payout_phone})
-            </p>
-            {payoutError && <div className="text-red-600 text-sm mb-2">{payoutError}</div>}
-            {payoutSuccess && <div className="text-green-700 text-sm mb-2">{payoutSuccess}</div>}
-            <form onSubmit={handlePayout} className="flex gap-2">
-              <input
-                type="number"
-                min="1"
-                max={me.balance_ksh}
-                step="1"
-                placeholder={`Max KSh ${me.balance_ksh.toFixed(0)}`}
-                value={payoutAmount}
-                onChange={(e) => setPayoutAmount(e.target.value)}
-                className="flex-1 border border-green-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 bg-white"
-              />
-              <button
-                type="submit"
-                disabled={payoutLoading}
-                className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-lg transition-colors disabled:opacity-60"
-              >
-                {payoutLoading ? "…" : "Withdraw"}
-              </button>
-            </form>
-          </div>
-        )}
+        {(() => {
+          const manualRemaining = Math.max(0, me.manual_payouts_limit - me.manual_payouts_used);
+          const limitReached = manualRemaining <= 0;
+          const canWithdraw = me.balance_ksh >= me.min_payout_ksh && !limitReached;
+          let helper;
+          if (limitReached) {
+            helper = `You've used all ${me.manual_payouts_limit} manual withdrawals this month. Your balance is paid out automatically at the start of next month.`;
+          } else if (me.balance_ksh < me.min_payout_ksh) {
+            helper = `You can withdraw once your balance reaches KSh ${me.min_payout_ksh}. Keep referring to get there.`;
+          } else {
+            helper = `Minimum withdrawal is KSh ${me.min_payout_ksh}. ${manualRemaining} manual withdrawal${manualRemaining === 1 ? "" : "s"} left this month — your balance is also paid out automatically each month.`;
+          }
+          return (
+            <div className="bg-green-50 border border-green-200 rounded-xl p-4">
+              <p className="text-sm font-semibold text-green-800 mb-1">
+                Withdraw to M-Pesa ({me.payout_phone})
+              </p>
+              <p className="text-xs text-green-700/80 mb-3">{helper}</p>
+              {payoutError && <div className="text-red-600 text-sm mb-2">{payoutError}</div>}
+              {payoutSuccess && <div className="text-green-700 text-sm mb-2">{payoutSuccess}</div>}
+              <form onSubmit={handlePayout} className="flex gap-2">
+                <input
+                  type="number"
+                  min={me.min_payout_ksh}
+                  max={me.balance_ksh}
+                  step="1"
+                  disabled={!canWithdraw}
+                  placeholder={canWithdraw ? `Max KSh ${me.balance_ksh.toFixed(0)}` : `Balance KSh ${me.balance_ksh.toFixed(0)}`}
+                  value={payoutAmount}
+                  onChange={(e) => setPayoutAmount(e.target.value)}
+                  className="flex-1 border border-green-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 bg-white disabled:bg-gray-100 disabled:cursor-not-allowed"
+                />
+                <button
+                  type="submit"
+                  disabled={payoutLoading || !canWithdraw}
+                  className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {payoutLoading ? "…" : "Withdraw"}
+                </button>
+              </form>
+            </div>
+          );
+        })()}
 
         {/* Tabs */}
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">

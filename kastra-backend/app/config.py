@@ -66,6 +66,8 @@ class Settings(BaseSettings):
     sendgrid_api_key: str = ""
     mail_from: str = "noreply@kastra.co.ke"
     mail_reply_to: str = ""
+    admin_email: str = ""  # ops inbox for admin alerts (new affiliate applications, low Paystack balance)
+    admin_phone: str = ""  # admin's phone for WhatsApp pings, e.g. +254712345678 (uses Africa's Talking)
 
     # Paystack card payments (set real keys in production)
     paystack_secret_key: str = "sk_test_placeholder"
@@ -73,6 +75,8 @@ class Settings(BaseSettings):
 
     # Affiliate programme
     affiliate_commission_ksh: int = 50  # KSh per active paying org per month — set AFFILIATE_COMMISSION_KSH to override
+    affiliate_min_payout_ksh: int = 100  # minimum withdrawal amount — set AFFILIATE_MIN_PAYOUT_KSH to override
+    affiliate_max_manual_payouts_per_month: int = 2  # manual withdrawals allowed per affiliate per month (auto batch is unlimited)
 
     # Africa's Talking (SMS + WhatsApp)
     at_api_key: str = ""
