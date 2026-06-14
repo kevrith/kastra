@@ -306,3 +306,91 @@ async def test_sa_approve_affiliate(client: AsyncClient, db_session: AsyncSessio
 
     await db_session.refresh(aff)
     assert aff.status == "active"
+
+
+# ---------------------------------------------------------------------------
+# New-application admin notifications (email + WhatsApp)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_application_triggers_admin_notifications(client: AsyncClient):
+    """End-to-end: registering fires both admin notifications with the applicant's details."""
+    email = f"applicant-{uuid.uuid4().hex[:6]}@partner.com"
+    with patch("app.routers.affiliate.send_affiliate_application_email", new_callable=AsyncMock) as mock_email, \
+         patch("app.routers.affiliate.send_affiliate_application_whatsapp", new_callable=AsyncMock) as mock_wa:
+        resp = await client.post("/api/affiliate/register", json={
+            "name": "Notify Partner",
+            "email": email,
+            "phone": "0700333444",
+            "password": "password123",
+            "payout_phone": "0700333444",
+        })
+
+    assert resp.status_code == 201
+    # Background tasks run before the ASGI response completes, so they've fired by now.
+    mock_email.assert_awaited_once_with("Notify Partner", email, "0700333444")
+    mock_wa.assert_awaited_once_with("Notify Partner", "0700333444")
+
+
+@pytest.mark.asyncio
+async def test_application_email_sends_to_admin_when_configured():
+    from app.services import email_service
+
+    with patch.object(email_service.settings, "admin_email", "ops@kastra.co.ke"), \
+         patch.object(email_service, "_send", new_callable=AsyncMock) as mock_send:
+        await email_service.send_affiliate_application_email("Jane Partner", "jane@x.com", "0711000000")
+
+    mock_send.assert_awaited_once()
+    to_email, subject, html = mock_send.await_args.args
+    assert to_email == "ops@kastra.co.ke"
+    assert "Jane Partner" in subject
+    assert "jane@x.com" in html
+    assert "0711000000" in html
+
+
+@pytest.mark.asyncio
+async def test_application_email_noop_without_admin_email():
+    from app.services import email_service
+
+    with patch.object(email_service.settings, "admin_email", ""), \
+         patch.object(email_service, "_send", new_callable=AsyncMock) as mock_send:
+        await email_service.send_affiliate_application_email("Jane", "jane@x.com", "0711000000")
+
+    mock_send.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_application_whatsapp_posts_when_configured():
+    from app.services import email_service
+
+    mock_resp = MagicMock()
+    mock_resp.is_success = True
+    mock_post = AsyncMock(return_value=mock_resp)
+
+    mock_cm = MagicMock()
+    mock_cm.__aenter__ = AsyncMock(return_value=MagicMock(post=mock_post))
+    mock_cm.__aexit__ = AsyncMock(return_value=False)
+
+    with patch.object(email_service.settings, "admin_phone", "+254712345678"), \
+         patch.object(email_service.settings, "at_api_key", "test_key"), \
+         patch.object(email_service.settings, "at_whatsapp_number", "+254700000000"), \
+         patch("app.services.email_service.httpx.AsyncClient", return_value=mock_cm):
+        result = await email_service.send_affiliate_application_whatsapp("Jane Partner", "0711000000")
+
+    assert result is True
+    mock_post.assert_awaited_once()
+    url = mock_post.await_args.args[0]
+    assert "whatsapp" in url
+    payload = mock_post.await_args.kwargs["json"]
+    assert "Jane Partner" in payload["message"]
+    assert payload["to"]  # admin phone normalised into the AT payload
+
+
+@pytest.mark.asyncio
+async def test_application_whatsapp_noop_without_admin_phone():
+    from app.services import email_service
+
+    with patch.object(email_service.settings, "admin_phone", ""):
+        result = await email_service.send_affiliate_application_whatsapp("Jane", "0711000000")
+
+    assert result is False
