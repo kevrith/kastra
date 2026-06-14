@@ -14,7 +14,7 @@ from app.config import settings
 from app.database import get_db
 from app.models.affiliate import Affiliate, AffiliateCommission, AffiliatePayout, AffiliateReferral
 from app.models.organization import Organization
-from app.services.email_service import send_affiliate_application_email, send_affiliate_application_whatsapp
+from app.services.email_service import send_affiliate_application_email, send_affiliate_application_sms
 from app.utils.security import hash_password, verify_password
 
 router = APIRouter(prefix="/api/affiliate", tags=["affiliate"])
@@ -284,8 +284,9 @@ async def affiliate_register(payload: AffiliateRegisterRequest, background_tasks
     db.add(aff)
     await db.commit()
     # Notify the admin so applications can be reviewed quickly (runs after the response).
+    # SMS + email; WhatsApp is left out as it needs Meta Business onboarding (not provisioned).
     background_tasks.add_task(send_affiliate_application_email, aff.name, aff.email, aff.phone)
-    background_tasks.add_task(send_affiliate_application_whatsapp, aff.name, aff.phone)
+    background_tasks.add_task(send_affiliate_application_sms, aff.name, aff.phone)
     return {"message": "Application received. You will be notified once approved.", "code": code}
 
 

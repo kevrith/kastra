@@ -5,7 +5,7 @@ import httpx
 from jose import JWTError, jwt
 
 from app.config import settings
-from app.services.sms_service import _format_phone
+from app.services.sms_service import _format_phone, send_sms
 
 logger = logging.getLogger(__name__)
 
@@ -569,6 +569,22 @@ async def send_affiliate_application_whatsapp(name: str, phone: str) -> bool:
     except Exception:
         logger.exception("[WHATSAPP] Failed to send affiliate application ping to admin")
         return False
+
+
+async def send_affiliate_application_sms(name: str, phone: str) -> bool:
+    """SMS ping to the admin's phone when a new affiliate applies.
+
+    Returns True if the message was accepted for delivery. No-ops (False) when
+    no admin phone is configured. Delivery to Safaricom numbers requires an
+    approved Africa's Talking sender ID; until then send_sms reports the failure.
+    """
+    if not settings.admin_phone:
+        return False
+    msg = (
+        f"New Kastra affiliate application from {name} ({phone}). "
+        "Review and approve in Super Admin."
+    )
+    return await send_sms(settings.admin_phone, msg)
 
 
 async def send_affiliate_payout_shortfall_email(needed_ksh: float, available_ksh: float, affiliate_count: int) -> None:

@@ -20,6 +20,11 @@ logger = logging.getLogger(__name__)
 
 _AT_URL = "https://api.africastalking.com/version1/messaging"
 
+# Africa's Talking per-recipient status codes that mean the message was accepted
+# for delivery: 100 Processed, 101 Sent, 102 Queued. Anything else (e.g. 406
+# UserInBlacklist, 405 InsufficientBalance, 407 CouldNotRoute) is a failure.
+_SMS_SUCCESS_CODES = {100, 101, 102}
+
 
 def _format_phone(phone: str | None) -> str | None:
     """Normalise phone to +254XXXXXXXXX. Returns None if unparseable."""
@@ -68,11 +73,34 @@ async def send_sms(phone: str | None, message: str) -> bool:
                 },
             )
             resp.raise_for_status()
-            logger.info("[SMS] Sent to %s", normalised)
-            return True
     except Exception:
-        logger.exception("[SMS] Failed to send to %s", normalised)
+        logger.exception("[SMS] Request to Africa's Talking failed for %s", normalised)
         return False
+
+    # AT returns HTTP 201 even when it rejects the message — the real outcome is in
+    # the body. Only treat an accepted recipient (statusCode 100/101/102) as success.
+    try:
+        data = resp.json().get("SMSMessageData", {})
+        recipients = data.get("Recipients", [])
+    except Exception:
+        logger.error("[SMS] Unparseable Africa's Talking response for %s: %s", normalised, resp.text[:200])
+        return False
+
+    if not recipients:
+        # No recipients queued at all, e.g. InvalidSenderId or InsufficientBalance.
+        logger.error("[SMS] Not delivered to %s — %s", normalised, data.get("Message", "no recipients"))
+        return False
+
+    rcpt = recipients[0]
+    if rcpt.get("statusCode") in _SMS_SUCCESS_CODES:
+        logger.info("[SMS] Sent to %s (messageId=%s)", normalised, rcpt.get("messageId"))
+        return True
+
+    logger.error(
+        "[SMS] Not delivered to %s — %s (statusCode %s)",
+        normalised, rcpt.get("status"), rcpt.get("statusCode"),
+    )
+    return False
 
 
 async def sms_invoice_sent(client_phone: str | None, client_name: str, invoice_id: str,

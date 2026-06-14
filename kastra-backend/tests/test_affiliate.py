@@ -317,7 +317,7 @@ async def test_application_triggers_admin_notifications(client: AsyncClient):
     """End-to-end: registering fires both admin notifications with the applicant's details."""
     email = f"applicant-{uuid.uuid4().hex[:6]}@partner.com"
     with patch("app.routers.affiliate.send_affiliate_application_email", new_callable=AsyncMock) as mock_email, \
-         patch("app.routers.affiliate.send_affiliate_application_whatsapp", new_callable=AsyncMock) as mock_wa:
+         patch("app.routers.affiliate.send_affiliate_application_sms", new_callable=AsyncMock) as mock_sms:
         resp = await client.post("/api/affiliate/register", json={
             "name": "Notify Partner",
             "email": email,
@@ -329,7 +329,32 @@ async def test_application_triggers_admin_notifications(client: AsyncClient):
     assert resp.status_code == 201
     # Background tasks run before the ASGI response completes, so they've fired by now.
     mock_email.assert_awaited_once_with("Notify Partner", email, "0700333444")
-    mock_wa.assert_awaited_once_with("Notify Partner", "0700333444")
+    mock_sms.assert_awaited_once_with("Notify Partner", "0700333444")
+
+
+@pytest.mark.asyncio
+async def test_application_sms_sends_when_admin_phone_set():
+    from app.services import email_service
+
+    with patch.object(email_service.settings, "admin_phone", "+254712345678"), \
+         patch.object(email_service, "send_sms", new_callable=AsyncMock, return_value=True) as mock_sms:
+        ok = await email_service.send_affiliate_application_sms("Jane Partner", "0711000000")
+
+    assert ok is True
+    mock_sms.assert_awaited_once()
+    to, msg = mock_sms.await_args.args
+    assert to == "+254712345678"
+    assert "Jane Partner" in msg
+
+
+@pytest.mark.asyncio
+async def test_application_sms_noop_without_admin_phone():
+    from app.services import email_service
+
+    with patch.object(email_service.settings, "admin_phone", ""):
+        ok = await email_service.send_affiliate_application_sms("Jane", "0711000000")
+
+    assert ok is False
 
 
 @pytest.mark.asyncio
