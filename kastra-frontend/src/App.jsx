@@ -36,9 +36,14 @@ const PublicQuotation = lazy(() => import("./pages/portal/PublicQuotation"));
 const ClientPortal = lazy(() => import("./pages/portal/ClientPortal"));
 const PaystackVerify = lazy(() => import("./pages/portal/PaystackVerify"));
 const SupplierPortal = lazy(() => import("./pages/portal/SupplierPortal"));
+const SupplierOrderPortal = lazy(() => import("./pages/portal/SupplierOrderPortal"));
 const Suppliers = lazy(() => import("./pages/suppliers/Suppliers"));
 const NewSupplierRequest = lazy(() => import("./pages/suppliers/NewSupplierRequest"));
 const SupplierRequestDetail = lazy(() => import("./pages/suppliers/SupplierRequestDetail"));
+const PurchaseOrders = lazy(() => import("./pages/purchasing/PurchaseOrders"));
+const PurchaseOrderForm = lazy(() => import("./pages/purchasing/PurchaseOrderForm"));
+const PurchaseOrderDetail = lazy(() => import("./pages/purchasing/PurchaseOrderDetail"));
+const SupplierBills = lazy(() => import("./pages/purchasing/SupplierBills"));
 const Employees = lazy(() => import("./pages/payroll/Employees"));
 const PayrollRuns = lazy(() => import("./pages/payroll/PayrollRuns"));
 const PayrollRunDetail = lazy(() => import("./pages/payroll/PayrollRunDetail"));
@@ -93,6 +98,7 @@ export default function App() {
             <Route path="/portal/c/:token" element={<ClientPortal />} />
             <Route path="/portal/paystack/verify" element={<PaystackVerify />} />
             <Route path="/supplier-portal/:token" element={<SupplierPortal />} />
+            <Route path="/supplier-order/:token" element={<SupplierOrderPortal />} />
             <Route path="/testimonial/:token" element={<TestimonialForm />} />
             <Route path="/privacy" element={<PrivacyPolicy />} />
             <Route path="/terms" element={<TermsOfService />} />
@@ -123,6 +129,11 @@ export default function App() {
               <Route path="/suppliers" element={<Suppliers />} />
               <Route path="/suppliers/requests/new" element={<NewSupplierRequest />} />
               <Route path="/suppliers/requests/:id" element={<SupplierRequestDetail />} />
+              <Route path="/purchase-orders" element={<PurchaseOrders />} />
+              <Route path="/purchase-orders/new" element={<PurchaseOrderForm />} />
+              <Route path="/purchase-orders/:id" element={<PurchaseOrderDetail />} />
+              <Route path="/purchase-orders/:id/edit" element={<PurchaseOrderForm />} />
+              <Route path="/supplier-bills" element={<SupplierBills />} />
               <Route path="/employees" element={<Employees />} />
               <Route path="/payroll" element={<PayrollRuns />} />
               <Route path="/payroll/runs/:id" element={<PayrollRunDetail />} />

@@ -2,7 +2,7 @@ import { NavLink, useNavigate } from "react-router-dom";
 import {
   BarChart2, FileText, Home, LogOut, Settings, Users, Receipt,
   TrendingDown, RefreshCw, Package, Kanban, UserCog, FolderKanban, Truck,
-  UserCheck, Wallet, ShieldCheck, HelpCircle, Lock, Download, Landmark,
+  UserCheck, Wallet, ShieldCheck, HelpCircle, Lock, Download, Landmark, ShoppingCart,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import GlobalSearch from "../ui/GlobalSearch";
@@ -20,6 +20,7 @@ const links = [
   { to: "/clients", icon: Users, label: "Clients", roles: ["admin", "manager", "viewer"] },
   { to: "/products", icon: Package, label: "Products", roles: ["admin", "manager"] },
   { to: "/suppliers", icon: Truck, label: "Suppliers", roles: ["admin", "manager"] },
+  { to: "/purchase-orders", icon: ShoppingCart, label: "Purchasing", roles: ["admin", "manager"] },
   { to: "/employees", icon: UserCheck, label: "Employees", roles: ["admin", "manager"] },
   { to: "/payroll", icon: Wallet, label: "Payroll", roles: ["admin", "manager"] },
   { to: "/expenses", icon: TrendingDown, label: "Expenses", roles: ["admin", "manager"] },

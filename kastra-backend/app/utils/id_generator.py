@@ -19,6 +19,9 @@ async def next_id(db: AsyncSession, entity_type: str, organization_id: uuid.UUID
         "invoice": "INV",
         "credit_note": "CN",
         "delivery_note": "DN",
+        "purchase_order": "PO",
+        "goods_receipt": "GRN",
+        "supplier_bill": "BILL",
     }.get(entity_type, "INV")
 
     # Get organization prefix

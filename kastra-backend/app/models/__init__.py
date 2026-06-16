@@ -18,6 +18,10 @@ from app.models.payroll import PayrollRun, Payslip
 from app.models.testimonial import Testimonial
 from app.models.credit_note import CreditNote, CreditNoteItem
 from app.models.delivery_note import DeliveryNote, DeliveryNoteItem
+from app.models.purchase_order import (
+    GoodsReceipt, GoodsReceiptItem, PurchaseOrder, PurchaseOrderItem,
+    PurchaseOrderNote, SupplierBill, SupplierPriceHistory,
+)
 
 __all__ = [
     "Organization",
@@ -53,4 +57,11 @@ __all__ = [
     "CreditNoteItem",
     "DeliveryNote",
     "DeliveryNoteItem",
+    "PurchaseOrder",
+    "PurchaseOrderItem",
+    "PurchaseOrderNote",
+    "GoodsReceipt",
+    "GoodsReceiptItem",
+    "SupplierBill",
+    "SupplierPriceHistory",
 ]

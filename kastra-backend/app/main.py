@@ -20,6 +20,7 @@ from app.routers import credit_notes, delivery_notes, reconciliation
 from app.routers import expenses, products, notifications, search, invoice_payments, recurring_invoices
 from app.routers import ocr, subscriptions, superadmin, team, projects
 from app.routers import suppliers, supplier_portal
+from app.routers import purchase_orders, supplier_bills
 from app.routers import ai as ai_router
 from app.routers import currency
 from app.routers import employees, payroll
@@ -193,6 +194,8 @@ app.include_router(affiliate_router.router)
 app.include_router(credit_notes.router)
 app.include_router(delivery_notes.router)
 app.include_router(reconciliation.router)
+app.include_router(purchase_orders.router)
+app.include_router(supplier_bills.router)
 
 
 @app.api_route("/health", methods=["GET", "HEAD"])

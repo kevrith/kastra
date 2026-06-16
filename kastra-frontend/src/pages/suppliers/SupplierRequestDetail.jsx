@@ -4,10 +4,11 @@ import {
   getSupplierRequest, getComparison, addInvite, removeInvite,
   closeSupplierRequest, updateSupplierRequest, getSuppliers,
 } from "../../api/suppliers";
+import { createPOFromQuote } from "../../api/purchaseOrders";
 import { ksh, normalizePhone } from "../../utils/formatters";
 import {
   ArrowLeft, Copy, MessageCircle, CheckCircle, Clock, Plus, Trash2,
-  BarChart2, Users, Lock, Edit2,
+  BarChart2, Users, Lock, Edit2, ShoppingCart,
 } from "lucide-react";
 import Spinner from "../../components/ui/Spinner";
 import Modal from "../../components/ui/Modal";
@@ -165,6 +166,18 @@ export default function SupplierRequestDetail() {
       setCopied((p) => ({ ...p, [invite.id]: true }));
       setTimeout(() => setCopied((p) => ({ ...p, [invite.id]: false })), 2000);
     });
+  };
+
+  const [creatingPO, setCreatingPO] = useState(null);
+  const handleCreatePO = async (invite) => {
+    setCreatingPO(invite.id);
+    try {
+      const { data } = await createPOFromQuote(id, invite.id);
+      navigate(`/purchase-orders/${data.data.id}`);
+    } catch (e) {
+      alert(e?.response?.data?.detail ?? "Could not create purchase order.");
+      setCreatingPO(null);
+    }
   };
 
   const handleWhatsApp = (invite) => {
@@ -470,6 +483,15 @@ export default function SupplierRequestDetail() {
                               </tr>
                             </tfoot>
                           </table>
+                          <div className="bg-white px-3 py-2.5 border-t border-green-100 flex justify-end">
+                            <button
+                              className="btn-primary text-sm"
+                              disabled={creatingPO === invite.id}
+                              onClick={() => handleCreatePO(invite)}
+                            >
+                              <ShoppingCart size={14} /> {creatingPO === invite.id ? "Creating…" : "Create Purchase Order"}
+                            </button>
+                          </div>
                         </div>
                       );
                     })()}

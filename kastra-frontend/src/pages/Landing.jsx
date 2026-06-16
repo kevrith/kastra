@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import {
   FileText, Receipt, CreditCard, Users, BarChart2, Shield,
   CheckCircle, Smartphone, Zap, Globe, ArrowRight, Star,
-  TrendingUp, Clock, Lock, UserCog, FolderKanban, Camera, DollarSign, Truck, Sparkles, Wallet,
+  TrendingUp, Clock, Lock, UserCog, FolderKanban, Camera, DollarSign, Truck, Sparkles, Wallet, ShoppingCart,
   FileMinus, Landmark, ClipboardList,
 } from "lucide-react";
 
@@ -27,6 +27,11 @@ const features = [
     icon: Truck,
     title: "Supplier Price Comparison",
     desc: "Send price requests to multiple suppliers via a shareable link. They submit their prices online — you compare them side by side and pick the best deal.",
+  },
+  {
+    icon: ShoppingCart,
+    title: "Purchase Orders & Payables",
+    desc: "Order from suppliers online — they confirm or revise quantities and prices, you get flagged when a price changes, approve or send back for revision, receive goods, and track every supplier bill you owe.",
   },
   {
     icon: Smartphone,
@@ -155,7 +160,7 @@ const plans = [
     price: "KES 1,500",
     period: "/ month",
     desc: "For small businesses ready to grow.",
-    features: ["200 invoices / month", "150 quotations / month", "3 team members", "10 OCR scans / month", "20 clients", "M-Pesa + Paystack", "Multi-currency invoicing", "Payroll & payslips", "Email invoices", "Client portal", "Products catalog", "Supplier price requests", "Job profitability tracking", "Auto payment reminders", "Custom logo", "3-month reports", "15 AI calls / month"],
+    features: ["200 invoices / month", "150 quotations / month", "3 team members", "10 OCR scans / month", "20 clients", "M-Pesa + Paystack", "Multi-currency invoicing", "Payroll & payslips", "Email invoices", "Client portal", "Products catalog", "Supplier price requests", "Purchase orders & supplier bills", "Job profitability tracking", "Auto payment reminders", "Custom logo", "3-month reports", "15 AI calls / month"],
     cta: "Start with Starter",
     highlight: false,
   },
@@ -165,7 +170,7 @@ const plans = [
     price: "KES 3,000",
     period: "/ month",
     desc: "For teams that need collaboration.",
-    features: ["400 invoices / month", "250 quotations / month", "6 team members", "35 OCR scans / month", "100 clients", "Team management", "Multi-currency invoicing", "Payroll & payslips", "Project pipeline", "Field reporting", "Photo uploads", "SMS notifications", "Recurring invoices", "eTIMS / KRA compliance", "Supplier price comparison", "Job profitability tracking", "Audit logs", "Full history reports", "50 AI calls / month"],
+    features: ["400 invoices / month", "250 quotations / month", "6 team members", "35 OCR scans / month", "100 clients", "Team management", "Multi-currency invoicing", "Payroll & payslips", "Project pipeline", "Field reporting", "Photo uploads", "SMS notifications", "Recurring invoices", "eTIMS / KRA compliance", "Supplier price comparison", "Purchase orders & payables", "Job profitability tracking", "Audit logs", "Full history reports", "50 AI calls / month"],
     cta: "Go Business",
     highlight: true,
   },
@@ -175,7 +180,7 @@ const plans = [
     price: "KES 5,500",
     period: "/ month",
     desc: "Unlimited power for high-volume operations.",
-    features: ["Unlimited invoices", "Unlimited quotations", "15 team members", "100+ OCR scans / month", "Unlimited clients", "Unlimited projects", "Multi-currency invoicing", "Payroll & payslips", "Email invoices", "Client portal", "Project pipeline", "Field reporting", "Photo uploads", "Recurring invoices", "eTIMS / KRA compliance", "Audit logs", "SMS notifications", "White-label branding", "Priority support", "All 3 templates", "Full history reports", "Supplier price comparison", "Job profitability tracking", "Unlimited AI calls"],
+    features: ["Unlimited invoices", "Unlimited quotations", "15 team members", "100+ OCR scans / month", "Unlimited clients", "Unlimited projects", "Multi-currency invoicing", "Payroll & payslips", "Email invoices", "Client portal", "Project pipeline", "Field reporting", "Photo uploads", "Recurring invoices", "eTIMS / KRA compliance", "Audit logs", "SMS notifications", "White-label branding", "Priority support", "All 3 templates", "Full history reports", "Supplier price comparison", "Purchase orders & payables", "Job profitability tracking", "Unlimited AI calls"],
     cta: "Go Premium",
     highlight: false,
   },

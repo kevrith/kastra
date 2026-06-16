@@ -38,6 +38,8 @@ export const SIDEBAR_FEATURE = {
   "/expenses":  "expenses",
   "/products":  "products",
   "/suppliers": "suppliers",
+  "/purchase-orders": "suppliers",
+  "/supplier-bills": "suppliers",
   "/recurring": "recurring",
   "/reports":   "reports",
   "/audit-log": "audit_logs",

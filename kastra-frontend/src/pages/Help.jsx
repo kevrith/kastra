@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import {
   ChevronDown, ChevronUp, FileText, Receipt, Users, CreditCard,
   TrendingDown, BarChart2, Package, UserCog, HelpCircle,
-  BookOpen, Repeat, Truck, Wallet, Mail,
+  BookOpen, Repeat, Truck, Wallet, Mail, ShoppingCart,
 } from "lucide-react";
 
 const sections = [
@@ -276,6 +276,57 @@ const sections = [
           "List the items and quantities you need.",
           "Send to multiple suppliers. They respond via their unique portal link.",
           "Compare prices and select the best offer.",
+          "On the best supplier's response, click Create Purchase Order to turn the quote into an order.",
+        ],
+      },
+    ],
+  },
+  {
+    id: "purchasing",
+    icon: ShoppingCart,
+    title: "Purchasing (Orders, Deliveries & Bills)",
+    color: "text-indigo-600",
+    bg: "bg-indigo-50",
+    guides: [
+      {
+        title: "Place an order with a supplier",
+        steps: [
+          "Go to Purchasing → New Order (or use Create Purchase Order from a supplier's price quote).",
+          "Pick the supplier, add items, quantities and your expected unit prices, then save the draft.",
+          "Click Send to supplier — they get a private link (and an SMS) to review the order. No login needed.",
+        ],
+      },
+      {
+        title: "Supplier confirms or revises your order",
+        steps: [
+          "The supplier opens their link and confirms the quantity they can supply and their price for each item.",
+          "If they change anything, the order is marked 'Supplier revised' and you see their prices next to yours.",
+          "Price-change flags appear automatically: a red ↑ means they charged more, a green ↓ means cheaper — both against your order and against the last price you paid that supplier.",
+        ],
+      },
+      {
+        title: "Approve or send back for revision",
+        steps: [
+          "Open the order. If you're happy, click Accept prices.",
+          "If not, click Reject and give a reason — the supplier is notified and can revise and resubmit.",
+          "The full back-and-forth is kept on the order under Negotiation, so you always have a record.",
+        ],
+      },
+      {
+        title: "Receive goods (record a delivery)",
+        steps: [
+          "When goods arrive, open the accepted order and click Receive goods.",
+          "Enter the quantity that actually arrived — partial deliveries are fine, you can receive again later.",
+          "Receiving automatically updates the item's cost price, which keeps your profit calculations accurate.",
+        ],
+      },
+      {
+        title: "Bill and pay the supplier",
+        steps: [
+          "After receiving, click Create bill. The system 3-way matches the bill against your order and the goods received and flags any mismatch.",
+          "See everything you owe under Purchasing → Bills, including due dates and overdue aging.",
+          "Record payments as you pay; the bill updates to partial or paid.",
+          "Tip: leave 'Post to expenses' off for goods you resell — their cost already reaches profit when you sell them. Only tick it for non-resale purchases like office supplies.",
         ],
       },
     ],
@@ -333,6 +384,18 @@ const faqs = [
   {
     q: "Can I use Kastra on my phone?",
     a: "Yes. Kastra works on any mobile browser. You can also install it as a PWA — tap the install/share prompt in Chrome or Safari.",
+  },
+  {
+    q: "How does Kastra flag supplier price changes?",
+    a: "On a purchase order, each item shows the supplier's confirmed price next to your ordered price, and against the last price you paid that supplier for the same item. A red ↑ means the price went up, a green ↓ means it dropped — so you spot increases before you approve.",
+  },
+  {
+    q: "Does buying from suppliers keep my profit accurate?",
+    a: "Yes. When you receive goods, Kastra updates each item's cost price, so when you later sell it your profit (revenue minus cost of sales minus expenses) is calculated correctly. Goods bought for resale are tracked as payables, not expenses, to avoid double-counting. For non-resale purchases you can tick 'Post to expenses' when creating the bill.",
+  },
+  {
+    q: "Can a supplier change the order I send them?",
+    a: "Yes. Suppliers open a private link (no login) and can adjust the quantity they can supply and their price per item, then confirm or revise. You approve their response, or reject it with a reason so they can revise and resubmit.",
   },
 ];
 

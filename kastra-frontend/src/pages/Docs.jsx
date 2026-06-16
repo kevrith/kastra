@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import {
   ChevronDown, ChevronUp, FileText, Receipt, Users, CreditCard,
   TrendingDown, BarChart2, Package, UserCog, HelpCircle,
-  ArrowRight, BookOpen, Repeat, Truck, Wallet,
+  ArrowRight, BookOpen, Repeat, Truck, Wallet, ShoppingCart,
 } from "lucide-react";
 
 const sections = [
@@ -353,7 +353,47 @@ const sections = [
           "Go to Suppliers → New Request.",
           "List the items you need and quantity.",
           "Send to multiple suppliers. They respond via their supplier portal link.",
-          "Compare prices and select the best offer.",
+          "Compare prices and select the best offer, then click Create Purchase Order on the winning quote.",
+        ],
+      },
+    ],
+  },
+  {
+    id: "purchasing",
+    icon: ShoppingCart,
+    title: "Purchasing (Orders, Deliveries & Bills)",
+    color: "text-indigo-600",
+    bg: "bg-indigo-50",
+    guides: [
+      {
+        title: "Send a purchase order to a supplier",
+        steps: [
+          "Go to Purchasing → New Order, or create one straight from a supplier's price quote.",
+          "Choose the supplier, add items, quantities and your expected prices, then save the draft.",
+          "Click Send to supplier — they receive a private link (no login) to review the order.",
+        ],
+      },
+      {
+        title: "Supplier confirms, revises, and price-change flags",
+        steps: [
+          "The supplier confirms the quantity they can supply and their price per item.",
+          "Their prices appear next to yours, with a red ↑ (more expensive) or green ↓ (cheaper) flag versus your order and the last price you paid them.",
+          "Accept the prices, or Reject with a reason so the supplier can revise and resubmit. The negotiation history stays on the order.",
+        ],
+      },
+      {
+        title: "Receive goods and keep profit accurate",
+        steps: [
+          "When goods arrive, open the accepted order and click Receive goods (partial deliveries are supported).",
+          "This updates each item's cost price so your profit and loss stays accurate when you sell.",
+        ],
+      },
+      {
+        title: "Bill and pay suppliers (Accounts Payable)",
+        steps: [
+          "After receiving, click Create bill — Kastra 3-way matches it against the order and the goods received.",
+          "Track everything you owe under Purchasing → Bills, with due dates and aging.",
+          "Record payments until the bill is fully paid. Goods for resale stay as payables (not expenses) to keep profit correct.",
         ],
       },
     ],
