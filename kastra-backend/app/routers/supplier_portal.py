@@ -203,8 +203,8 @@ class OrderRespondIn(BaseModel):
     reply: str | None = None  # optional reply to a rejection
 
 
-async def _load_order(db: AsyncSession, token: uuid.UUID) -> "PurchaseOrder":
-    from app.models.purchase_order import PurchaseOrder, PurchaseOrderNote
+async def _load_order(db: AsyncSession, token: uuid.UUID):
+    from app.models.purchase_order import PurchaseOrder
     result = await db.execute(
         select(PurchaseOrder).where(PurchaseOrder.portal_token == token).options(
             selectinload(PurchaseOrder.supplier),

@@ -18,7 +18,6 @@ from sqlalchemy.orm import selectinload
 from app.config import settings
 from app.database import get_db
 from app.dependencies import get_current_user
-from app.models.notification import Notification
 from app.models.organization import Organization
 from app.models.product import Product
 from app.models.purchase_order import (
