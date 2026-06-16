@@ -189,12 +189,8 @@ def _pct(new: Decimal, base: Decimal | None) -> float | None:
     return round(float((new - base) / base * 100), 1)
 
 
-async def _recompute_totals(po: PurchaseOrder) -> None:
-    subtotal = sum((_money(i.ordered_qty) * _money(i.ordered_unit_price) for i in po.items), Decimal("0"))
-    for i in po.items:
-        i.line_total = _money(_money(i.ordered_qty) * _money(i.ordered_unit_price))
-    po.subtotal = _money(subtotal)
-    po.total = _money(subtotal + _money(po.tax_amount))
+def _ordered_subtotal(items: list[POItemIn]) -> Decimal:
+    return sum((_money(i.ordered_qty) * _money(i.ordered_unit_price) for i in items), Decimal("0"))
 
 
 async def _to_out(db: AsyncSession, po: PurchaseOrder) -> POOut:
@@ -304,12 +300,14 @@ async def create_po(
     if not payload.items:
         raise HTTPException(status_code=400, detail="Add at least one item to the order.")
 
+    subtotal = _ordered_subtotal(payload.items)
+    tax = _money(payload.tax_amount)
     po_id = await next_id(db, "purchase_order", current_user.organization_id)
     po = PurchaseOrder(
         id=po_id, organization_id=current_user.organization_id, supplier_id=payload.supplier_id,
         created_by=current_user.id, currency=payload.currency,
         expected_delivery=payload.expected_delivery, notes=payload.notes,
-        tax_amount=_money(payload.tax_amount),
+        tax_amount=tax, subtotal=_money(subtotal), total=_money(subtotal + tax),
     )
     db.add(po)
     await db.flush()
@@ -322,8 +320,6 @@ async def create_po(
         ))
     await db.flush()
     po = await _get_po(db, po.id, current_user.organization_id)
-    await _recompute_totals(po)
-    await db.flush()
     return Response(data=await _to_out(db, po))
 
 
@@ -357,14 +353,20 @@ async def create_po_from_quote(
     if invite.status != "responded" or not invite.response_items:
         raise HTTPException(status_code=400, detail="This supplier has not submitted prices yet.")
 
+    lines = sorted(invite.response_items, key=lambda x: x.sort_order)
+    subtotal = sum(
+        ((_money(r.quantity) if r.quantity is not None else Decimal("1")) * _money(r.unit_price) for r in lines),
+        Decimal("0"),
+    )
     po_id = await next_id(db, "purchase_order", current_user.organization_id)
     po = PurchaseOrder(
         id=po_id, organization_id=current_user.organization_id, supplier_id=invite.supplier_id,
         created_by=current_user.id, source_request_id=request_id,
+        subtotal=_money(subtotal), total=_money(subtotal),
     )
     db.add(po)
     await db.flush()
-    for idx, r in enumerate(sorted(invite.response_items, key=lambda x: x.sort_order)):
+    for idx, r in enumerate(lines):
         qty = _money(r.quantity) if r.quantity is not None else Decimal("1")
         db.add(PurchaseOrderItem(
             purchase_order_id=po.id, description=r.description, unit=r.unit,
@@ -373,8 +375,6 @@ async def create_po_from_quote(
         ))
     await db.flush()
     po = await _get_po(db, po.id, current_user.organization_id)
-    await _recompute_totals(po)
-    await db.flush()
     return Response(data=await _to_out(db, po))
 
 
@@ -401,11 +401,15 @@ async def update_po(
     if not payload.items:
         raise HTTPException(status_code=400, detail="Add at least one item to the order.")
 
+    subtotal = _ordered_subtotal(payload.items)
+    tax = _money(payload.tax_amount)
     po.supplier_id = payload.supplier_id
     po.currency = payload.currency
     po.expected_delivery = payload.expected_delivery
     po.notes = payload.notes
-    po.tax_amount = _money(payload.tax_amount)
+    po.tax_amount = tax
+    po.subtotal = _money(subtotal)
+    po.total = _money(subtotal + tax)
     for old in list(po.items):
         await db.delete(old)
     await db.flush()
@@ -419,8 +423,6 @@ async def update_po(
     await db.flush()
     db.expire(po)
     po = await _get_po(db, po_id, current_user.organization_id)
-    await _recompute_totals(po)
-    await db.flush()
     return Response(data=await _to_out(db, po))
 
 

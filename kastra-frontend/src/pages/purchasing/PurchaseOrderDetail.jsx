@@ -151,7 +151,6 @@ export default function PurchaseOrderDetail() {
           </thead>
           <tbody className="divide-y divide-gray-100">
             {po.items.map((i) => {
-              const eff = i.confirmed_unit_price ?? i.ordered_unit_price;
               return (
                 <tr key={i.id}>
                   <td className="px-4 py-2.5">
