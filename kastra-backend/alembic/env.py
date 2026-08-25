@@ -2,10 +2,12 @@ import asyncio
 from logging.config import fileConfig
 
 from alembic import context
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from app.config import settings
 from app.database import Base
+from app.db_rls import ENABLE_RLS_ON_PUBLIC_TABLES
 import app.models  # noqa: F401 — ensures all models are registered
 
 config = context.config
@@ -33,6 +35,11 @@ def do_run_migrations(connection):
     context.configure(connection=connection, target_metadata=target_metadata)
     with context.begin_transaction():
         context.run_migrations()
+        # Supabase serves every public-schema table over PostgREST, so a table
+        # created by the migrations above is world-readable until RLS is on it.
+        # Sweeping here — not in a one-off migration — means a future
+        # create_table can never reintroduce a publicly exposed table.
+        connection.execute(text(ENABLE_RLS_ON_PUBLIC_TABLES))
 
 
 async def run_async_migrations() -> None:
