@@ -31,6 +31,7 @@ coverage.xml
 *.cover
 .hypothesis/
 .pytest_cache/
+.ruff_cache/
 *.mo
 *.pot
 instance/
@@ -76,6 +77,9 @@ lerna-debug.log*
 # OS
 .DS_Store
 Thumbs.db
+
+# Tooling — local, per-developer state
+.claude/settings.local.json
 
 # Editor
 .vscode/*

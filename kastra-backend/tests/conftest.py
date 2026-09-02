@@ -15,10 +15,22 @@ from app.utils.rate_limit import limiter
 # Disable rate limiting in tests so fixture registrations don't hit 429.
 limiter.enabled = False
 
-TEST_DATABASE_URL = os.getenv(
-    "TEST_DATABASE_URL",
-    "postgresql+asyncpg://kastra_user:REMOVED_SEE_GITHUB_SECRETS@localhost:5432/kastra_test",
-)
+# No default credentials live here. Set TEST_DATABASE_URL, or use
+# ./scripts/run-tests.sh, which derives one from .env and refuses to point the
+# suite at anything that is not a *_test database.
+TEST_DATABASE_URL = os.getenv("TEST_DATABASE_URL")
+if not TEST_DATABASE_URL:
+    raise RuntimeError(
+        "TEST_DATABASE_URL is not set. Run the suite with ./scripts/run-tests.sh, "
+        "or export it yourself — e.g. "
+        "postgresql+asyncpg://<user>:<password>@localhost:5432/kastra_test\n"
+        "The suite DROPS AND RECREATES the public schema of whatever it points at."
+    )
+if "_test" not in TEST_DATABASE_URL:
+    raise RuntimeError(
+        f"Refusing to run: TEST_DATABASE_URL does not name a *_test database "
+        f"({TEST_DATABASE_URL.rsplit('/', 1)[-1]!r}). The suite drops its schema."
+    )
 
 # NullPool: no connection pooling. Each operation gets a fresh connection so
 # connections are never shared across event loops (each test gets its own loop).
@@ -109,3 +121,32 @@ async def sample_client_id(client: AsyncClient, auth_headers: dict) -> str:
     }, headers=auth_headers)
     assert resp.status_code == 201, resp.text
     return resp.json()["data"]["id"]
+
+
+@pytest_asyncio.fixture
+async def other_org_headers(client: AsyncClient, db_session: AsyncSession) -> dict:
+    """A second verified user in a *different* organization.
+
+    Pair with `auth_headers` to assert that one org can never read or mutate
+    another org's rows.
+    """
+    _counter["n"] += 1
+    email = f"other{_counter['n']}@example.com"
+    token = await _register_and_verify(client, db_session, email, "testpass123", _counter["n"])
+    return {"Authorization": f"Bearer {token}"}
+
+
+@pytest_asyncio.fixture
+async def paid_org_headers(client: AsyncClient, auth_headers: dict, db_session: AsyncSession) -> dict:
+    """`auth_headers`, with the org upgraded off the free plan.
+
+    Suppliers and procurement are plan-gated; anything touching them needs this.
+    """
+    from app.models.organization import Organization
+
+    me = await client.get("/api/auth/me", headers=auth_headers)
+    org_id = me.json()["organization"]["id"]
+    org = (await db_session.execute(select(Organization).where(Organization.id == org_id))).scalar_one()
+    org.plan = "business"
+    await db_session.commit()
+    return auth_headers

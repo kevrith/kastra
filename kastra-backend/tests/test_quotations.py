@@ -381,3 +381,88 @@ async def test_mixed_zero_and_paid_items_totals(client: AsyncClient, auth_header
     # subtotal = 2×5000 + 1×0 = 10000; vat = 1600; grand = 11600
     assert Decimal(data["subtotal"]) == Decimal("10000.00")
     assert Decimal(data["grand_total"]) == Decimal("11600.00")
+
+
+# ---------------------------------------------------------------------------
+# Date filters
+#
+# These params are part of the published API contract. Before they were wired
+# up they were accepted and silently ignored, so a date-filtered request came
+# back with everything in it.
+# ---------------------------------------------------------------------------
+
+async def test_list_quotations_from_date_keeps_todays_quotation(
+    client: AsyncClient, auth_headers: dict, sample_client_id: str
+):
+    from datetime import datetime, timedelta, timezone
+
+    qt = await _create_quotation(client, auth_headers, sample_client_id)
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=1)).date().isoformat()
+
+    resp = await client.get(f"/api/quotations?from_date={cutoff}", headers=auth_headers)
+    assert resp.status_code == 200, resp.text
+    assert qt["id"] in [q["id"] for q in resp.json()["data"]]
+
+
+async def test_list_quotations_from_date_excludes_earlier_quotations(
+    client: AsyncClient, auth_headers: dict, sample_client_id: str
+):
+    from datetime import datetime, timedelta, timezone
+
+    await _create_quotation(client, auth_headers, sample_client_id)
+    cutoff = (datetime.now(timezone.utc) + timedelta(days=1)).date().isoformat()
+
+    resp = await client.get(f"/api/quotations?from_date={cutoff}", headers=auth_headers)
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["data"] == []
+    assert resp.json()["meta"]["total"] == 0
+
+
+async def test_list_quotations_to_date_covers_the_whole_day(
+    client: AsyncClient, auth_headers: dict, sample_client_id: str
+):
+    from datetime import datetime, timezone
+
+    qt = await _create_quotation(client, auth_headers, sample_client_id)
+    today = datetime.now(timezone.utc).date().isoformat()
+
+    resp = await client.get(f"/api/quotations?to_date={today}", headers=auth_headers)
+    assert resp.status_code == 200, resp.text
+    assert qt["id"] in [q["id"] for q in resp.json()["data"]]
+
+
+async def test_list_quotations_to_date_excludes_later_quotations(
+    client: AsyncClient, auth_headers: dict, sample_client_id: str
+):
+    from datetime import datetime, timedelta, timezone
+
+    await _create_quotation(client, auth_headers, sample_client_id)
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=1)).date().isoformat()
+
+    resp = await client.get(f"/api/quotations?to_date={cutoff}", headers=auth_headers)
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["data"] == []
+
+
+async def test_list_quotations_date_filter_combines_with_status(
+    client: AsyncClient, auth_headers: dict, sample_client_id: str
+):
+    from datetime import datetime, timedelta, timezone
+
+    qt = await _create_quotation(client, auth_headers, sample_client_id)
+    await _accept_quotation(client, auth_headers, qt["id"])
+    await _create_quotation(client, auth_headers, sample_client_id)  # stays draft
+
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=1)).date().isoformat()
+    resp = await client.get(
+        f"/api/quotations?from_date={cutoff}&status=accepted", headers=auth_headers
+    )
+    assert resp.status_code == 200, resp.text
+    assert [q["id"] for q in resp.json()["data"]] == [qt["id"]]
+
+
+async def test_list_quotations_rejects_a_malformed_date(
+    client: AsyncClient, auth_headers: dict
+):
+    resp = await client.get("/api/quotations?from_date=whenever", headers=auth_headers)
+    assert resp.status_code == 422

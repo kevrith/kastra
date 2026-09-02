@@ -82,19 +82,29 @@ ENVIRONMENT=development
 ## Running Tests
 
 ```bash
-# Create test database first
+# Create the test database once
 createdb kastra_test
 
-# Run all tests
-pytest
+# Run the suite (derives TEST_DATABASE_URL from .env, generates throwaway keys)
+./scripts/run-tests.sh
 
-# Run with output
-pytest -v -s
+# A single file, or a filter
+./scripts/run-tests.sh tests/test_auth.py -v
+./scripts/run-tests.sh -k "isolation"
 ```
 
-**Test database URL** defaults to `postgresql+asyncpg://kastra_user:REMOVED_SEE_GITHUB_SECRETS@localhost:5432/kastra_test`. Override via `TEST_DATABASE_URL` env var.
+The suite **drops and recreates the public schema** of its target database on
+every run, so it must never point at a database you care about. `run-tests.sh`
+refuses to run unless the URL names a `*_test` database, and bails out if
+another run is already connected — two suites sharing one database corrupt each
+other and produce failures that look like real regressions.
 
-The test suite wipes and recreates the public schema on each run. 120 tests covering auth, clients, quotations, invoices, payroll, and currency.
+Set `TEST_DATABASE_URL` to override the derived default. No credentials live in
+the script; the JWT signing keys are throwaway values generated per run.
+
+536 tests covering auth and two-factor, clients, quotations, invoices, expenses,
+projects, payroll, currency, credit and delivery notes, procurement, spend
+approvals, reconciliation and the audit trail.
 
 ---
 
@@ -139,6 +149,7 @@ POST  /api/auth/login
 POST  /api/auth/refresh
 POST  /api/auth/forgot-password
 POST  /api/auth/reset-password
+POST  /api/auth/2fa/verify-login         # Exchange the 2FA challenge for a session
 GET   /api/auth/google
 GET   /api/auth/google/callback
 
@@ -161,6 +172,11 @@ DELETE /api/auth/me                      # Right to erasure (DPA)
 GET   /api/auth/me/export               # Data export (DPA)
 POST  /api/auth/change-password
 POST  /api/auth/logout
+
+GET   /api/auth/2fa/status               # Is 2FA on? recovery codes left?
+POST  /api/auth/2fa/setup                # Issue a secret + QR (does not enable)
+POST  /api/auth/2fa/enable               # Verify a code, enable, return recovery codes
+POST  /api/auth/2fa/disable              # Requires the password
 
 GET/PUT /api/organization
 

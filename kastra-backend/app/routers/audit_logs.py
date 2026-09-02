@@ -1,6 +1,6 @@
 import math
 import uuid
-from datetime import datetime
+from datetime import date, datetime, time, timedelta, timezone
 
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import StreamingResponse
@@ -15,6 +15,23 @@ from app.models.user import User
 from app.schemas.common import Meta, PaginatedResponse
 
 router = APIRouter(prefix="/api/audit-logs", tags=["audit-logs"])
+
+
+def _apply_date_range(q, from_date: date | None, to_date: date | None):
+    """Bound a query by a date-picker range.
+
+    The filters arrive as plain YYYY-MM-DD from the UI. They have to be widened
+    into real timestamps before they touch `created_at` — handing Postgres a
+    string to compare against a timestamptz raises UndefinedFunctionError, so an
+    untyped filter here turns the whole request into a 500. `to_date` covers the
+    entire day the user picked, which is what a date picker implies.
+    """
+    if from_date:
+        q = q.where(AuditLog.created_at >= datetime.combine(from_date, time.min, tzinfo=timezone.utc))
+    if to_date:
+        end = datetime.combine(to_date + timedelta(days=1), time.min, tzinfo=timezone.utc)
+        q = q.where(AuditLog.created_at < end)
+    return q
 
 
 class AuditLogOut(BaseModel):
@@ -38,8 +55,8 @@ async def list_audit_logs(
     action: str | None = Query(None),
     resource_type: str | None = Query(None),
     user_id: str | None = Query(None),
-    from_date: str | None = Query(None),
-    to_date: str | None = Query(None),
+    from_date: date | None = Query(None),
+    to_date: date | None = Query(None),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_admin),
 ):
@@ -52,10 +69,7 @@ async def list_audit_logs(
         q = q.where(AuditLog.resource_type == resource_type)
     if user_id:
         q = q.where(AuditLog.user_id == user_id)
-    if from_date:
-        q = q.where(AuditLog.created_at >= from_date)
-    if to_date:
-        q = q.where(AuditLog.created_at <= to_date)
+    q = _apply_date_range(q, from_date, to_date)
 
     total = (await db.execute(select(func.count()).select_from(q.subquery()))).scalar_one()
     q = q.order_by(AuditLog.created_at.desc()).offset((page - 1) * limit).limit(limit)
@@ -69,8 +83,8 @@ async def list_audit_logs(
 
 @router.get("/export/csv")
 async def export_audit_csv(
-    from_date: str | None = Query(None),
-    to_date: str | None = Query(None),
+    from_date: date | None = Query(None),
+    to_date: date | None = Query(None),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_admin),
 ):
@@ -81,11 +95,7 @@ async def export_audit_csv(
     q = select(AuditLog).where(
         AuditLog.organization_id == str(current_user.organization_id)
     ).order_by(AuditLog.created_at.desc())
-
-    if from_date:
-        q = q.where(AuditLog.created_at >= from_date)
-    if to_date:
-        q = q.where(AuditLog.created_at <= to_date)
+    q = _apply_date_range(q, from_date, to_date)
 
     rows = (await db.execute(q)).scalars().all()
 
