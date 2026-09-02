@@ -23,6 +23,15 @@ class Invoice(Base):
     quotation_id: Mapped[str | None] = mapped_column(String(20), ForeignKey("quotations.id"), nullable=True)
     client_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("clients.id"), nullable=False)
     payment_status: Mapped[str] = mapped_column(String(20), nullable=False, default="unpaid")  # unpaid | partial | paid
+    # Independent of payment_status: gates whether the invoice may leave the
+    # building at all. "approved" unless the total reached the org's
+    # invoice_approval_threshold at creation, so nothing changes by default.
+    # Nullable: invoices created before this column existed, and any created by
+    # automation (recurring runs), have no human raiser.
+    created_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    approval_status: Mapped[str] = mapped_column(String(20), nullable=False, default="approved", server_default="approved")
+    approved_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     payment_method: Mapped[str | None] = mapped_column(String(30), nullable=True)  # mpesa | bank | cash
     currency: Mapped[str] = mapped_column(String(3), nullable=False, default="KES")
     exchange_rate: Mapped[Decimal] = mapped_column(Numeric(12, 6), nullable=False, default=1)

@@ -1,4 +1,5 @@
 import uuid
+from decimal import Decimal
 from datetime import datetime
 
 from pydantic import BaseModel
@@ -16,6 +17,8 @@ class OrganizationUpdate(BaseModel):
     logo_url: str | None = None
     document_template: str | None = None
     etims_enabled: bool | None = None
+    po_approval_threshold: Decimal | None = None
+    invoice_approval_threshold: Decimal | None = None
     etims_branch_id: str | None = None
     etims_device_serial: str | None = None
     etims_auth_token: str | None = None
@@ -41,6 +44,8 @@ class OrganizationOut(BaseModel):
     logo_url: str | None
     document_template: str
     etims_enabled: bool
+    po_approval_threshold: Decimal | None = None
+    invoice_approval_threshold: Decimal | None = None
     etims_branch_id: str | None
     etims_device_serial: str | None
     created_at: datetime

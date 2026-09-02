@@ -11,3 +11,7 @@ export const submitEtims = (id) => api.post(`/api/invoices/${id}/etims-submit`, 
 export const testEtimsConnection = () => api.post("/api/organization/etims-test");
 export const sendInvoiceEmail = (id) => api.post(`/api/invoices/${id}/email`);
 export const deleteInvoice = (id) => api.delete(`/api/invoices/${id}`);
+
+// Releases an invoice held by the org's approval threshold. Admin-only, and the
+// API refuses if the caller raised it.
+export const approveInvoice = (id) => api.post(`/api/invoices/${id}/approve`);

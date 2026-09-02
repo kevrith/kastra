@@ -27,3 +27,14 @@ export const resendVerification = (email) =>
 
 export const verifyEmail = (token) =>
   api.get(`/api/auth/verify-email?token=${token}`);
+
+// ── Two-factor authentication ────────────────────────────────────────────────
+export const twoFactorStatus = () => api.get("/api/auth/2fa/status");
+export const twoFactorSetup = () => api.post("/api/auth/2fa/setup");
+export const twoFactorEnable = (code) => api.post("/api/auth/2fa/enable", { code });
+export const twoFactorDisable = (password, code = null) =>
+  api.post("/api/auth/2fa/disable", { password, code });
+// Completes a login that returned mfa_required — no auth header, the mfa_token
+// is the credential.
+export const twoFactorVerifyLogin = (mfa_token, code) =>
+  api.post("/api/auth/2fa/verify-login", { mfa_token, code });

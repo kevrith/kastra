@@ -13,11 +13,18 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+// Endpoints where a 401 is a normal answer rather than an expired session:
+// signing in, and answering a two-factor challenge. Running the refresh-and-
+// redirect dance on these throws the user back to a blank login form instead of
+// showing "that code is not valid".
+const AUTH_CHALLENGE_PATHS = ["/api/auth/login", "/api/auth/2fa/verify-login"];
+
 api.interceptors.response.use(
   (res) => res,
   async (error) => {
     const original = error.config;
-    if (error.response?.status === 401 && !original._retry) {
+    const isChallenge = AUTH_CHALLENGE_PATHS.some((p) => original?.url?.includes(p));
+    if (error.response?.status === 401 && !original._retry && !isChallenge) {
       original._retry = true;
       try {
         const { data } = await axios.post(

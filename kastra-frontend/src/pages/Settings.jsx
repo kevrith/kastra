@@ -8,6 +8,7 @@ import { Building2, User, Lock, Upload, X, Palette, ShieldCheck, Eye, EyeOff, Lo
 import ConfirmDialog from "../components/ui/ConfirmDialog";
 import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { exportMyData, deleteMyAccount } from "../api/auth";
+import TwoFactorSection from "../components/settings/TwoFactorSection";
 
 const TEMPLATES = [
   {
@@ -173,6 +174,7 @@ export default function Settings() {
     name: "", email: "", phone: "", address: "", kra_pin: "",
     payment_terms_days: 30, quotation_validity_days: 30, authorised_by: "", logo_url: "", document_template: "classic",
     etims_enabled: false, etims_branch_id: "000", etims_device_serial: "", etims_auth_token: "",
+    po_approval_threshold: "", invoice_approval_threshold: "",
   });
   const [showAuthToken, setShowAuthToken] = useState(false);
   const [etimsTestResult, setEtimsTestResult] = useState(null);
@@ -331,6 +333,8 @@ export default function Settings() {
           logo_url: d.logo_url ?? "",
           document_template: d.document_template ?? "classic",
           etims_enabled: d.etims_enabled ?? false,
+          po_approval_threshold: d.po_approval_threshold ?? "",
+          invoice_approval_threshold: d.invoice_approval_threshold ?? "",
           etims_branch_id: d.etims_branch_id ?? "000",
           etims_device_serial: d.etims_device_serial ?? "",
           etims_auth_token: "",  // never pre-fill auth token for security
@@ -355,7 +359,13 @@ export default function Settings() {
     setOrgError("");
     setOrgSaved(false);
     try {
-      await updateOrganization(org);
+      await updateOrganization({
+        ...org,
+        // "" means no threshold — send null, or the API would read it as zero
+        // and hold every single document for approval.
+        po_approval_threshold: org.po_approval_threshold === "" ? null : org.po_approval_threshold,
+        invoice_approval_threshold: org.invoice_approval_threshold === "" ? null : org.invoice_approval_threshold,
+      });
       setOrgSaved(true);
     } catch (err) {
       setOrgError(err.response?.data?.detail ?? "Failed to save business profile");
@@ -1059,6 +1069,41 @@ export default function Settings() {
           </div>
         </Section>
       </form>
+
+      <TwoFactorSection Section={Section} />
+
+      {isAdmin && (
+        <form onSubmit={handleOrgSave}>
+          <Section title="Spend Approvals" icon={ShieldCheck}>
+            <p className="text-sm text-gray-500">
+              Documents at or above these amounts must be approved by a second person before
+              they go out. Leave blank for no approval step.
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="label">Purchase orders need approval from (KSh)</label>
+                <input className="input" type="number" min="0" step="0.01" placeholder="No approval needed"
+                  value={org.po_approval_threshold ?? ""}
+                  onChange={(e) => setOrg({ ...org, po_approval_threshold: e.target.value })} />
+              </div>
+              <div>
+                <label className="label">Invoices need approval from (KSh)</label>
+                <input className="input" type="number" min="0" step="0.01" placeholder="No approval needed"
+                  value={org.invoice_approval_threshold ?? ""}
+                  onChange={(e) => setOrg({ ...org, invoice_approval_threshold: e.target.value })} />
+              </div>
+            </div>
+            <p className="text-xs text-gray-400">
+              The approver cannot be the person who raised the document.
+            </p>
+            <div className="flex justify-end">
+              <button type="submit" className="btn-primary" disabled={orgSaving}>
+                {orgSaving ? "Saving…" : "Save approval settings"}
+              </button>
+            </div>
+          </Section>
+        </form>
+      )}
 
       <Section title="Privacy &amp; Data" icon={Shield}>
         <p className="text-sm text-gray-500">

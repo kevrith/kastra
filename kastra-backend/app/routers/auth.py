@@ -18,6 +18,13 @@ from app.schemas.auth import (
     ChangePasswordRequest,
     ForgotPasswordRequest,
     LoginRequest,
+    LoginResponse,
+    TotpDisableRequest,
+    TotpEnableRequest,
+    TotpEnableResponse,
+    TotpLoginRequest,
+    TotpSetupResponse,
+    TotpStatusResponse,
     RegisterRequest,
     ResendVerificationRequest,
     ResetPasswordRequest,
@@ -25,6 +32,16 @@ from app.schemas.auth import (
     UserOut,
 )
 from app.services.audit_service import client_ip, log_for_user, log_independent
+from app.services.totp_service import (
+    consume_backup_code,
+    generate_backup_codes,
+    generate_secret,
+    hash_backup_codes,
+    provisioning_uri,
+    qr_data_uri,
+    remaining_backup_codes,
+    verify_code,
+)
 from app.services.auth_service import (
     authenticate_user,
     create_user_with_org,
@@ -40,7 +57,15 @@ from app.services.email_service import (
     verify_email_verification_token,
     verify_password_reset_token,
 )
-from app.utils.security import create_access_token, create_refresh_token, decode_refresh_token, hash_password, verify_password
+from app.utils.security import (
+    create_access_token,
+    create_mfa_token,
+    create_refresh_token,
+    decode_mfa_token,
+    decode_refresh_token,
+    hash_password,
+    verify_password,
+)
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -129,7 +154,7 @@ async def resend_verification(request: Request, payload: ResendVerificationReque
     return {"message": "If that email is registered and unverified, a new activation link has been sent."}
 
 
-@router.post("/login", response_model=TokenResponse)
+@router.post("/login", response_model=LoginResponse)
 @limiter.limit("20/minute;100/hour")
 async def login(request: Request, payload: LoginRequest, response: Response, db: AsyncSession = Depends(get_db)):
     user = await authenticate_user(db, payload.email, payload.password)
@@ -165,6 +190,15 @@ async def login(request: Request, payload: LoginRequest, response: Response, db:
             detail="EMAIL_NOT_VERIFIED",
         )
 
+    # Password is correct — but with 2FA on, that only earns a challenge.
+    # No session cookie is set until the code checks out.
+    if user.totp_enabled:
+        await log_for_user(
+            db, user, action="login", resource_type="auth",
+            detail="Password accepted — awaiting two-factor code.", request=request,
+        )
+        return LoginResponse(mfa_required=True, mfa_token=create_mfa_token(str(user.id)))
+
     user.last_login_at = datetime.now(timezone.utc)
     await log_for_user(
         db, user, action="login", resource_type="auth",
@@ -173,7 +207,7 @@ async def login(request: Request, payload: LoginRequest, response: Response, db:
     access_token = create_access_token(str(user.id), user.role)
     refresh_token = create_refresh_token(str(user.id), user.token_version)
     _set_refresh_cookie(response, refresh_token)
-    return TokenResponse(access_token=access_token)
+    return LoginResponse(access_token=access_token)
 
 
 @router.post("/refresh", response_model=TokenResponse)
@@ -348,3 +382,147 @@ async def delete_my_account(
             "Financial transaction records are retained for 5 years as required by the Kenya Tax Procedures Act."
         )
     }
+
+
+# ── Two-factor authentication ────────────────────────────────────────────────
+
+@router.get("/2fa/status", response_model=TotpStatusResponse)
+async def totp_status(current_user: User = Depends(get_current_user)):
+    return TotpStatusResponse(
+        enabled=current_user.totp_enabled,
+        confirmed_at=current_user.totp_confirmed_at,
+        backup_codes_remaining=remaining_backup_codes(current_user.totp_backup_codes),
+    )
+
+
+@router.post("/2fa/setup", response_model=TotpSetupResponse)
+async def totp_setup(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Issue a fresh secret and the QR to scan.
+
+    The secret is stored but NOT activated — `totp_enabled` only flips once a
+    code from it has been verified, so an abandoned setup cannot lock anyone out.
+    """
+    if current_user.totp_enabled:
+        raise HTTPException(status_code=400, detail="Two-factor authentication is already enabled")
+
+    secret = generate_secret()
+    current_user.totp_secret = secret
+    uri = provisioning_uri(secret, current_user.email)
+    await log_for_user(
+        db, current_user, action="update", resource_type="auth",
+        detail="Started two-factor setup.", request=request,
+    )
+    return TotpSetupResponse(secret=secret, otpauth_uri=uri, qr_data_uri=qr_data_uri(uri))
+
+
+@router.post("/2fa/enable", response_model=TotpEnableResponse)
+async def totp_enable(
+    payload: TotpEnableRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Confirm the app is set up correctly, then turn 2FA on."""
+    if current_user.totp_enabled:
+        raise HTTPException(status_code=400, detail="Two-factor authentication is already enabled")
+    if not current_user.totp_secret:
+        raise HTTPException(status_code=400, detail="Start setup first")
+    if not verify_code(current_user.totp_secret, payload.code):
+        raise HTTPException(status_code=400, detail="That code is not valid. Check your authenticator app and try again.")
+
+    codes = generate_backup_codes()
+    current_user.totp_enabled = True
+    current_user.totp_confirmed_at = datetime.now(timezone.utc)
+    current_user.totp_backup_codes = hash_backup_codes(codes)
+    # Existing sessions elsewhere predate 2FA, so retire them.
+    current_user.token_version += 1
+
+    await log_for_user(
+        db, current_user, action="update", resource_type="auth",
+        detail="Enabled two-factor authentication; other sessions revoked.", request=request,
+    )
+    # The only time the plaintext codes ever leave the server.
+    return TotpEnableResponse(backup_codes=codes)
+
+
+@router.post("/2fa/disable")
+async def totp_disable(
+    payload: TotpDisableRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Turn 2FA off. Requires the password, so a borrowed session is not enough."""
+    if not current_user.totp_enabled:
+        raise HTTPException(status_code=400, detail="Two-factor authentication is not enabled")
+    if not current_user.hashed_password or not verify_password(payload.password, current_user.hashed_password):
+        raise HTTPException(status_code=400, detail="Password is incorrect")
+    if payload.code and not verify_code(current_user.totp_secret, payload.code):
+        raise HTTPException(status_code=400, detail="That code is not valid")
+
+    current_user.totp_enabled = False
+    current_user.totp_secret = None
+    current_user.totp_confirmed_at = None
+    current_user.totp_backup_codes = None
+    await log_for_user(
+        db, current_user, action="update", resource_type="auth",
+        detail="Disabled two-factor authentication.", request=request,
+    )
+    return {"message": "Two-factor authentication disabled"}
+
+
+@router.post("/2fa/verify-login", response_model=TokenResponse)
+@limiter.limit("10/minute;40/hour")
+async def totp_verify_login(
+    request: Request,
+    payload: TotpLoginRequest,
+    response: Response,
+    db: AsyncSession = Depends(get_db),
+):
+    """Exchange the challenge token plus a code for a real session."""
+    try:
+        claims = decode_mfa_token(payload.mfa_token)
+    except Exception:
+        raise HTTPException(status_code=401, detail="This sign-in attempt expired. Please log in again.")
+
+    user = (await db.execute(
+        select(User).where(User.id == uuid.UUID(claims["sub"]))
+    )).scalar_one_or_none()
+    if not user or not user.totp_enabled:
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+
+    used_backup = False
+    if not verify_code(user.totp_secret, payload.code):
+        matched, remaining = consume_backup_code(user.totp_backup_codes, payload.code)
+        if not matched:
+            await log_independent(
+                db,
+                action="login_failed",
+                resource_type="auth",
+                detail="Two-factor code rejected.",
+                organization_id=str(user.organization_id),
+                user_id=str(user.id),
+                ip_address=client_ip(request),
+            )
+            raise HTTPException(status_code=401, detail="That code is not valid")
+        user.totp_backup_codes = remaining
+        used_backup = True
+
+    user.last_login_at = datetime.now(timezone.utc)
+    await log_for_user(
+        db, user, action="login", resource_type="auth",
+        detail=(
+            f"Signed in as {user.role} using a recovery code "
+            f"({remaining_backup_codes(user.totp_backup_codes)} left)."
+            if used_backup else
+            f"Signed in as {user.role} with two-factor."
+        ),
+        request=request,
+    )
+    access_token = create_access_token(str(user.id), user.role)
+    _set_refresh_cookie(response, create_refresh_token(str(user.id), user.token_version))
+    return TokenResponse(access_token=access_token)

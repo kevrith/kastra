@@ -1,7 +1,8 @@
 import uuid
 from datetime import datetime
+from decimal import Decimal
 
-from sqlalchemy import Boolean, DateTime, Integer, String, Text, func
+from sqlalchemy import Boolean, DateTime, Integer, Numeric, String, Text, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -59,6 +60,13 @@ class Organization(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
+
+    # ── Spend controls (segregation of duties) ───────────────────────────────
+    # A purchase order or invoice at or above the threshold cannot go out until
+    # a second person approves it. NULL means no approval step, which is the
+    # default — existing organisations are unaffected until they opt in.
+    po_approval_threshold: Mapped[Decimal | None] = mapped_column(Numeric(15, 2), nullable=True)
+    invoice_approval_threshold: Mapped[Decimal | None] = mapped_column(Numeric(15, 2), nullable=True)
 
     users: Mapped[list["User"]] = relationship(back_populates="organization")  # noqa: F821
     clients: Mapped[list["Client"]] = relationship(back_populates="organization")  # noqa: F821

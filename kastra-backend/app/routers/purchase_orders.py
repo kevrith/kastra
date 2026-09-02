@@ -9,7 +9,7 @@ import uuid
 from datetime import date, datetime, timezone
 from decimal import ROUND_HALF_UP, Decimal
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -17,8 +17,9 @@ from sqlalchemy.orm import selectinload
 
 from app.config import settings
 from app.database import get_db
-from app.dependencies import get_current_user
+from app.dependencies import get_current_user, require_admin
 from app.models.organization import Organization
+from app.services.audit_service import log_for_user
 from app.models.product import Product
 from app.models.purchase_order import (
     GoodsReceipt, GoodsReceiptItem, PurchaseOrder, PurchaseOrderItem,
@@ -129,6 +130,8 @@ class POOut(BaseModel):
     submitted_at: datetime | None
     accepted_at: datetime | None
     received_at: datetime | None
+    approved_at: datetime | None = None
+    approved_by_name: str | None = None
     items: list[POItemOut]
     notes_thread: list[PONoteOut]
     receipts: list[GRNOut]
@@ -200,6 +203,12 @@ async def _to_out(db: AsyncSession, po: PurchaseOrder) -> POOut:
     )
     bill_id = bill_row.scalar_one_or_none()
 
+    approver_name = None
+    if po.approved_by:
+        approver_name = (await db.execute(
+            select(User.display_name).where(User.id == po.approved_by)
+        )).scalar_one_or_none()
+
     # receipts
     grn_rows = (await db.execute(
         select(GoodsReceipt).where(GoodsReceipt.purchase_order_id == po.id)
@@ -230,6 +239,7 @@ async def _to_out(db: AsyncSession, po: PurchaseOrder) -> POOut:
         expected_delivery=po.expected_delivery, notes=po.notes, supplier_notes=po.supplier_notes,
         subtotal=po.subtotal, tax_amount=po.tax_amount, total=po.total, confirmed_total=po.confirmed_total,
         submitted_at=po.submitted_at, accepted_at=po.accepted_at, received_at=po.received_at,
+        approved_at=po.approved_at, approved_by_name=approver_name,
         items=sorted(items_out, key=lambda x: x.sort_order),
         notes_thread=[
             PONoteOut(id=n.id, author_type=n.author_type,
@@ -444,14 +454,39 @@ async def delete_po(
 @router.post("/{po_id}/send", response_model=Response[POOut])
 async def send_po(
     po_id: str,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     po = await _get_po(db, po_id, current_user.organization_id)
     if po.status not in {"draft", "rejected", "supplier_revised", "supplier_confirmed"}:
         raise HTTPException(status_code=400, detail="This order cannot be sent in its current state.")
+
+    # Spend control: past the org's threshold this needs a second pair of eyes
+    # before it reaches the supplier. Already-approved orders pass straight through.
+    org = await db.get(Organization, current_user.organization_id)
+    threshold = org.po_approval_threshold if org else None
+    if threshold is not None and po.total >= threshold and po.approved_at is None:
+        po.status = "pending_approval"
+        await db.flush()
+        await log_for_user(
+            db, current_user, action="update", resource_type="purchase_order",
+            resource_id=po.id,
+            detail=f"Sent {po.id} ({po.total:,.2f}) for approval — at or above the "
+                   f"{threshold:,.2f} threshold.",
+            request=request,
+        )
+        db.expire(po)
+        po = await _get_po(db, po_id, current_user.organization_id)
+        return Response(data=await _to_out(db, po))
+
     po.status = "sent"
     await db.flush()
+    await log_for_user(
+        db, current_user, action="update", resource_type="purchase_order",
+        resource_id=po.id, detail=f"Sent purchase order {po.id} to {po.supplier.name}.",
+        request=request,
+    )
     link = f"{settings.primary_frontend_url}/supplier-order/{po.portal_token}"
     await send_sms(po.supplier.phone, f"{po.supplier.name}, you have a new purchase order ({po.id}). Review and confirm here: {link}")
     db.expire(po)
@@ -624,6 +659,84 @@ async def receive_goods(
     if fully:
         po.received_at = datetime.now(timezone.utc)
     await db.flush()
+    db.expire(po)
+    po = await _get_po(db, po_id, current_user.organization_id)
+    return Response(data=await _to_out(db, po))
+
+
+# ── Spend approval ───────────────────────────────────────────────────────────
+
+class POApprovalReject(BaseModel):
+    reason: str
+
+
+@router.post("/{po_id}/approve", response_model=Response[POOut])
+async def approve_po(
+    po_id: str,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    """Approve a held order and release it to the supplier.
+
+    The approver may not be the person who raised it — a control that only means
+    anything if it cannot be self-served.
+    """
+    po = await _get_po(db, po_id, current_user.organization_id)
+    if po.status != "pending_approval":
+        raise HTTPException(status_code=400, detail="This order is not waiting for approval.")
+    if po.created_by == current_user.id:
+        raise HTTPException(
+            status_code=403,
+            detail="A purchase order must be approved by someone other than the person who raised it.",
+        )
+
+    po.approved_by = current_user.id
+    po.approved_at = datetime.now(timezone.utc)
+    po.status = "sent"
+    await db.flush()
+
+    link = f"{settings.primary_frontend_url}/supplier-order/{po.portal_token}"
+    await send_sms(po.supplier.phone, f"{po.supplier.name}, you have a new purchase order ({po.id}). Review and confirm here: {link}")
+    await log_for_user(
+        db, current_user, action="update", resource_type="purchase_order",
+        resource_id=po.id,
+        detail=f"Approved {po.id} ({po.total:,.2f}) and released it to {po.supplier.name}.",
+        request=request,
+    )
+    db.expire(po)
+    po = await _get_po(db, po_id, current_user.organization_id)
+    return Response(data=await _to_out(db, po))
+
+
+@router.post("/{po_id}/decline-approval", response_model=Response[POOut])
+async def decline_po_approval(
+    po_id: str,
+    payload: POApprovalReject,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    """Send a held order back to the raiser with a reason, unsent."""
+    po = await _get_po(db, po_id, current_user.organization_id)
+    if po.status != "pending_approval":
+        raise HTTPException(status_code=400, detail="This order is not waiting for approval.")
+    if not payload.reason.strip():
+        raise HTTPException(status_code=400, detail="Please give a reason so it can be revised.")
+
+    db.add(PurchaseOrderNote(
+        purchase_order_id=po.id, organization_id=current_user.organization_id,
+        created_by=current_user.id, author_type="buyer",
+        body=f"Approval declined: {payload.reason.strip()}",
+    ))
+    po.status = "draft"
+    await db.flush()
+    await log_for_user(
+        db, current_user, action="update", resource_type="purchase_order",
+        resource_id=po.id,
+        detail=f"Declined approval for {po.id} ({po.total:,.2f}). Returned to draft.",
+        request=request,
+    )
     db.expire(po)
     po = await _get_po(db, po_id, current_user.organization_id)
     return Response(data=await _to_out(db, po))

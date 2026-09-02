@@ -4,7 +4,7 @@ import {
   FileText, Receipt, CreditCard, Users, BarChart2, Shield,
   CheckCircle, Smartphone, Zap, Globe, ArrowRight, Star,
   TrendingUp, Clock, Lock, UserCog, FolderKanban, Camera, DollarSign, Truck, Sparkles, Wallet, ShoppingCart,
-  FileMinus, Landmark, ClipboardList,
+  FileMinus, Landmark, ClipboardList, ShieldCheck, ClipboardCheck,
 } from "lucide-react";
 
 const features = [
@@ -17,6 +17,16 @@ const features = [
     icon: FileText,
     title: "Quotations & Proposals",
     desc: "Send branded quotations clients can approve online. Convert to invoice with one click.",
+  },
+  {
+    icon: ShieldCheck,
+    title: "Two-Factor Authentication",
+    desc: "Add a second lock to your account. A code from your phone is required alongside your password, with one-time recovery codes for when the phone goes missing.",
+  },
+  {
+    icon: ClipboardCheck,
+    title: "Spend Approvals",
+    desc: "Set a limit for purchase orders and invoices. Anything at or above it waits for a second person to approve before it goes out — and the approver can never be the person who raised it.",
   },
   {
     icon: DollarSign,

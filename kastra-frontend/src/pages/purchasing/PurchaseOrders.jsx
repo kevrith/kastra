@@ -8,6 +8,7 @@ import UpgradeGate from "../../components/ui/UpgradeGate";
 
 export const PO_STATUS = {
   draft: { label: "Draft", cls: "bg-gray-100 text-gray-600" },
+  pending_approval: { label: "Awaiting approval", cls: "bg-amber-100 text-amber-800" },
   sent: { label: "Sent to supplier", cls: "bg-blue-100 text-blue-700" },
   supplier_confirmed: { label: "Supplier confirmed", cls: "bg-teal-100 text-teal-700" },
   supplier_revised: { label: "Supplier revised", cls: "bg-amber-100 text-amber-700" },

@@ -129,6 +129,7 @@ class InvoiceOut(BaseModel):
     client_id: uuid.UUID
     client: ClientOut
     payment_status: str
+    approval_status: str = "approved"
     payment_method: str | None
     currency: str
     exchange_rate: Decimal

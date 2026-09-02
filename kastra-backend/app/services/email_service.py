@@ -1,3 +1,4 @@
+import base64
 import logging
 from datetime import datetime, timedelta, timezone
 
@@ -40,13 +41,24 @@ def verify_email_verification_token(token: str) -> str:
     return payload["sub"]
 
 
-async def _send_via_sendgrid(to_email: str, subject: str, html: str) -> None:
+async def _send_via_sendgrid(
+    to_email: str, subject: str, html: str,
+    attachment: tuple[str, bytes] | None = None,
+) -> None:
     payload = {
         "personalizations": [{"to": [{"email": to_email}]}],
         "from": {"email": settings.mail_from, "name": "Kastra"},
         "subject": subject,
         "content": [{"type": "text/html", "value": html}],
     }
+    if attachment:
+        filename, content = attachment
+        payload["attachments"] = [{
+            "content": base64.b64encode(content).decode(),
+            "filename": filename,
+            "type": "application/pdf",
+            "disposition": "attachment",
+        }]
     if settings.mail_reply_to:
         payload["reply_to"] = {"email": settings.mail_reply_to}
     async with httpx.AsyncClient() as client:
@@ -58,14 +70,21 @@ async def _send_via_sendgrid(to_email: str, subject: str, html: str) -> None:
         resp.raise_for_status()
 
 
-async def _send(to_email: str, subject: str, html: str) -> None:
+async def _send(
+    to_email: str, subject: str, html: str,
+    attachment: tuple[str, bytes] | None = None,
+) -> None:
     if settings.is_production and settings.sendgrid_api_key:
         try:
-            await _send_via_sendgrid(to_email, subject, html)
+            await _send_via_sendgrid(to_email, subject, html, attachment)
         except Exception:
             logger.exception("SendGrid error sending to %s", to_email)
     else:
-        logger.info("[DEV EMAIL] To: %s | Subject: %s", to_email, subject)
+        logger.info(
+            "[DEV EMAIL] To: %s | Subject: %s%s",
+            to_email, subject,
+            f" | attachment: {attachment[0]} ({len(attachment[1])} bytes)" if attachment else "",
+        )
 
 
 async def send_password_reset_email(email: str, reset_token: str) -> None:
@@ -184,6 +203,7 @@ async def send_invoice_email(
     amount: float,
     business_name: str,
     due_date: str | None = None,
+    pdf_bytes: bytes | None = None,
 ) -> None:
     pay_url = f"{settings.primary_frontend_url}/pay/{invoice_id}"
     due_line = f"<p><strong>Due:</strong> {due_date}</p>" if due_date else ""
@@ -199,7 +219,10 @@ async def send_invoice_email(
       <p style="color:#888;font-size:12px">You can also view and pay this invoice at:<br>{pay_url}</p>
     </div>
     """
-    await _send(client_email, f"Invoice {invoice_id} from {business_name}", html)
+    await _send(
+        client_email, f"Invoice {invoice_id} from {business_name}", html,
+        attachment=(f"{invoice_id}.pdf", pdf_bytes) if pdf_bytes else None,
+    )
 
 
 async def send_quotation_email(

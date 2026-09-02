@@ -15,7 +15,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from app.config import settings
 from app.database import get_db
-from app.dependencies import require_permission
+from app.dependencies import require_admin, require_permission
 from app.models.client import Client
 from app.models.client_price import ClientPrice
 from app.models.expense import Expense
@@ -211,6 +211,18 @@ async def create_invoice(
         select(Invoice).where(Invoice.id == inv_id).options(*_load_full)
     )
     created = result.scalar_one()
+    created.created_by = current_user.id
+    # Spend control: above the org's threshold the invoice is held until a
+    # second person approves it. No threshold set means nothing changes.
+    threshold = org.invoice_approval_threshold if org else None
+    if threshold is not None and created.grand_total >= threshold:
+        created.approval_status = "pending_approval"
+        # The flush expires the row, so re-read it through _load_full — letting
+        # serialisation lazy-load `updated_at` here raises MissingGreenlet.
+        await db.flush()
+        created = (await db.execute(
+            select(Invoice).where(Invoice.id == inv_id).options(*_load_full)
+        )).scalar_one()
     await log_for_user(
         db, current_user, action="create", resource_type="invoice",
         resource_id=created.id,
@@ -316,6 +328,18 @@ async def mpesa_pay(
     return {"message": "STK Push sent. Check your phone.", "checkout_request_id": checkout_request_id}
 
 
+_PENDING_MSG = (
+    "This invoice is above the approval threshold and is waiting for a second "
+    "approver. It cannot be sent until it is approved."
+)
+
+
+def _require_approved(inv: Invoice) -> None:
+    """Block outbound actions on an invoice still awaiting approval."""
+    if inv.approval_status == "pending_approval":
+        raise HTTPException(status_code=403, detail=_PENDING_MSG)
+
+
 @router.post("/{invoice_id}/etims-submit", response_model=Response[InvoiceOut])
 async def etims_submit(
     invoice_id: str,
@@ -332,6 +356,10 @@ async def etims_submit(
         raise HTTPException(status_code=400, detail="eTIMS is not enabled for this business. Enable it in Settings.")
     if not org.etims_device_serial or not org.etims_auth_token:
         raise HTTPException(status_code=400, detail="eTIMS credentials incomplete. Add Device Serial and Auth Token in Settings.")
+
+    inv_row = await db.get(Invoice, invoice_id)
+    if inv_row:
+        _require_approved(inv_row)
 
     try:
         await submit_to_kra(db, invoice_id, org)
@@ -355,13 +383,17 @@ async def email_invoice(
         select(Invoice).where(
             Invoice.id == invoice_id,
             Invoice.organization_id == current_user.organization_id,
-        ).options(selectinload(Invoice.client), selectinload(Invoice.organization), selectinload(Invoice.items))
+        # InvoiceOut serialises charges and expenses as well, so the whole set has
+        # to be eager-loaded: model_validate below would otherwise lazy-load them
+        # and raise MissingGreenlet, turning every invoice email into a 500.
+        ).options(*_load_full, selectinload(Invoice.organization))
     )
     inv = result.scalar_one_or_none()
     if not inv:
         raise HTTPException(status_code=404, detail="Invoice not found")
     if not inv.client or not inv.client.email:
         raise HTTPException(status_code=400, detail="Client has no email address")
+    _require_approved(inv)
 
     org_res = await db.execute(select(Organization).where(Organization.id == current_user.organization_id))
     org = org_res.scalar_one_or_none()
@@ -601,3 +633,46 @@ async def delete_invoice_expense(
     )
     await db.delete(exp)
     return MessageResponse(message="Expense deleted")
+
+
+# ── Spend approval ───────────────────────────────────────────────────────────
+
+@router.post("/{invoice_id}/approve", response_model=Response[InvoiceOut])
+async def approve_invoice(
+    invoice_id: str,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    """Release an invoice held by the approval threshold.
+
+    The approver must not be the person who raised it — the separation is the
+    control; without it the threshold is decoration.
+    """
+    result = await db.execute(
+        select(Invoice).where(
+            Invoice.id == invoice_id,
+            Invoice.organization_id == current_user.organization_id,
+        ).options(*_load_full)
+    )
+    inv = result.scalar_one_or_none()
+    if not inv:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    if inv.approval_status != "pending_approval":
+        raise HTTPException(status_code=400, detail="This invoice is not waiting for approval.")
+    if inv.created_by and inv.created_by == current_user.id:
+        raise HTTPException(
+            status_code=403,
+            detail="An invoice must be approved by someone other than the person who raised it.",
+        )
+
+    inv.approval_status = "approved"
+    inv.approved_by = current_user.id
+    inv.approved_at = datetime.now(timezone.utc)
+    await log_for_user(
+        db, current_user, action="update", resource_type="invoice",
+        resource_id=inv.id,
+        detail=f"Approved invoice {inv.id} ({inv.currency} {inv.grand_total:,.2f}) for sending.",
+        request=request,
+    )
+    return Response(data=inv)

@@ -13,7 +13,7 @@ class PurchaseOrder(Base):
     """A formal order placed with a supplier (the buy-side of the P2P cycle).
 
     Status machine:
-      draft -> sent -> (supplier_confirmed | supplier_revised) -> [rejected ↺ sent]
+      draft -> [pending_approval ->] sent -> (supplier_confirmed | supplier_revised) -> [rejected ↺ sent]
             -> accepted -> receiving -> received -> billed -> paid
       (cancelled at any point)
     """
@@ -35,6 +35,11 @@ class PurchaseOrder(Base):
     )
 
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="draft")
+    # Set when the order's total reaches the org's po_approval_threshold. The
+    # approver must be someone other than the raiser — that separation is the
+    # whole point of the control, so it is enforced in the router.
+    approved_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     portal_token: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), unique=True, nullable=False, default=uuid.uuid4)
     currency: Mapped[str] = mapped_column(String(3), nullable=False, default="KES")
 

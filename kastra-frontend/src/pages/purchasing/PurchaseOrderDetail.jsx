@@ -11,6 +11,8 @@ import {
 import { createBillFromPO } from "../../api/supplierBills";
 import { ksh } from "../../utils/formatters";
 import { StatusBadge } from "./PurchaseOrders";
+import { approvePurchaseOrder, declinePurchaseOrderApproval } from "../../api/purchaseOrders";
+import { useAuth } from "../../context/AuthContext";
 import Spinner from "../../components/ui/Spinner";
 import Modal from "../../components/ui/Modal";
 import ConfirmDialog from "../../components/ui/ConfirmDialog";
@@ -30,6 +32,8 @@ function PriceFlag({ pct }) {
 export default function PurchaseOrderDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const isAdmin = user?.role === "admin";
   const [po, setPo] = useState(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -37,6 +41,8 @@ export default function PurchaseOrderDetail() {
 
   const [rejectOpen, setRejectOpen] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
+  const [declineOpen, setDeclineOpen] = useState(false);
+  const [declineReason, setDeclineReason] = useState("");
   const [noteOpen, setNoteOpen] = useState(false);
   const [noteBody, setNoteBody] = useState("");
   const [receiveOpen, setReceiveOpen] = useState(false);
@@ -94,6 +100,7 @@ export default function PurchaseOrderDetail() {
   if (!po) return null;
 
   const negotiable = ["supplier_confirmed", "supplier_revised"].includes(po.status);
+  const awaitingApproval = po.status === "pending_approval";
   const canReceive = ["accepted", "receiving"].includes(po.status);
   const canBill = ["received", "receiving"].includes(po.status) && !po.bill_id;
 
@@ -112,6 +119,16 @@ export default function PurchaseOrderDetail() {
           <p className="text-xs text-gray-400 font-mono mt-0.5">{po.id}</p>
         </div>
         <div className="flex gap-2 flex-wrap">
+          {awaitingApproval && isAdmin && (
+            <>
+              <button className="btn-secondary text-red-600" disabled={busy} onClick={() => setDeclineOpen(true)}>
+                <X size={15} /> Decline
+              </button>
+              <button className="btn-primary" disabled={busy} onClick={() => run(() => approvePurchaseOrder(id))}>
+                <Check size={15} /> Approve &amp; send
+              </button>
+            </>
+          )}
           {po.status === "draft" && (
             <>
               <button className="btn-secondary" onClick={() => navigate(`/purchase-orders/${id}/edit`)}>Edit</button>
@@ -256,6 +273,27 @@ export default function PurchaseOrderDetail() {
           <div className="flex justify-end gap-2">
             <button className="btn-secondary" onClick={() => setRejectOpen(false)}>Cancel</button>
             <button className="btn-primary" disabled={busy || !rejectReason.trim()} onClick={() => run(async () => { await rejectPurchaseOrder(id, rejectReason.trim()); setRejectOpen(false); setRejectReason(""); })}>Send back to supplier</button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Decline approval modal */}
+      <Modal open={declineOpen} onClose={() => setDeclineOpen(false)} title="Decline approval">
+        <div className="space-y-3">
+          <p className="text-sm text-gray-500">
+            Say why. The order returns to draft with your note so it can be revised — the
+            supplier is not contacted.
+          </p>
+          <textarea className="input" rows={3} value={declineReason}
+            onChange={(e) => setDeclineReason(e.target.value)}
+            placeholder="e.g. Over budget for this site — get a second quote first." />
+          <div className="flex justify-end gap-2">
+            <button className="btn-secondary" onClick={() => setDeclineOpen(false)}>Cancel</button>
+            <button className="btn-primary" disabled={busy || !declineReason.trim()}
+              onClick={() => run(async () => {
+                await declinePurchaseOrderApproval(id, declineReason.trim());
+                setDeclineOpen(false); setDeclineReason("");
+              })}>Decline and return to draft</button>
           </div>
         </div>
       </Modal>

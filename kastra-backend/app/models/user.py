@@ -1,11 +1,12 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, func
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
+from app.utils.encryption import EncryptedString
 
 
 class User(Base):
@@ -28,6 +29,18 @@ class User(Base):
     invited_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    # ── Two-factor authentication (TOTP) ─────────────────────────────────────
+    # The secret is the whole credential, so it is encrypted at rest like the
+    # payment keys. `totp_enabled` only flips once a code has been verified, so
+    # a half-finished setup can never lock anyone out.
+    totp_secret: Mapped[str | None] = mapped_column(EncryptedString, nullable=True)
+    totp_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    totp_confirmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # SHA-256 hashes of single-use recovery codes, newline-separated. The codes
+    # are high-entropy and machine-generated, so a plain digest is right here —
+    # a slow KDF buys nothing against a 160-bit random string.
+    totp_backup_codes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     organization: Mapped["Organization"] = relationship(back_populates="users")  # noqa: F821
     quotations: Mapped[list["Quotation"]] = relationship(back_populates="created_by_user")  # noqa: F821

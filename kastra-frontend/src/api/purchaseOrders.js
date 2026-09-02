@@ -12,6 +12,9 @@ export const deletePurchaseOrder = (id) => api.delete(`/api/purchase-orders/${id
 // Workflow
 export const sendPurchaseOrder = (id) => api.post(`/api/purchase-orders/${id}/send`);
 export const acceptPurchaseOrder = (id) => api.post(`/api/purchase-orders/${id}/accept`);
+export const approvePurchaseOrder = (id) => api.post(`/api/purchase-orders/${id}/approve`);
+export const declinePurchaseOrderApproval = (id, reason) =>
+  api.post(`/api/purchase-orders/${id}/decline-approval`, { reason });
 export const rejectPurchaseOrder = (id, reason) => api.post(`/api/purchase-orders/${id}/reject`, { reason });
 export const cancelPurchaseOrder = (id) => api.post(`/api/purchase-orders/${id}/cancel`);
 export const addPONote = (id, body) => api.post(`/api/purchase-orders/${id}/notes`, { body });

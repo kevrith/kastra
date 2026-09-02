@@ -32,6 +32,30 @@ def create_refresh_token(subject: str, version: int = 0) -> str:
     )
 
 
+def create_mfa_token(subject: str) -> str:
+    """Short-lived proof that a password check passed, pending a TOTP code.
+
+    Deliberately a *different* token type from `access`, so a half-finished
+    login can never be used as a session — decode_access_token rejects it.
+    """
+    expire = datetime.now(timezone.utc) + timedelta(minutes=5)
+    return jwt.encode(
+        {"sub": subject, "exp": expire, "type": "mfa"},
+        settings.secret_key,
+        algorithm="HS256",
+    )
+
+
+def decode_mfa_token(token: str) -> dict:
+    try:
+        payload = jwt.decode(token, settings.secret_key, algorithms=["HS256"])
+        if payload.get("type") != "mfa":
+            raise JWTError("Invalid token type")
+        return payload
+    except JWTError:
+        raise
+
+
 def decode_access_token(token: str) -> dict:
     try:
         payload = jwt.decode(token, settings.secret_key, algorithms=["HS256"])

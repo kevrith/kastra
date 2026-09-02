@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { getInvoice, mpesaPay, sendReminder, submitEtims, sendInvoiceEmail } from "../../api/invoices";
+import { getInvoice, mpesaPay, sendReminder, submitEtims, sendInvoiceEmail, approveInvoice } from "../../api/invoices";
+import { useAuth } from "../../context/AuthContext";
 import { getOrganization } from "../../api/organization";
 import { getInvoicePayments, recordPayment, deletePayment } from "../../api/invoice_payments";
 import { createInvoiceExpense, updateInvoiceExpense, deleteInvoiceExpense } from "../../api/expenses";
@@ -169,6 +170,45 @@ function JobExpensesSection({ invoiceId, expenses, onRefresh }) {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function ApprovalBanner({ invoice, onRefresh }) {
+  const { user } = useAuth();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  if (invoice.approval_status !== "pending_approval") return null;
+
+  const isAdmin = user?.role === "admin";
+
+  const approve = async () => {
+    setBusy(true); setError("");
+    try {
+      await approveInvoice(invoice.id);
+      onRefresh();
+    } catch (err) {
+      setError(err.response?.data?.detail ?? "Could not approve");
+    } finally { setBusy(false); }
+  };
+
+  return (
+    <div className="card border-amber-200 bg-amber-50 px-4 py-3 space-y-2">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div>
+          <p className="text-sm font-semibold text-amber-900">Waiting for approval</p>
+          <p className="text-xs text-amber-800">
+            This invoice is at or above your approval threshold. It cannot be emailed or sent
+            to eTIMS until a second person approves it.
+          </p>
+        </div>
+        {isAdmin && (
+          <button className="btn-primary text-sm" onClick={approve} disabled={busy}>
+            {busy ? "Approving…" : "Approve"}
+          </button>
+        )}
+      </div>
+      {error && <p className="text-xs text-red-700">{error}</p>}
     </div>
   );
 }
@@ -849,6 +889,8 @@ export default function InvoiceDetail() {
           </table>
         </div>
       )}
+
+      <ApprovalBanner invoice={invoice} onRefresh={load} />
 
       {/* Credit Notes */}
       <CreditNotesSection invoice={invoice} org={org} onRefresh={load} />

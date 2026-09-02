@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { login as apiLogin, getGoogleAuthUrl, me, resendVerification } from "../../api/auth";
+import { login as apiLogin, getGoogleAuthUrl, me, resendVerification, twoFactorVerifyLogin } from "../../api/auth";
 import { useAuth } from "../../context/AuthContext";
 import { Eye, EyeOff } from "lucide-react";
 
@@ -14,8 +14,30 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [unverified, setUnverified] = useState(false);
   const [resendStatus, setResendStatus] = useState("");
+  // Set when the password checked out but a 2FA code is still owed.
+  const [mfaToken, setMfaToken] = useState("");
+  const [mfaCode, setMfaCode] = useState("");
 
   const alreadyVerified = searchParams.get("verified") === "already";
+
+  const handleMfaSubmit = async (e) => {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+    try {
+      const { data } = await twoFactorVerifyLogin(mfaToken, mfaCode);
+      localStorage.setItem("access_token", data.access_token);
+      const { data: userData } = await me();
+      login(data.access_token, userData);
+      navigate("/dashboard");
+    } catch (err) {
+      localStorage.removeItem("access_token");
+      setError(err.response?.data?.detail ?? "That code is not valid");
+      setMfaCode("");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -25,6 +47,11 @@ export default function Login() {
     setLoading(true);
     try {
       const { data } = await apiLogin(form.email, form.password);
+      if (data.mfa_required) {
+        // Nothing is stored yet — this is not a session until the code passes.
+        setMfaToken(data.mfa_token);
+        return;
+      }
       localStorage.setItem("access_token", data.access_token);
       const { data: userData } = await me();
       login(data.access_token, userData);
@@ -100,6 +127,37 @@ export default function Login() {
             </div>
           )}
 
+          {mfaToken ? (
+            <form onSubmit={handleMfaSubmit} className="space-y-4">
+              <div>
+                <label className="label">Authentication code</label>
+                <input
+                  className="input text-center text-xl tracking-[0.4em] font-mono"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  autoFocus
+                  maxLength={14}
+                  placeholder="000000"
+                  value={mfaCode}
+                  onChange={(e) => setMfaCode(e.target.value)}
+                />
+                <p className="text-xs text-gray-500 mt-1.5">
+                  Open your authenticator app for the 6-digit code, or enter one of your
+                  recovery codes.
+                </p>
+              </div>
+              <button type="submit" className="btn-primary w-full" disabled={loading || !mfaCode}>
+                {loading ? "Verifying…" : "Verify and sign in"}
+              </button>
+              <button
+                type="button"
+                className="text-xs text-gray-500 hover:text-gray-700 w-full text-center"
+                onClick={() => { setMfaToken(""); setMfaCode(""); setError(""); }}
+              >
+                Back to sign in
+              </button>
+            </form>
+          ) : (
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="label">Email</label>
@@ -142,6 +200,7 @@ export default function Login() {
               {loading ? "Signing in…" : "Sign in"}
             </button>
           </form>
+          )}
 
           <div className="relative">
             <div className="absolute inset-0 flex items-center">
