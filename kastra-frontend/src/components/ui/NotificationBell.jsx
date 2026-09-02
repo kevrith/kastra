@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  Bell, CheckCheck, CreditCard, FileText, RefreshCw,
+  Bell, CheckCheck, CreditCard, FileText, RefreshCw, ShoppingCart, Tag,
 } from "lucide-react";
 import { getNotifications, markRead, markAllRead } from "../../api/notifications";
 
@@ -10,6 +10,19 @@ const TYPE_META = {
   quotation_accepted: { icon: FileText,   color: "bg-blue-100 text-blue-600",     dot: "bg-blue-500"  },
   quotation_declined: { icon: FileText,   color: "bg-red-100 text-red-500",       dot: "bg-red-500"   },
   recurring_invoice:  { icon: RefreshCw,  color: "bg-purple-100 text-purple-600", dot: "bg-purple-500"},
+  rfq_supplier_response: { icon: Tag,          color: "bg-amber-100 text-amber-600",   dot: "bg-amber-500" },
+  po_supplier_response:  { icon: ShoppingCart, color: "bg-indigo-100 text-indigo-600", dot: "bg-indigo-500"},
+};
+
+// Where each notification type's entity_id points. Anything unmapped opens
+// nothing rather than guessing — a wrong route 404s the user.
+const TYPE_ROUTE = {
+  payment_received:      (id) => `/invoices/${id}`,
+  quotation_accepted:    (id) => `/quotations/${id}`,
+  quotation_declined:    (id) => `/quotations/${id}`,
+  recurring_invoice:     (id) => `/invoices/${id}`,
+  rfq_supplier_response: (id) => `/suppliers/requests/${id}`,
+  po_supplier_response:  (id) => `/purchase-orders/${id}`,
 };
 const DEFAULT_META = { icon: Bell, color: "bg-gray-100 text-gray-500", dot: "bg-gray-400" };
 
@@ -51,10 +64,8 @@ export default function NotificationBell() {
   const handleClick = async (notif) => {
     if (!notif.read_at) { await markRead(notif.id); load(); }
     setOpen(false);
-    if (notif.entity_id) {
-      if (notif.type === "payment_received") navigate(`/invoices/${notif.entity_id}`);
-      else navigate(`/quotations/${notif.entity_id}`);
-    }
+    const route = TYPE_ROUTE[notif.type];
+    if (notif.entity_id && route) navigate(route(notif.entity_id));
   };
 
   const handleMarkAll = async () => { await markAllRead(); load(); };

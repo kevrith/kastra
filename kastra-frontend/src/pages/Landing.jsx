@@ -26,7 +26,7 @@ const features = [
   {
     icon: Truck,
     title: "Supplier Price Comparison",
-    desc: "Send price requests to multiple suppliers via a shareable link. They submit their prices online — you compare them side by side and pick the best deal.",
+    desc: "Send price requests to multiple suppliers via a shareable link. They submit their prices online and you get alerted on WhatsApp the moment a quote lands — compare them side by side and pick the best deal.",
   },
   {
     icon: ShoppingCart,

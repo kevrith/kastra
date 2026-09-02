@@ -12,11 +12,14 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.config import settings
 from app.database import get_db
 from app.models.notification import Notification
+from app.models.organization import Organization
 from app.models.supplier import (
     SupplierRequestInvite, SupplierResponseItem,
 )
+from app.services.sms_service import notify_business
 
 router = APIRouter(prefix="/api/supplier-portal", tags=["supplier-portal"])
 
@@ -124,7 +127,11 @@ async def submit_prices(
 ):
     result = await db.execute(
         select(SupplierRequestInvite).where(SupplierRequestInvite.portal_token == token)
-        .options(selectinload(SupplierRequestInvite.response_items))
+        .options(
+            selectinload(SupplierRequestInvite.response_items),
+            selectinload(SupplierRequestInvite.supplier),
+            selectinload(SupplierRequestInvite.request),
+        )
     )
     invite = result.scalar_one_or_none()
     if not invite:
@@ -152,6 +159,42 @@ async def submit_prices(
     invite.status = "responded"
     invite.submitted_at = datetime.now(timezone.utc)
     invite.supplier_notes = payload.supplier_notes
+
+    # ── Tell the buyer their prices are in ──────────────────────────────────
+    # The buyer is not on the page when this fires, so the in-app notification
+    # is the channel that always lands; WhatsApp/SMS is the push on top of it.
+    supplier_name = invite.supplier.company_name or invite.supplier.name
+    quoted_total = sum(
+        (item.unit_price * (item.quantity or Decimal("1")) for item in payload.items),
+        Decimal("0"),
+    )
+    line_count = len(payload.items)
+
+    # Notification.title is String(200) and both names are String(200) on their
+    # own, so the combined headline has to be clipped to fit.
+    headline = f"{supplier_name} sent prices for {invite.request.title}"
+
+    db.add(Notification(
+        organization_id=invite.request.organization_id,
+        type="rfq_supplier_response",
+        title=headline[:200],
+        body=(
+            f"{supplier_name} has quoted {line_count} item"
+            f"{'s' if line_count != 1 else ''} totalling KSh {quoted_total:,.2f} "
+            f"for \"{invite.request.title}\". Compare quotes and raise a purchase order."
+        ),
+        entity_id=str(invite.request_id),
+    ))
+
+    org = await db.get(Organization, invite.request.organization_id)
+    if org:
+        link = f"{settings.primary_frontend_url}/suppliers/requests/{invite.request_id}"
+        await notify_business(
+            org.phone,
+            f"{supplier_name} has submitted prices for \"{invite.request.title}\" "
+            f"({line_count} item{'s' if line_count != 1 else ''}, KSh {quoted_total:,.0f}). "
+            f"Compare quotes: {link}",
+        )
 
     return {"message": "Thank you! Your prices have been submitted successfully."}
 

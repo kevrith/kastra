@@ -150,3 +150,87 @@ async def sms_due_soon(client_phone: str | None, client_name: str, invoice_id: s
         f"KSh {amount:,.0f} is due in {days_until_due} day(s). Please arrange payment."
     )
     await send_sms(client_phone, msg)
+
+
+# ── WhatsApp (Africa's Talking) ──────────────────────────────────────────────
+#
+# AT's WhatsApp channel is business-initiated here: the supplier answered on a
+# web portal, which does NOT open WhatsApp's 24-hour customer-service window.
+# Meta therefore only delivers a *pre-approved template* outside that window —
+# an unapproved free-form body is accepted by the API and then silently dropped.
+# So every caller gets an SMS fallback and a wa.me link it can show a human.
+
+# WhatsApp lives on AT's Chat product, NOT the SMS host — a request to
+# api.africastalking.com/version1/messaging/whatsapp/... answers 404.
+_AT_WHATSAPP_URL = "https://chat.africastalking.com/whatsapp/message/send"
+
+
+def whatsapp_link(phone: str | None, message: str) -> str | None:
+    """A click-to-chat wa.me link with the message pre-written.
+
+    Always available — it needs no API credentials and no template approval —
+    so it is the dependable fallback when programmatic delivery is unavailable.
+    """
+    import urllib.parse
+
+    normalised = _format_phone(phone)
+    if not normalised:
+        return None
+    return f"https://wa.me/{normalised.lstrip('+')}?text={urllib.parse.quote(message)}"
+
+
+async def send_whatsapp(phone: str | None, message: str) -> bool:
+    """Send one WhatsApp message. Returns True if AT accepted it.
+
+    Fails silently (logs instead of raising) — a missed notification must never
+    break the flow that triggered it.
+    """
+    normalised = _format_phone(phone)
+    if not normalised:
+        logger.debug("[WHATSAPP] Skipped — could not parse phone: %s", phone)
+        return False
+
+    if not settings.at_api_key or not settings.at_whatsapp_number:
+        logger.info("[WHATSAPP DEV] To: %s | %s", normalised, message)
+        return False
+
+    # The sender must be the WhatsApp-enabled number on the account, in the
+    # same +254... form as the recipient.
+    wa_number = _format_phone(settings.at_whatsapp_number) or settings.at_whatsapp_number
+
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            resp = await client.post(
+                _AT_WHATSAPP_URL,
+                headers={
+                    "apikey": settings.at_api_key,
+                    "Accept": "application/json",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "username": settings.at_username,
+                    "waNumber": wa_number,
+                    "phoneNumber": normalised,
+                    "body": {"message": message},
+                },
+            )
+    except Exception:
+        logger.exception("[WHATSAPP] Request to Africa's Talking failed for %s", normalised)
+        return False
+
+    if resp.is_success:
+        logger.info("[WHATSAPP] Sent to %s", normalised)
+        return True
+    logger.error("[WHATSAPP] Not delivered to %s — %s: %s", normalised, resp.status_code, resp.text[:200])
+    return False
+
+
+async def notify_business(phone: str | None, message: str) -> bool:
+    """Reach the business owner on whichever channel is actually available.
+
+    Tries WhatsApp first (richer, free), falls back to SMS. Returns True if
+    either channel accepted the message.
+    """
+    if await send_whatsapp(phone, message):
+        return True
+    return await send_sms(phone, message)
