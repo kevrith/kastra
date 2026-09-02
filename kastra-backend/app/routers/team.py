@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from jose import JWTError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -17,6 +17,7 @@ from app.schemas.team import (
     UpdateTeamMemberRequest,
 )
 from app.models.user_permission import UserPermission
+from app.services.audit_service import log_for_user
 from app.services.team_service import (
     create_invited_user,
     get_user_by_email,
@@ -54,6 +55,7 @@ async def list_team_members(
 @router.post("/invite", response_model=TeamMemberOut, status_code=status.HTTP_201_CREATED)
 async def invite_user(
     payload: InviteUserRequest,
+    request: Request,
     current_user: User = Depends(require_admin),
     db: AsyncSession = Depends(get_db)
 ):
@@ -94,6 +96,13 @@ async def invite_user(
     # Return the invite link directly — admin shares it via WhatsApp/SMS
     result = TeamMemberOut.model_validate(user)
     result.invite_link = invite_link
+    await log_for_user(
+        db, current_user, action="create", resource_type="organization",
+        resource_id=str(user.id),
+        detail=f"Invited a team member with role {user.role}.",
+        request=request,
+    )
+    await db.commit()
     return result
 
 
@@ -142,6 +151,7 @@ async def accept_invite(
 async def update_team_member(
     user_id: str,
     payload: UpdateTeamMemberRequest,
+    request: Request,
     current_user: User = Depends(require_admin),
     db: AsyncSession = Depends(get_db)
 ):
@@ -174,6 +184,13 @@ async def update_team_member(
         if not payload.is_active:
             # Invalidate all sessions when deactivating
             user.token_version += 1
+        await log_for_user(
+            db, current_user, action="update", resource_type="organization",
+            resource_id=str(user.id),
+            detail=f"{'Reactivated' if payload.is_active else 'Deactivated'} team member "
+                   f"({user.role}){'' if payload.is_active else ' — sessions revoked'}.",
+            request=request,
+        )
     
     await db.commit()
     await db.refresh(user)
@@ -183,6 +200,7 @@ async def update_team_member(
 @router.delete("/{user_id}")
 async def remove_team_member(
     user_id: str,
+    request: Request,
     current_user: User = Depends(require_admin),
     db: AsyncSession = Depends(get_db)
 ):
@@ -204,6 +222,12 @@ async def remove_team_member(
             detail="You cannot remove yourself"
         )
     
+    await log_for_user(
+        db, current_user, action="delete", resource_type="organization",
+        resource_id=str(user.id),
+        detail=f"Removed team member with role {user.role}.",
+        request=request,
+    )
     await db.delete(user)
     await db.commit()
     return {"message": "Team member removed"}

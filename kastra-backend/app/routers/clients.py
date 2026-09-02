@@ -2,7 +2,7 @@ import math
 import random
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -14,6 +14,7 @@ from app.models.invoice import Invoice
 from app.models.user import User
 from app.schemas.client import ClientCreate, ClientOut, ClientStats, ClientUpdate
 from app.schemas.common import MessageResponse, Meta, PaginatedResponse, Response
+from app.services.audit_service import log_for_user
 from app.utils.security import hash_password
 
 router = APIRouter(prefix="/api/clients", tags=["clients"])
@@ -50,6 +51,7 @@ async def list_clients(
 @router.post("", response_model=Response[ClientOut], status_code=status.HTTP_201_CREATED)
 async def create_client(
     payload: ClientCreate,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_permission("can_create_clients")),
 ):
@@ -57,6 +59,11 @@ async def create_client(
     db.add(client)
     await db.flush()
     await db.refresh(client)
+    await log_for_user(
+        db, current_user, action="create", resource_type="client",
+        resource_id=str(client.id), detail=f"Created client {client.name}.",
+        request=request,
+    )
     return Response(data=client)
 
 
@@ -79,6 +86,7 @@ async def get_client(
 async def update_client(
     client_id: uuid.UUID,
     payload: ClientUpdate,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_permission("can_edit_clients")),
 ):
@@ -89,17 +97,26 @@ async def update_client(
     if not client:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Client not found")
 
-    for field, value in payload.model_dump(exclude_unset=True).items():
+    changes = payload.model_dump(exclude_unset=True)
+    for field, value in changes.items():
         setattr(client, field, value)
 
     await db.flush()
     await db.refresh(client)
+    # Field names only — the values are client PII and must not enter the log.
+    await log_for_user(
+        db, current_user, action="update", resource_type="client",
+        resource_id=str(client.id),
+        detail=f"Updated client {client.name}. Fields changed: {', '.join(sorted(changes)) or 'none'}.",
+        request=request,
+    )
     return Response(data=client)
 
 
 @router.delete("/{client_id}", response_model=MessageResponse)
 async def delete_client(
     client_id: uuid.UUID,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_permission("can_delete_clients")),
 ):
@@ -110,6 +127,11 @@ async def delete_client(
     if not client:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Client not found")
 
+    await log_for_user(
+        db, current_user, action="delete", resource_type="client",
+        resource_id=str(client.id), detail=f"Deleted client {client.name}.",
+        request=request,
+    )
     await db.delete(client)
     return MessageResponse(message="Client deleted")
 

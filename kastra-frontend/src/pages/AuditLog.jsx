@@ -11,6 +11,8 @@ const ACTION_COLORS = {
   delete: "bg-red-100 text-red-700",
   payment: "bg-purple-100 text-purple-700",
   login: "bg-gray-100 text-gray-700",
+  logout: "bg-gray-100 text-gray-700",
+  login_failed: "bg-amber-100 text-amber-800",
 };
 
 function fmtTs(iso) {
@@ -85,8 +87,8 @@ export default function AuditLog() {
           onChange={(e) => setFilters((f) => ({ ...f, action: e.target.value }))}
         >
           <option value="">All actions</option>
-          {["create", "update", "delete", "payment", "login"].map((a) => (
-            <option key={a} value={a}>{a}</option>
+          {["create", "update", "delete", "payment", "login", "logout", "login_failed"].map((a) => (
+            <option key={a} value={a}>{a.replace("_", " ")}</option>
           ))}
         </select>
         <select
@@ -150,7 +152,7 @@ export default function AuditLog() {
                   <td className="px-4 py-2.5 text-xs text-gray-500 whitespace-nowrap">{fmtTs(log.created_at)}</td>
                   <td className="px-4 py-2.5">
                     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold capitalize ${ACTION_COLORS[log.action] ?? "bg-gray-100 text-gray-600"}`}>
-                      {log.action}
+                      {log.action.replace("_", " ")}
                     </span>
                   </td>
                   <td className="px-4 py-2.5">

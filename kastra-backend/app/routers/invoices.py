@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from sqlalchemy import and_
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import Response as RawResponse
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -26,6 +26,7 @@ from app.models.user import User
 from app.schemas.common import MessageResponse, Meta, PaginatedResponse, Response
 from app.schemas.invoice import EtimsSubmitRequest, InvoiceCreate, InvoiceExpenseOut, InvoiceListOut, InvoiceOut, MarkPaidRequest, MpesaPayRequest
 from app.schemas.organization import OrganizationOut
+from app.services.audit_service import log_for_user
 from app.services.email_service import send_invoice_email
 from app.services.etims_service import submit_to_kra
 from app.services.mpesa_service import initiate_stk_push
@@ -132,6 +133,7 @@ async def list_invoices(
 @router.post("", response_model=Response[InvoiceOut], status_code=status.HTTP_201_CREATED)
 async def create_invoice(
     payload: InvoiceCreate,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_permission("can_create_invoices")),
 ):
@@ -208,7 +210,14 @@ async def create_invoice(
     result = await db.execute(
         select(Invoice).where(Invoice.id == inv_id).options(*_load_full)
     )
-    return Response(data=result.scalar_one())
+    created = result.scalar_one()
+    await log_for_user(
+        db, current_user, action="create", resource_type="invoice",
+        resource_id=created.id,
+        detail=f"Issued invoice {created.id} to {client.name} for {created.currency} {created.grand_total:,.2f}.",
+        request=request,
+    )
+    return Response(data=created)
 
 
 @router.get("/{invoice_id}", response_model=Response[InvoiceOut])
@@ -233,6 +242,7 @@ async def get_invoice(
 async def mark_paid(
     invoice_id: str,
     payload: MarkPaidRequest,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_permission("can_edit_invoices")),
 ):
@@ -250,6 +260,12 @@ async def mark_paid(
 
     inv.payment_status = "paid"
     inv.payment_method = payload.payment_method
+    await log_for_user(
+        db, current_user, action="payment", resource_type="invoice",
+        resource_id=inv.id,
+        detail=f"Manually marked {inv.id} paid via {payload.payment_method}.",
+        request=request,
+    )
 
     payment = PaymentDetail(
         invoice_id=invoice_id,
@@ -476,6 +492,7 @@ async def list_invoice_expenses(
 async def create_invoice_expense(
     invoice_id: str,
     payload: JobExpenseIn,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_permission("can_create_expenses")),
 ):
@@ -500,6 +517,12 @@ async def create_invoice_expense(
     db.add(exp)
     await db.flush()
     await db.refresh(exp)
+    await log_for_user(
+        db, current_user, action="create", resource_type="expense",
+        resource_id=str(exp.id),
+        detail=f"Added {exp.category} job expense of KSh {exp.amount:,.2f} to {invoice_id} — {exp.description}.",
+        request=request,
+    )
     return exp
 
 
@@ -508,6 +531,7 @@ async def update_invoice_expense(
     invoice_id: str,
     expense_id: uuid.UUID,
     payload: JobExpenseIn,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_permission("can_create_expenses")),
 ):
@@ -521,12 +545,19 @@ async def update_invoice_expense(
     exp.date = payload.date
     await db.flush()
     await db.refresh(exp)
+    await log_for_user(
+        db, current_user, action="update", resource_type="expense",
+        resource_id=str(exp.id),
+        detail=f"Updated job expense on {invoice_id} — now KSh {exp.amount:,.2f} ({exp.description}).",
+        request=request,
+    )
     return exp
 
 
 @router.delete("/{invoice_id}", response_model=MessageResponse)
 async def delete_invoice(
     invoice_id: str,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_permission("can_delete_invoices")),
 ):
@@ -541,6 +572,12 @@ async def delete_invoice(
         raise HTTPException(status_code=404, detail="Invoice not found")
     if invoice.payment_status == "paid":
         raise HTTPException(status_code=400, detail="Cannot delete a fully paid invoice")
+    await log_for_user(
+        db, current_user, action="delete", resource_type="invoice",
+        resource_id=invoice.id,
+        detail=f"Deleted invoice {invoice.id} ({invoice.currency} {invoice.grand_total:,.2f}).",
+        request=request,
+    )
     await db.delete(invoice)
     return MessageResponse(message="Invoice deleted")
 
@@ -549,11 +586,18 @@ async def delete_invoice(
 async def delete_invoice_expense(
     invoice_id: str,
     expense_id: uuid.UUID,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_permission("can_create_expenses")),
 ):
     exp = await db.get(Expense, expense_id)
     if not exp or exp.invoice_id != invoice_id or exp.organization_id != current_user.organization_id:
         raise HTTPException(status_code=404, detail="Expense not found")
+    await log_for_user(
+        db, current_user, action="delete", resource_type="expense",
+        resource_id=str(exp.id),
+        detail=f"Deleted job expense of KSh {exp.amount:,.2f} from {invoice_id} — {exp.description}.",
+        request=request,
+    )
     await db.delete(exp)
     return MessageResponse(message="Expense deleted")

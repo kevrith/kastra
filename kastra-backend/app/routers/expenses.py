@@ -2,7 +2,7 @@ import math
 import uuid
 from datetime import date
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -12,6 +12,7 @@ from app.dependencies import require_permission
 from app.models.expense import Expense
 from app.models.user import User
 from app.schemas.common import Meta, PaginatedResponse, Response, MessageResponse
+from app.services.audit_service import log_for_user
 
 router = APIRouter(prefix="/api/expenses", tags=["expenses"])
 
@@ -80,6 +81,7 @@ async def list_expenses(
 @router.post("", response_model=Response[ExpenseOut], status_code=status.HTTP_201_CREATED)
 async def create_expense(
     payload: ExpenseIn,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_permission("can_create_expenses")),
 ):
@@ -96,6 +98,12 @@ async def create_expense(
     db.add(exp)
     await db.flush()
     await db.refresh(exp)
+    await log_for_user(
+        db, current_user, action="create", resource_type="expense",
+        resource_id=str(exp.id),
+        detail=f"Recorded {exp.category} expense of KSh {exp.amount:,.2f} — {exp.description}.",
+        request=request,
+    )
     return Response(data=exp)
 
 
@@ -103,12 +111,14 @@ async def create_expense(
 async def update_expense(
     expense_id: uuid.UUID,
     payload: ExpenseIn,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_permission("can_create_expenses")),
 ):
     exp = await db.get(Expense, expense_id)
     if not exp or exp.organization_id != current_user.organization_id:
         raise HTTPException(status_code=404, detail="Expense not found")
+    was_amount = exp.amount
     exp.category = payload.category
     exp.description = payload.description
     exp.vendor = payload.vendor
@@ -118,18 +128,31 @@ async def update_expense(
     exp.invoice_id = payload.invoice_id
     await db.flush()
     await db.refresh(exp)
+    await log_for_user(
+        db, current_user, action="update", resource_type="expense",
+        resource_id=str(exp.id),
+        detail=f"Updated expense {exp.description} — amount KSh {was_amount:,.2f} to KSh {exp.amount:,.2f}.",
+        request=request,
+    )
     return Response(data=exp)
 
 
 @router.delete("/{expense_id}", response_model=MessageResponse)
 async def delete_expense(
     expense_id: uuid.UUID,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_permission("can_create_expenses")),
 ):
     exp = await db.get(Expense, expense_id)
     if not exp or exp.organization_id != current_user.organization_id:
         raise HTTPException(status_code=404, detail="Expense not found")
+    await log_for_user(
+        db, current_user, action="delete", resource_type="expense",
+        resource_id=str(exp.id),
+        detail=f"Deleted {exp.category} expense of KSh {exp.amount:,.2f} — {exp.description}.",
+        request=request,
+    )
     await db.delete(exp)
     return MessageResponse(message="Expense deleted")
 

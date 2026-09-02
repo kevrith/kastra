@@ -24,6 +24,7 @@ from app.schemas.auth import (
     TokenResponse,
     UserOut,
 )
+from app.services.audit_service import client_ip, log_for_user, log_independent
 from app.services.auth_service import (
     authenticate_user,
     create_user_with_org,
@@ -133,14 +134,42 @@ async def resend_verification(request: Request, payload: ResendVerificationReque
 async def login(request: Request, payload: LoginRequest, response: Response, db: AsyncSession = Depends(get_db)):
     user = await authenticate_user(db, payload.email, payload.password)
     if not user:
+        # Correlate the attempt to a real account where one exists, so the log
+        # identifies the targeted user without storing the raw address.
+        existing = (await db.execute(
+            select(User).where(User.email == payload.email)
+        )).scalar_one_or_none()
+        await log_independent(
+            db,
+            action="login_failed",
+            resource_type="auth",
+            detail="Failed login — incorrect password."
+                   if existing else "Failed login — no account for that email.",
+            organization_id=str(existing.organization_id) if existing else None,
+            user_id=str(existing.id) if existing else None,
+            ip_address=client_ip(request),
+        )
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
     if not user.email_verified:
+        await log_independent(
+            db,
+            action="login_failed",
+            resource_type="auth",
+            detail="Login blocked — email not verified.",
+            organization_id=str(user.organization_id),
+            user_id=str(user.id),
+            ip_address=client_ip(request),
+        )
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="EMAIL_NOT_VERIFIED",
         )
 
     user.last_login_at = datetime.now(timezone.utc)
+    await log_for_user(
+        db, user, action="login", resource_type="auth",
+        detail=f"Signed in as {user.role}.", request=request,
+    )
     access_token = create_access_token(str(user.id), user.role)
     refresh_token = create_refresh_token(str(user.id), user.token_version)
     _set_refresh_cookie(response, refresh_token)
@@ -157,6 +186,7 @@ async def refresh_token(response: Response, user: User = Depends(get_current_use
 
 @router.post("/logout")
 async def logout(
+    request: Request,
     response: Response,
     db: AsyncSession = Depends(get_db),
     refresh_token: str = Cookie(default=None),
@@ -170,6 +200,10 @@ async def logout(
                 user = result.scalar_one_or_none()
                 if user:
                     user.token_version += 1
+                    await log_for_user(
+                        db, user, action="logout", resource_type="auth",
+                        detail="Signed out — refresh tokens revoked.", request=request,
+                    )
         except Exception:
             pass  # invalid token — still clear the cookie
     response.delete_cookie("refresh_token")
@@ -184,6 +218,8 @@ async def me(current_user: User = Depends(get_current_user), db: AsyncSession = 
 @router.post("/change-password")
 async def change_password(
     payload: ChangePasswordRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     if not current_user.hashed_password:
@@ -193,6 +229,10 @@ async def change_password(
     if len(payload.new_password) < 8:
         raise HTTPException(status_code=422, detail="New password must be at least 8 characters")
     current_user.hashed_password = hash_password(payload.new_password)
+    await log_for_user(
+        db, current_user, action="update", resource_type="auth",
+        detail="Password changed.", request=request,
+    )
     return {"message": "Password changed"}
 
 

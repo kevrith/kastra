@@ -1,11 +1,11 @@
 import logging
 import math
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, time, timedelta, timezone
 from decimal import Decimal
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import Response as RawResponse
 from pydantic import BaseModel
 from sqlalchemy import select, func
@@ -25,6 +25,7 @@ from app.models.user import User
 from app.schemas.common import MessageResponse, Meta, PaginatedResponse, Response
 from app.schemas.organization import OrganizationOut
 from app.schemas.quotation import ConvertRequest, QuotationCreate, QuotationListOut, QuotationNoteOut, QuotationOut, QuotationStatusUpdate, QuotationUpdate
+from app.services.audit_service import log_for_user
 from app.services.email_service import send_quotation_email
 from app.services.pdf_service import generate_pdf
 from app.utils.id_generator import next_id
@@ -91,8 +92,8 @@ async def list_quotations(
     limit: int = Query(20, ge=1, le=100),
     status: str | None = Query(None),
     client_id: uuid.UUID | None = Query(None),
-    from_date: str | None = Query(None),
-    to_date: str | None = Query(None),
+    from_date: date | None = Query(None),
+    to_date: date | None = Query(None),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_permission("can_view_quotations")),
 ):
@@ -103,6 +104,13 @@ async def list_quotations(
         q = q.where(Quotation.status == status)
     if client_id:
         q = q.where(Quotation.client_id == client_id)
+    # Widen the date-picker bounds into timestamps: comparing `created_at`
+    # against a bare string makes Postgres reject the query outright, and
+    # `to_date` is meant to cover the whole day the user picked.
+    if from_date:
+        q = q.where(Quotation.created_at >= datetime.combine(from_date, time.min, tzinfo=timezone.utc))
+    if to_date:
+        q = q.where(Quotation.created_at < datetime.combine(to_date + timedelta(days=1), time.min, tzinfo=timezone.utc))
 
     total_result = await db.execute(select(func.count()).select_from(q.subquery()))
     total = total_result.scalar_one()
@@ -120,6 +128,7 @@ async def list_quotations(
 @router.post("", response_model=Response[QuotationOut], status_code=status.HTTP_201_CREATED)
 async def create_quotation(
     payload: QuotationCreate,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_permission("can_create_quotations")),
 ):
@@ -198,7 +207,15 @@ async def create_quotation(
     result = await db.execute(
         select(Quotation).where(Quotation.id == qt_id).options(*_load_full)
     )
-    return Response(data=result.scalar_one())
+    created = result.scalar_one()
+    await log_for_user(
+        db, current_user, action="create", resource_type="quotation",
+        resource_id=created.id,
+        detail=f"Created quotation {created.id} for {created.currency} {created.grand_total:,.2f}"
+               f"{' (draft)' if is_draft else ''}.",
+        request=request,
+    )
+    return Response(data=created)
 
 
 @router.get("/{quotation_id}", response_model=Response[QuotationOut])
@@ -311,6 +328,7 @@ async def update_quotation(
 async def update_status(
     quotation_id: str,
     payload: QuotationStatusUpdate,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_permission("can_edit_quotations")),
 ):
@@ -323,12 +341,19 @@ async def update_status(
     qt = result.scalar_one_or_none()
     if not qt:
         raise HTTPException(status_code=404, detail="Quotation not found")
+    was_status = qt.status
     qt.status = payload.status
     if payload.status == "accepted" and qt.accepted_at is None:
         from datetime import datetime, timezone
         qt.accepted_at = datetime.now(timezone.utc)
     await db.flush()
     await db.refresh(qt)
+    await log_for_user(
+        db, current_user, action="update", resource_type="quotation",
+        resource_id=qt.id,
+        detail=f"Quotation {qt.id} status changed from {was_status} to {qt.status}.",
+        request=request,
+    )
     return Response(data=qt)
 
 
