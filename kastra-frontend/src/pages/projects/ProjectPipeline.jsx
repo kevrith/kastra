@@ -113,7 +113,10 @@ export default function ProjectPipeline() {
             <Kanban className="w-7 h-7" />
             Project Pipeline
           </h1>
-          <p className="text-gray-600 mt-1">Drag cards to update project stage</p>
+          <p className="text-gray-600 mt-1">
+            <span className="hidden sm:inline">Drag cards to update project stage</span>
+            <span className="sm:hidden">Tap a project to change its stage</span>
+          </p>
         </div>
         <button
           onClick={() => navigate('/quotations')}

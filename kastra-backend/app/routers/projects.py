@@ -124,9 +124,19 @@ async def create_project(
     
     db.add(project)
     await db.commit()
-    await db.refresh(project)
-    
-    return project
+
+    # Re-select with the relationships ProjectOut serialises: db.refresh() reloads
+    # column attributes only, so `updates`/`photos` would lazy-load during
+    # serialisation and raise MissingGreenlet on the async session.
+    result = await db.execute(
+        select(Project)
+        .where(Project.id == project.id)
+        .options(
+            selectinload(Project.updates),
+            selectinload(Project.photos)
+        )
+    )
+    return result.scalar_one()
 
 
 @router.get("/{project_id}", response_model=ProjectOut)
@@ -167,10 +177,18 @@ async def update_project(
     db: AsyncSession = Depends(get_db)
 ):
     """Update project details"""
+    # ProjectOut serialises `updates` and `photos`, so they must be eager-loaded
+    # here as well — a lazy load during response serialisation raises
+    # MissingGreenlet on the async session and turns a successful write into a 500.
     result = await db.execute(
-        select(Project).where(
+        select(Project)
+        .where(
             Project.id == uuid.UUID(project_id),
             Project.organization_id == current_user.organization_id
+        )
+        .options(
+            selectinload(Project.updates),
+            selectinload(Project.photos)
         )
     )
     project = result.scalar_one_or_none()

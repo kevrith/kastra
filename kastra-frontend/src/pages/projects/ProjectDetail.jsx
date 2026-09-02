@@ -1,13 +1,21 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, User, Calendar, MessageSquare, Image, Send, Upload, DollarSign, TrendingUp, TrendingDown } from 'lucide-react';
-import { getProject, postUpdate, uploadPhoto, getProjectFinancials } from '../../api/projects';
+import { getProject, postUpdate, uploadPhoto, getProjectFinancials, updateProject } from '../../api/projects';
 import { getExpenses, createExpense } from '../../api/expenses';
 import { listClients } from '../../api/clients';
 import { listTeamMembers } from '../../api/team';
 import Toast from '../../components/ui/Toast';
 import Modal from '../../components/ui/Modal';
 import { ksh } from '../../utils/formatters';
+
+const STAGES = [
+  { key: 'not_started', label: 'Not Started', badge: 'bg-gray-100 text-gray-800' },
+  { key: 'in_progress', label: 'In Progress', badge: 'bg-blue-100 text-blue-800' },
+  { key: 'on_hold',     label: 'On Hold',     badge: 'bg-yellow-100 text-yellow-800' },
+  { key: 'completed',   label: 'Completed',   badge: 'bg-green-100 text-green-800' },
+  { key: 'invoiced',    label: 'Invoiced',    badge: 'bg-purple-100 text-purple-800' },
+];
 
 export default function ProjectDetail() {
   const { id } = useParams();
@@ -31,6 +39,7 @@ export default function ProjectDetail() {
     date: new Date().toISOString().split('T')[0]
   });
   const [savingExpense, setSavingExpense] = useState(false);
+  const [savingStage, setSavingStage] = useState(false);
 
   useEffect(() => {
     loadProject();
@@ -83,6 +92,26 @@ export default function ProjectDetail() {
       setExpenses(data.data || []);
     } catch (err) {
       console.error('Failed to load expenses:', err);
+    }
+  };
+
+  const handleStageChange = async (stage) => {
+    if (!project || stage === project.stage) return;
+    const previous = project.stage;
+    setSavingStage(true);
+    setProject((p) => ({ ...p, stage }));   // optimistic — the picker feels instant
+    try {
+      await updateProject(id, { stage });
+      const label = STAGES.find((s) => s.key === stage)?.label ?? stage;
+      setToast({ message: `Project moved to ${label}`, type: 'success' });
+    } catch (err) {
+      setProject((p) => ({ ...p, stage: previous }));
+      setToast({
+        message: err.response?.data?.detail ?? 'Could not update the stage. Please try again.',
+        type: 'error',
+      });
+    } finally {
+      setSavingStage(false);
     }
   };
 
@@ -211,16 +240,31 @@ export default function ProjectDetail() {
           </div>
         )}
 
+        {/* Stage picker — the pipeline board only moves cards by drag-and-drop,
+            which never fires on touch devices, so this is the one control that
+            works everywhere. */}
         <div className="mt-4">
-          <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
-            project.stage === 'completed' ? 'bg-green-100 text-green-800' :
-            project.stage === 'in_progress' ? 'bg-blue-100 text-blue-800' :
-            project.stage === 'on_hold' ? 'bg-yellow-100 text-yellow-800' :
-            project.stage === 'invoiced' ? 'bg-purple-100 text-purple-800' :
-            'bg-gray-100 text-gray-800'
-          }`}>
-            {project.stage.replace('_', ' ').toUpperCase()}
-          </span>
+          <div className="text-sm text-gray-500 mb-1.5">Stage</div>
+          <div className="flex flex-wrap gap-2">
+            {STAGES.map((s) => {
+              const active = project.stage === s.key;
+              return (
+                <button
+                  key={s.key}
+                  onClick={() => handleStageChange(s.key)}
+                  disabled={savingStage}
+                  aria-pressed={active}
+                  className={`px-3 py-1.5 rounded-full text-sm font-medium border transition-colors disabled:opacity-50 ${
+                    active
+                      ? `${s.badge} border-transparent ring-2 ring-offset-1 ring-gray-300`
+                      : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
+                  }`}
+                >
+                  {s.label}
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
 
